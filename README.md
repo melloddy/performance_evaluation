@@ -4,14 +4,19 @@ Performance evaluation scripts for Sparsechem outputs, including analysis of y-h
 
 Different functionaility/options avilable for different single- or multi-pharma runs
 
-# Requirements
+## Requirements
 
-# Setup
+1. Python 3.6 or higher
+2. Local Conda installation (e.g. miniconda)
+3. Git installation
+4. melloddy_tuner environment from WP1 code
 
-#Input
+## Setup
 
-#Running the performance evaluation script
+## Input
 
-#Output from the script
+## Running the performance evaluation script
 
-#Comparison with reference performance evaulation results
+## Output from the script
+
+## Comparison with reference performance evaulation results
