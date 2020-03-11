@@ -1,7 +1,9 @@
 import os
 import numpy as np
 import pandas as pd 
+import scipy.sparse
 import re
+
 
 # function template
 def template():
@@ -14,7 +16,8 @@ def template():
     return
 
 # TO DO : 
-# - perf from metrics.csv (aggregation)
+
+# - split Y and X by test set for eval
 # - metrics dataframe from y_hat predictions
 # - delta predictions perf between two (or more) models
 
@@ -122,7 +125,7 @@ def verify_cv_runs(metrics_df, n_cv=5):
     folds = ",".join([str(x) for x in range(n_cv)])
     if aggr[aggr!=folds].shape[0]:
         print("WARNING: missing fold runs")
-        print(f"Fold runs found : {aggr.values}")
+        print(f"Fold runs found :\n {aggr}")
     
     return 
 
@@ -186,7 +189,7 @@ def aggregate_task_perf(metrics_df, min_samples, n_cv=5,  verify=True):
     
     if verify:verify_cv_runs(metrics_df, n_cv=n_cv)
 
-    metrics2consider_df = metrics_df.loc[(metrics_df['num_pos']>=min_samples)&(metrics_df['num_neg']>=min_samples)].tasks
+    metrics2consider_df = metrics_df.loc[(metrics_df['num_pos']>=min_samples)&(metrics_df['num_neg']>=min_samples)]
     
     aggr_mean = metrics2consider_df.groupby(hp).mean()
     aggr_mean.columns = [x+'_mean' for x in aggr_mean.columns]
@@ -370,4 +373,36 @@ def best_hyperparam(dfm):
     best_hps    
     
     return best_hps
+
+
+def split_folds(M, fold_vector):
+    """ Splits global M (i.e. Y or X) into folds Ms
+#     :param  scipy.sparse.csr.csr_matrix M
+#     :param  np.array fold_vector: containing folds assignment for each row.
+#     :return list of size=n_folds where each element is a csr_matrix representing a fold
+    """
+    assert type(M) == scipy.sparse.csr.csr_matrix, "M needs to be scipy.sparse.csr.csr_matrix"
+    assert folds.shape[0] == M.shape[0], "fold_vector must have same shape[0] than M"
     
+    folds = [M[fold_vector==f,:] for f in np.unique(folds)]
+    return folds
+    
+
+def slice_mtx_rows(M, rows_indices):
+    """ Slices out rows of a scipy.sparse.csr_matrix
+#     :param  scipy.sparse.csr.csr_matrix M
+#     :param  np.array containing integer indices of rows to extract or boolean vector where True is a row to extract
+#     :return scipy.sparse.csr.csr_matrix
+    """
+    assert type(M) == scipy.sparse.csr.csr_matrix, "M needs to be scipy.sparse.csr.csr_matrix"
+    return M[row_indices, :]
+
+
+def slice_mtx_cols(M, col_indices):
+    """ Slices out columns of a scipy.sparse.csc_matrix
+#     :param  scipy.sparse.csc.csc_matrix M
+#     :param  np.array containing integer indices of columns to extract or boolean vector where True is a row to extract
+#     :return scipy.sparse.csc.csc_matrix
+    """    
+    assert type(M) == scipy.sparse.csc.csc_matrix, "M needs to be scipy.sparse.csc.csc_matrix"
+    return M[col_indices, :]
