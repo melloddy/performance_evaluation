@@ -350,8 +350,8 @@ def melt_perf(df_res, perf_metrics=['auc_pr_va','auc_va']):
     for p in perf_metrics: 
         assert p in df_res.columns, f'"{p}" column not found in df_res'
     
-    dfm = df_res.melt(id_vars=hp_cols)
-    dfm = dfm.loc[dfm['variable'].isin(perf_metrics)]
+    dfm = df_res.melt(id_vars=hp_cols, value_name='value', var_name='score_type')
+    dfm = dfm.loc[dfm['score_type'].isin(perf_metrics)]
     dfm['value'] = dfm['value'].astype(float)
     
     return dfm
@@ -367,9 +367,9 @@ def best_hyperparam(dfm):
     assert len(hp_cols) > 0, 'No hyperparamters found in dataframe, use hp_* prefix for hyperparameters columns'
     
     
-    hp_cols.append('variable')
+    hp_cols.append('score_type')
     agg_df = dfm.groupby(hp_cols).mean().sort_values('value',ascending=False).reset_index()
-    best_hps = agg_df.iloc[agg_df.groupby(['variable']).idxmax()['value'].values]
+    best_hps = agg_df.iloc[agg_df.groupby(['score_type']).idxmax()['value'].values]
     best_hps    
     
     return best_hps
