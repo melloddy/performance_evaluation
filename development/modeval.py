@@ -2,6 +2,7 @@ import os
 import numpy as np
 import pandas as pd 
 import scipy.sparse
+import sklearn.metrics
 import re
 
 
@@ -406,3 +407,75 @@ def slice_mtx_cols(M, col_indices):
     """    
     assert type(M) == scipy.sparse.csc.csc_matrix, "M needs to be scipy.sparse.csc.csc_matrix"
     return M[col_indices, :]
+
+
+
+
+
+def perf_from_yhat(y_labels_pred, y_hat):
+    
+    # true_labels: scipy_sparse suscritable, rows=cmpds, columns=tasks , for compounds predicted, same order
+    # y_hat: np.ndarray of predicted compounds (in y_hat) 
+    # needs y_labels_pred to be mapped to y_hat compound mappings to indices in true labels
+    # form y_true and y_pred usign the mapping --> maskout compounds in y_hat not present in y_hat
+    
+    data = []
+    for t in range(y_hat.shape[1]):
+    
+        Y_true = y_labels_pred[:,t]
+        y_true = Y_true.data
+        nnz = Y_true.nonzero()[0]
+        y_pred = np.array([])
+    
+        if len(nnz) > 0:            
+            y_pred = y_hat[nnz,t]
+
+        perf_df = all_metrics(y_true, y_pred)
+        perf_df['task'] = t
+
+        data.append(perf_df)
+
+    return pd.concat(data)   
+    
+    
+
+
+# Copied form Sparsechem utils.py
+def all_metrics(y_true, y_score):
+    """ For a task, computes all the performance scores such as sparsechem does from Y_hat predictions vectors 
+#     :param  np.array y_true: containing true labels
+#     :param  np.array y_score: containing predicitons from y_hat
+#     :return pandas df: data frame containing the computed scores
+
+    """
+    y_classes = np.where(y_score > 0.5, 1, 0) 
+    if len(y_true) <= 1:
+        df = pd.DataFrame({"roc_auc_score": [np.nan], "auc_pr": [np.nan], "avg_prec_score": [np.nan], "max_f1_score": [np.nan], "kappa": [np.nan]})
+        return df
+    if (y_true[0] == y_true).all():
+        df = pd.DataFrame({"roc_auc_score": [np.nan], "auc_pr": [np.nan], "avg_prec_score": [np.nan], "max_f1_score": [np.nan], "kappa": [np.nan]})
+        return df
+    roc_auc_score = sklearn.metrics.roc_auc_score(
+          y_true  = y_true,
+          y_score = y_score)
+    precision, recall, thresholds = sklearn.metrics.precision_recall_curve(y_true = y_true, probas_pred = y_score)
+
+    ## calculating F1 for all cutoffs
+    F1_score       = np.zeros(len(precision))
+    mask           = precision > 0
+    F1_score[mask] = 2 * (precision[mask] * recall[mask]) / (precision[mask] + recall[mask])
+
+    max_f1_score = F1_score.max()
+    auc_pr = sklearn.metrics.auc(x = recall, y = precision)
+    avg_prec_score = sklearn.metrics.average_precision_score(
+          y_true  = y_true,
+          y_score = y_score)
+    kappa = sklearn.metrics.cohen_kappa_score(y_true, y_classes)
+    
+    
+    df = pd.DataFrame({"roc_auc_score": [roc_auc_score], "auc_pr": [auc_pr], "avg_prec_score": [avg_prec_score], "max_f1_score": [max_f1_score], "kappa": [kappa]})
+    return df
+    
+    #return [roc_auc_score, auc_pr, avg_prec_score, max_f1_score, kappa]
+
+    
