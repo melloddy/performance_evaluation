@@ -273,9 +273,11 @@ def perf_from_conf_aggregate(model_dir, model_name='Y'):
         if f[-4:]!='.npy':continue
         r = np.load(os.path.join(model_dir,f), allow_pickle=True).item()
         auc_roc_va = r["results_agg"]["va"]["roc_auc_score"]
-        max_f1     = r["results_agg"]["va"]["max_f1_score"]
         auc_pr_va  = r["results_agg"]["va"]["auc_pr"]
-        kappa      = r["results_agg"]["va"]["kappa"]
+        
+        #kappa      = r["results_agg"]["va"]["kappa"]
+        #max_f1     = r["results_agg"]["va"]["max_f1_score"]
+        
         epoch_time_tr = r["results_agg"]["tr"]["epoch_time"]
         hidden_sizes  = ",".join([str(x) for x in r["conf"].hidden_sizes])
         learning_rate = r["conf"].lr
@@ -286,9 +288,13 @@ def perf_from_conf_aggregate(model_dir, model_name='Y'):
         fold_te       = r["conf"].fold_te
         lr_steps      = ",".join([str(x) for x in r["conf"].lr_steps])
         min_samples   = r['conf'].min_samples_auc
-        data.append([fold_te, fold_va, epochs, hidden_sizes, dropout, weight_decay, learning_rate, lr_steps, min_samples, auc_roc_va, auc_pr_va, max_f1, kappa, epoch_time_tr])
-
-    df_res = pd.DataFrame(data, columns=['fold_te','fold_va', 'hp_epochs', 'hp_hidden_sizes', 'hp_last_dropout', 'hp_weight_decay', 'hp_learning_rate','hp_learning_steps', 'min_samples', 'auc_va_mean', 'auc_pr_va_mean', 'max_f1_va_mean', 'kappa_va_mean', 'train_time_1epochs'])
+        data.append([fold_te, fold_va, epochs, hidden_sizes, dropout, weight_decay, learning_rate, lr_steps, min_samples, auc_roc_va, auc_pr_va, epoch_time_tr])
+        
+        #data.append([fold_te, fold_va, epochs, hidden_sizes, dropout, weight_decay, learning_rate, lr_steps, min_samples, auc_roc_va, auc_pr_va, max_f1, kappa, epoch_time_tr])
+        
+    #df_res = pd.DataFrame(data, columns=['fold_te','fold_va', 'hp_epochs', 'hp_hidden_sizes', 'hp_last_dropout', 'hp_weight_decay', 'hp_learning_rate','hp_learning_steps', 'min_samples', 'auc_va_mean', 'auc_pr_va_mean', 'max_f1_va_mean', 'kappa_va_mean', 'train_time_1epochs'])
+    
+    df_res = pd.DataFrame(data, columns=['fold_te','fold_va', 'hp_epochs', 'hp_hidden_sizes', 'hp_last_dropout', 'hp_weight_decay', 'hp_learning_rate','hp_learning_steps', 'min_samples', 'auc_va_mean', 'auc_pr_va_mean', 'train_time_1epochs'])
     df_res['model'] = model_name
     
     return df_res
@@ -355,7 +361,7 @@ def melt_perf(df_res, perf_metrics=['auc_pr_va','auc_va']):
     dfm = dfm.loc[dfm['score_type'].isin(perf_metrics)]
     dfm['value'] = dfm['value'].astype(float)
     
-    return dfm
+    return dfm.drop('fold_va',axis=1)
 
 
 def best_hyperparam(dfm):
@@ -412,7 +418,7 @@ def slice_mtx_cols(M, col_indices):
 
 
 
-def perf_from_yhat(y_labels_pred, y_hat):
+def perf_from_yhat(y_labels_pred, y_hat, verbose=True, limit=None):
     
     # true_labels: scipy_sparse suscritable, rows=cmpds, columns=tasks , for compounds predicted, same order
     # y_hat: np.ndarray of predicted compounds (in y_hat) 
@@ -421,7 +427,8 @@ def perf_from_yhat(y_labels_pred, y_hat):
     
     data = []
     for t in range(y_hat.shape[1]):
-    
+        if verbose and t%1000==0:print(t)
+
         Y_true = y_labels_pred[:,t]
         y_true = Y_true.data
         nnz = Y_true.nonzero()[0]
@@ -434,7 +441,7 @@ def perf_from_yhat(y_labels_pred, y_hat):
         perf_df['task'] = t
 
         data.append(perf_df)
-
+        if limit is not None and t>limit:break
     return pd.concat(data)   
     
     
