@@ -418,7 +418,7 @@ def slice_mtx_cols(M, col_indices):
 
 
 
-def perf_from_yhat(y_labels_pred, y_hat, min_samples=0, verbose=True, limit=None):
+def perf_from_yhat(y_labels_pred, y_hat, verbose=True, limit=None):
     
     # true_labels: scipy_sparse suscritable, rows=cmpds, columns=tasks , for compounds predicted, same order
     # y_hat: np.ndarray of predicted compounds (in y_hat) 
@@ -431,31 +431,18 @@ def perf_from_yhat(y_labels_pred, y_hat, min_samples=0, verbose=True, limit=None
 
         Y_true = y_labels_pred[:,t]
         y_true = Y_true.data
-        
-        n_pos = np.where(y_true>0)[0].shape[0]
-        n_neg = np.where(y_true>0)[0].shape[0]
-        n_tot = n_neg + n_pos
-        
-        nnz = Y_true.nonzero()[0]
+        nnz    = Y_true.nonzero()[0]
         
         y_pred = np.array([])
         if len(nnz) > 0:            
             y_pred = y_hat[nnz,t]
-        
-        
-        # TO DO : add counts in data frame
-        
-        # if task does not verify the min_samples rule --> nan, else, calc the performance
-        if n_pos < min_samples and n_neg < min_samples:
-            perf_df = pd.DataFrame({"roc_auc_score": [np.nan], "auc_pr": [np.nan], "avg_prec_score": [np.nan], "max_f1_score": [np.nan], "kappa": [np.nan]})
-        else:    
-            perf_df = all_metrics(y_true, y_pred)
-        
-        # add task index
+            
+        perf_df = all_metrics(y_true, y_pred)
         perf_df['task'] = t
-
         data.append(perf_df)
+        
         if limit is not None and t>limit:break
+            
     return pd.concat(data)   
     
     
@@ -469,16 +456,24 @@ def all_metrics(y_true, y_score):
 #     :return pandas df: data frame containing the computed scores
 
     """
-    y_classes = np.where(y_score > 0.5, 1, -1) 
+    res_dict = {"n_pos":[np.nan], 
+                "n_neg":[np.nan],
+                "auc_roc": [np.nan], 
+                "auc_pr": [np.nan], 
+                "avg_prec_score": [np.nan], 
+                "max_f1_score": [np.nan], 
+                "kappa": [np.nan]}
+    
+    y_classes = np.where(y_score > 0.5, 1, -1)     
+    
     if len(y_true) <= 1:
-        df = pd.DataFrame({"roc_auc_score": [np.nan], "auc_pr": [np.nan], "avg_prec_score": [np.nan], "max_f1_score": [np.nan], "kappa": [np.nan]})
+        df = pd.DataFrame(res_dict)
         return df
     if (y_true[0] == y_true).all():
-        df = pd.DataFrame({"roc_auc_score": [np.nan], "auc_pr": [np.nan], "avg_prec_score": [np.nan], "max_f1_score": [np.nan], "kappa": [np.nan]})
+        df = pd.DataFrame(res_dict)
         return df
-    roc_auc_score = sklearn.metrics.roc_auc_score(
-          y_true  = y_true,
-          y_score = y_score)
+    
+    roc_auc_score = sklearn.metrics.roc_auc_score(y_true  = y_true, y_score = y_score)
     precision, recall, thresholds = sklearn.metrics.precision_recall_curve(y_true = y_true, probas_pred = y_score)
 
     ## calculating F1 for all cutoffs
@@ -486,17 +481,22 @@ def all_metrics(y_true, y_score):
     mask           = precision > 0
     F1_score[mask] = 2 * (precision[mask] * recall[mask]) / (precision[mask] + recall[mask])
 
-    max_f1_score = F1_score.max()
-    auc_pr = sklearn.metrics.auc(x = recall, y = precision)
-    avg_prec_score = sklearn.metrics.average_precision_score(
-          y_true  = y_true,
-          y_score = y_score)
-    kappa = sklearn.metrics.cohen_kappa_score(y_true, y_classes)
+    max_f1_score   = F1_score.max()
+    auc_pr         = sklearn.metrics.auc(x = recall, y = precision)
+    avg_prec_score = sklearn.metrics.average_precision_score(y_true  = y_true, y_score = y_score)
+    kappa          = sklearn.metrics.cohen_kappa_score(y_true, y_classes)
     
+    n_pos = np.where(y_true>0)[0].shape[0]
+    n_neg = np.where(y_true<0)[0].shape[0] 
     
-    df = pd.DataFrame({"roc_auc_score": [roc_auc_score], "auc_pr": [auc_pr], "avg_prec_score": [avg_prec_score], "max_f1_score": [max_f1_score], "kappa": [kappa]})
+    df = pd.DataFrame({"n_pos": [n_pos], 
+                       "n_neg": [n_neg], 
+                       "auc_roc": [roc_auc_score], 
+                       "auc_pr": [auc_pr], 
+                       "avg_prec_score": [avg_prec_score], 
+                       "max_f1_score": [max_f1_score], 
+                       "kappa": [kappa]})
     return df
-    
-    #return [roc_auc_score, auc_pr, avg_prec_score, max_f1_score, kappa]
+
 
     
