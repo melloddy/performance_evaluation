@@ -93,6 +93,7 @@ def perf_from_metrics(result_dir, tasks_for_eval=None, model_name='Y',
         df['hp_learning_steps'] = re.search('_lrsteps(.+?)_', f).group(1)
         df['hp_epochs']         = re.search('_ep(.+?)_', f).group(1)
         df['fold_va']        = re.search('_fva(.+?)_', f).group(1)
+        df['fold_va']        = df['fold_va'].astype(np.int)
         df['fold_test']      = re.search('_fte(.+?)-metrics', f).group(1)
 
         dataframes.append(df)
@@ -120,7 +121,7 @@ def verify_cv_runs(metrics_df, n_cv=5):
     hp = [x for x in metrics_df.columns if x[:3] == 'hp_']
     assert len(hp) > 0, "metrics dataframe must contain hyperparameter columns starting with hp_"
 
-    aggr = metrics_df.sort_values('fold_va').groupby(hp)['fold_va'].apply(lambda x: ','.join(x.unique()))
+    aggr = metrics_df.sort_values('fold_va').groupby(hp)['fold_va'].apply(lambda x: ','.join([str(x) for x in x.unique()]))
         
      # if missing ones, print out a warning message
     folds = ",".join([str(x) for x in range(n_cv)])
