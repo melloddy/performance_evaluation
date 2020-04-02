@@ -456,8 +456,8 @@ def all_metrics(y_true, y_score):
 #     :return pandas df: data frame containing the computed scores
 
     """
-    res_dict = {"n_pos":[np.nan], 
-                "n_neg":[np.nan],
+    res_dict = {"num_pos":[np.nan], 
+                "num_neg":[np.nan],
                 "auc_roc": [np.nan], 
                 "auc_pr": [np.nan], 
                 "avg_prec_score": [np.nan], 
@@ -489,8 +489,8 @@ def all_metrics(y_true, y_score):
     n_pos = np.where(y_true>0)[0].shape[0]
     n_neg = np.where(y_true<0)[0].shape[0] 
     
-    df = pd.DataFrame({"n_pos": [n_pos], 
-                       "n_neg": [n_neg], 
+    df = pd.DataFrame({"num_pos": [n_pos], 
+                       "num_neg": [n_neg], 
                        "auc_roc": [roc_auc_score], 
                        "auc_pr": [auc_pr], 
                        "avg_prec_score": [avg_prec_score], 
