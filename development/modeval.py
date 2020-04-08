@@ -444,7 +444,7 @@ def perf_from_yhat(y_labels_pred, y_hat, verbose=True, limit=None):
         
         if limit is not None and t>limit:break
             
-    return pd.concat(data)   
+    return pd.concat(data, sort=False).reset_index()
     
     
 
@@ -476,7 +476,8 @@ def all_metrics(y_true, y_score):
     
     roc_auc_score = sklearn.metrics.roc_auc_score(y_true  = y_true, y_score = y_score)
     precision, recall, thresholds = sklearn.metrics.precision_recall_curve(y_true = y_true, probas_pred = y_score)
-
+    tn, fp, fn, tp = sklearn.metrics.confusion_matrix(y_true = y_true, y_pred = y_classes).ravel()
+    
     ## calculating F1 for all cutoffs
     F1_score       = np.zeros(len(precision))
     mask           = precision > 0
@@ -496,7 +497,11 @@ def all_metrics(y_true, y_score):
                        "auc_pr": [auc_pr], 
                        "avg_prec_score": [avg_prec_score], 
                        "max_f1_score": [max_f1_score], 
-                       "kappa": [kappa]})
+                       "kappa": [kappa], 
+                       "tn":[tn],
+                       "fp":[fp],
+                       "fn":[fn],
+                       "tp":[tp]})
     return df
 
 
