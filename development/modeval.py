@@ -362,7 +362,7 @@ def melt_perf(df_res, perf_metrics=['auc_pr_va','auc_va']):
     dfm = dfm.loc[dfm['score_type'].isin(perf_metrics)]
     dfm['value'] = dfm['value'].astype(float)
     
-    return dfm.drop('fold_va',axis=1)
+    return dfm
 
 
 def best_hyperparam(dfm):
