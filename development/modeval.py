@@ -444,7 +444,7 @@ def perf_from_yhat(y_labels_pred, y_hat, verbose=True, limit=None):
         
         if limit is not None and t>limit:break
             
-    return pd.concat(data, sort=False).reset_index()
+    return pd.concat(data, sort=False).reset_index(drop=True)
     
     
 
