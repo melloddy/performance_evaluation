@@ -6,12 +6,6 @@ import scipy.stats
 import sklearn.metrics
 import re
 
-
-sys.path.append('/home/sturmno1/Projects/Codes/repos/sparsechem/')
-import sparsechem.utils as sc
-from sparsechem import load_results 
-
-
 # function template
 def template():
     """ description
