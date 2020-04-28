@@ -266,66 +266,52 @@ def perf_from_conf(model_dir, tasks_for_eval=None, aggregate=False, model_name='
 
 
 
-def perf_from_json(model_dir, tasks_for_eval=None, aggregate=False, model_name='Y'):
+def perf_from_json(filename, tasks_for_eval=None, aggregate=False, evaluation_set='va', model_name='Y'):
     """ Collects the performance from thje models/*.json files containing both the model configuration and performance.
-     Useful for HP search because it includes HPs details.
+      Useful for HP search because it includes HPs details.
 #     :param string model_dir: path to the model folder containing the .json files
 #     :param np.array (integers like) tasks_for_eval: tasks to consider for evaluation (default=None)
-#     :param bool aggrgate: if True, uses the aggregate results (considering all tasks verifying MIN_SAMPLES)
+#     :param bool aggrgate: if True, uses the aggregate result from sparsechem (considering all tasks verifying MIN_SAMPLES).
 #     :param string model_name: adds a name in a column to resulting dataframe (default=Y)
-#     :return dtype: pandas df containing performance summaries from conf file (including HP: epoch, valid fold, hidden sizes, lr steps ...)
+#     :return pandas df containing performance and configuration summaries 
     """
-    
-    assert os.path.isdir(model_dir), f"Can't find models directory at {model_dir}"
-    assert len([x for x in os.listdir(model_dir) if os.path.splitext(x)[1] == '.json'])>0, f"Did not find *.json in {model_dir}"
-    
-    if tasks_for_eval is not None and aggregate:
-        print("tasks_for_eval will not be considered. Turn off aggregate to consider a subset of tasks")
-    
+    if not filename.endswith(".json"):
+        print(f"{filename} is not json, skipped.")
+        return None
+
+    with open(filename, "r") as f:
+        data = json.load(f)
+
+
     if aggregate: 
-        df_res = perf_from_json_aggregate(model_dir, model_name=model_name)
-    else:
-        df_res = perf_from_json_individual(model_dir, tasks_for_eval, model_name=model_name)
-    return df_res
+        assert "results_agg" in data, "Error: cannot find 'results_agg' in data"
+        assert evaluation_set in data["results_agg"], f"Error: cannot find '{evaluation_set}' in data results_agg"
 
-def perf_from_json_individual(model_dir, tasks_for_eval, model_name='Y'): 
-    print('not implemented yet, use aggregate = True')
-    return 
-
-def perf_from_json_aggregate(model_dir, model_name='Y'):
-    """ Collects the performance from thje models/*-conf.npy files using the aggregate results (considering min_samples). 
-    Useful for HP search because it includes HPs details.
-#     :param string model_dir: path to the model folder containing the conf.npy files
-#     :param string model_name: adds a name in a column to resulting dataframe (default=Y)
-#     :return dtype: pandas df containing performance summaries from conf file (including HP: epoch, valid fold, hidden sizes, lr steps)
-    """    
-    data = []
-
-    files = [f for f in os.listdir(model_dir) if os.path.isfile(os.path.join(model_dir,f))]
-    for f in files:
-        r = load_results(os.path.join(model_dir,f))#['results_agg']['va']
+        res_df = pd.read_json(data["results_agg"][evaluation_set], typ="series").to_frame().transpose()
+        res_df.columns = [x+'_agg' for x in res_df.columns]
         
-        auc_roc_va = r["results_agg"]["va"]["roc_auc_score"]
-        auc_pr_va  = r["results_agg"]["va"]["auc_pr"]
-        avg_prec_score = r["results_agg"]["va"]["avg_prec_score"]
-        kappa      = r["results_agg"]["va"]["kappa"]
-        max_f1     = r["results_agg"]["va"]["max_f1_score"]
-        epoch_time = r["results_agg"]["va"]["epoch_time"]
-        hidden_sizes  = ",".join([str(x) for x in r["conf"].hidden_sizes])
-        learning_rate = r["conf"].lr
-        dropout       = r["conf"].last_dropout
-        epochs        = r["conf"].epochs
-        weight_decay =  r["conf"].weight_decay
-        fold_va       = r["conf"].fold_va
-        fold_te       = r["conf"].fold_te
-        lr_steps      = ",".join([str(x) for x in r["conf"].lr_steps])
-        min_samples   = r['conf'].min_samples_auc
-        data.append([fold_te, fold_va, epochs, hidden_sizes, dropout, weight_decay, learning_rate, lr_steps, min_samples, auc_roc_va, auc_pr_va, epoch_time])
-
-    df_res = pd.DataFrame(data, columns=['fold_te','fold_va', 'hp_epochs', 'hp_hidden_sizes', 'hp_last_dropout', 'hp_weight_decay', 'hp_learning_rate','hp_learning_steps', 'min_samples', 'auc_va_mean', 'auc_pr_va_mean', 'train_time_1epochs'])
-    df_res['model'] = model_name
-
-    return df_res
+      
+    else: 
+        assert "results" in data, "Error: cannot find 'results' in data"
+        assert evaluation_set in data["results"], f"Error: cannot find '{evaluation_set}' in data results"
+        
+        res_df = pd.read_json(data["results"][evaluation_set])
+        
+        # mask out some tasks
+        if tasks_for_eval is not None:
+            res_df = res_df.iloc[tasks_for_eval]
+        
+        # create task column
+        res_df = res_df.reset_index().rename(columns={'index':'task'})
+        
+    
+    # add config/hp to the dataframe
+    for k,v in data["conf"].items():
+        if type(v) == list: v=",".join([str(x) for x in v])
+            
+        res_df[k]=v
+    
+    return res_df
 
 
 def perf_from_conf_aggregate(model_dir, model_name='Y'):
