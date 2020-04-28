@@ -1,9 +1,14 @@
-import os
+import os, sys
 import numpy as np
 import pandas as pd 
 import scipy.sparse
+import scipy.stats
 import sklearn.metrics
 import re
+
+
+sys.path.append('/home/sturmno1/Projects/Codes/repos/sparsechem/')
+import sparsechem.utils as sc
 from sparsechem import load_results 
 
 
@@ -20,7 +25,6 @@ def template():
 # TO DO : 
 
 # - split Y and X by test set for eval
-# - metrics dataframe from y_hat predictions
 # - delta predictions perf between two (or more) models
 
 # better manage hyperparameters (consistent to the code)
@@ -446,40 +450,6 @@ def best_hyperparam(dfm):
     return best_hps
 
 
-def split_folds(M, fold_vector):
-    """ Splits global M (i.e. Y or X) into folds Ms
-#     :param  scipy.sparse.csr.csr_matrix M
-#     :param  np.array fold_vector: containing folds assignment for each row.
-#     :return list of size=n_folds where each element is a csr_matrix representing a fold
-    """
-    assert type(M) == scipy.sparse.csr.csr_matrix, "M needs to be scipy.sparse.csr.csr_matrix"
-    assert folds.shape[0] == M.shape[0], "fold_vector must have same shape[0] than M"
-    
-    folds = [M[fold_vector==f,:] for f in np.unique(folds)]
-    return folds
-    
-
-def slice_mtx_rows(M, rows_indices):
-    """ Slices out rows of a scipy.sparse.csr_matrix
-#     :param  scipy.sparse.csr.csr_matrix M
-#     :param  np.array containing integer indices of rows to extract or boolean vector where True is a row to extract
-#     :return scipy.sparse.csr.csr_matrix
-    """
-    assert type(M) == scipy.sparse.csr.csr_matrix, "M needs to be scipy.sparse.csr.csr_matrix"
-    return M[row_indices, :]
-
-
-def slice_mtx_cols(M, col_indices):
-    """ Slices out columns of a scipy.sparse.csc_matrix
-#     :param  scipy.sparse.csc.csc_matrix M
-#     :param  np.array containing integer indices of columns to extract or boolean vector where True is a row to extract
-#     :return scipy.sparse.csc.csc_matrix
-    """    
-    assert type(M) == scipy.sparse.csc.csc_matrix, "M needs to be scipy.sparse.csc.csc_matrix"
-    return M[col_indices, :]
-
-
-
 
 
 def perf_from_yhat(y_labels_pred, y_hat, verbose=True, limit=None):
@@ -569,3 +539,57 @@ def all_metrics(y_true, y_score):
 
 
     
+# This function calculates the p value for the statistical difference between two ROC AUC curves
+# Based on :  http://www.med.mcgill.ca/epidemiology/hanley/software/Hanley_McNeil_Radiology_82.pdf
+# Authors : Adam Arany, Jaak Simm (KU Leuven)
+def auc_se(auc, num_pos, num_neg):
+    q1 = auc / (2 - auc)
+    q2 = 2 * auc**2 / (1 + auc)
+
+    return np.sqrt((auc*(1-auc) + (num_pos-1)*(q1 - auc**2) + (num_neg-1)*(q2 - auc**2)) / (num_pos*num_neg))
+
+def pvalue(auc1, num_pos1, num_neg1, auc2, num_pos2, num_neg2):
+    se1 = auc_se(auc1, num_pos1, num_neg1)
+    se2 = auc_se(auc2, num_pos2, num_neg2)
+    z   = (auc1 - auc2) / np.sqrt(se1**2 + se2**2)
+
+    return 1.0 - scipy.stats.norm.cdf(z)
+
+
+
+
+
+# MTX manipulatiosn such as splitting per fold
+
+def split_folds(M, fold_vector):
+    """ Splits global M (i.e. Y or X) into folds Ms
+#     :param  scipy.sparse.csr.csr_matrix M
+#     :param  np.array fold_vector: containing folds assignment for each row.
+#     :return list of size=n_folds where each element is a csr_matrix representing a fold
+    """
+    assert type(M) == scipy.sparse.csr.csr_matrix, "M needs to be scipy.sparse.csr.csr_matrix"
+    assert folds.shape[0] == M.shape[0], "fold_vector must have same shape[0] than M"
+    
+    folds = [M[fold_vector==f,:] for f in np.unique(folds)]
+    return folds
+    
+
+def slice_mtx_rows(M, rows_indices):
+    """ Slices out rows of a scipy.sparse.csr_matrix
+#     :param  scipy.sparse.csr.csr_matrix M
+#     :param  np.array containing integer indices of rows to extract or boolean vector where True is a row to extract
+#     :return scipy.sparse.csr.csr_matrix
+    """
+    assert type(M) == scipy.sparse.csr.csr_matrix, "M needs to be scipy.sparse.csr.csr_matrix"
+    return M[row_indices, :]
+
+
+def slice_mtx_cols(M, col_indices):
+    """ Slices out columns of a scipy.sparse.csc_matrix
+#     :param  scipy.sparse.csc.csc_matrix M
+#     :param  np.array containing integer indices of columns to extract or boolean vector where True is a row to extract
+#     :return scipy.sparse.csc.csc_matrix
+    """    
+    assert type(M) == scipy.sparse.csc.csc_matrix, "M needs to be scipy.sparse.csc.csc_matrix"
+    return M[col_indices, :]
+
