@@ -5,6 +5,8 @@ import scipy.sparse
 import scipy.stats
 import sklearn.metrics
 import re
+import json 
+from tqdm import tqdm
 
 # function template
 def template():
@@ -260,7 +262,7 @@ def perf_from_conf(model_dir, tasks_for_eval=None, aggregate=False, model_name='
 
 
 
-def perf_from_json(filename, tasks_for_eval=None, aggregate=False, evaluation_set='va', model_name='Y'):
+def perf_from_json(model_dir_or_file, tasks_for_eval=None, aggregate=False, evaluation_set='va', model_name='Y'):
     """ Collects the performance from thje models/*.json files containing both the model configuration and performance.
       Useful for HP search because it includes HPs details.
 #     :param string model_dir: path to the model folder containing the .json files
@@ -269,43 +271,69 @@ def perf_from_json(filename, tasks_for_eval=None, aggregate=False, evaluation_se
 #     :param string model_name: adds a name in a column to resulting dataframe (default=Y)
 #     :return pandas df containing performance and configuration summaries 
     """
-    if not filename.endswith(".json"):
-        print(f"{filename} is not json, skipped.")
-        return None
+    df_res_all = []
 
-    with open(filename, "r") as f:
-        data = json.load(f)
+    if os.path.isdir(os.path.join(model_dir_or_file)):     
+        files = [os.path.join(model_dir_or_file,f) for f in os.listdir(model_dir_or_file) if os.path.isfile(os.path.join(model_dir_or_file,f))]
+    elif os.path.isfile(os.path.join(model_dir_or_file)):     
+        files = [model_dir_or_file]
 
+    for f in tqdm(files):
+        if not f.endswith(".json"):
+            print(f"{f} is not json, skipped.")
+            return None
 
-    if aggregate: 
-        assert "results_agg" in data, "Error: cannot find 'results_agg' in data"
-        assert evaluation_set in data["results_agg"], f"Error: cannot find '{evaluation_set}' in data results_agg"
+        with open(f, "r") as f:
+            data = json.load(f)
 
-        res_df = pd.read_json(data["results_agg"][evaluation_set], typ="series").to_frame().transpose()
-        res_df.columns = [x+'_agg' for x in res_df.columns]
+        if aggregate: 
+            assert "results_agg" in data, "Error: cannot find 'results_agg' in data"
+            assert evaluation_set in data["results_agg"], f"Error: cannot find '{evaluation_set}' in data results_agg"
+
+            res_df = pd.read_json(data["results_agg"][evaluation_set], typ="series").to_frame().transpose()
+            res_df.columns = [x+'_agg' for x in res_df.columns]
         
-      
-    else: 
-        assert "results" in data, "Error: cannot find 'results' in data"
-        assert evaluation_set in data["results"], f"Error: cannot find '{evaluation_set}' in data results"
-        
-        res_df = pd.read_json(data["results"][evaluation_set])
-        
-        # mask out some tasks
-        if tasks_for_eval is not None:
-            res_df = res_df.iloc[tasks_for_eval]
-        
-        # create task column
-        res_df = res_df.reset_index().rename(columns={'index':'task'})
-        
-    
-    # add config/hp to the dataframe
-    for k,v in data["conf"].items():
-        if type(v) == list: v=",".join([str(x) for x in v])
+        else: 
+            assert "results" in data, "Error: cannot find 'results' in data"
+            assert evaluation_set in data["results"], f"Error: cannot find '{evaluation_set}' in data results"
             
-        res_df[k]=v
-    
-    return res_df
+            res_df = pd.read_json(data["results"][evaluation_set])
+            
+            # mask out some tasks
+            if tasks_for_eval is not None:
+                res_df = res_df.iloc[tasks_for_eval]
+            
+            # create task column
+            res_df = res_df.reset_index().rename(columns={'index':'task'})
+            
+        
+        # add config/hp to the dataframe
+        for k,v in data["conf"].items():
+            if type(v) == list: v=",".join([str(x) for x in v])
+            if k in get_sc_hps() : k = 'hp_' + k
+            res_df[k]=v
+
+        df_res_all.append(res_df)
+
+    output_df = pd.concat(df_res_all)
+    return output_df
+
+
+def get_sc_hps(): 
+    hps = [
+         'epochs', 
+         'hidden_sizes', 
+         'middle_dropout', 
+         'last_dropout', 
+         'weight_decay', 
+         'learning_rate', 
+         'non_linearity',
+         'last_non_linearity', 
+         'lr_steps',
+         'lr_alpha',
+         'task_weights', # importantly, consider the task weights as hyperparameter
+    ]
+    return hps
 
 
 def perf_from_conf_aggregate(model_dir, model_name='Y'):
@@ -411,25 +439,23 @@ def melt_perf(df_res, perf_metrics=['auc_pr_va','auc_va']):
     
     return dfm
 
+def all_hyperparam(dfm):
+
+    hp_cols = [x for x in dfm.columns if x[:3]=='hp_']
+    assert len(hp_cols) > 0, 'No hyperparamters found in dataframe, use hp_* prefix for hyperparameters columns'
+    hp_cols.append('score_type')
+    agg_df = dfm.groupby(hp_cols).mean().sort_values('value',ascending=False).reset_index()
+    return agg_df
+
 
 def best_hyperparam(dfm):
     """ Gets the best hyperparameters for each performance metrics from dfm resulting from melt_perf(). 
 #     :param pandas dfm: dataframe containing results as provided by melt_perf()
 #     :return dtype: pandas df containing best HPs per performance metrics
     """
-    
-    hp_cols = [x for x in dfm.columns if x[:3]=='hp_']
-    assert len(hp_cols) > 0, 'No hyperparamters found in dataframe, use hp_* prefix for hyperparameters columns'
-    
-    
-    hp_cols.append('score_type')
-    agg_df = dfm.groupby(hp_cols).mean().sort_values('value',ascending=False).reset_index()
-    best_hps = agg_df.iloc[agg_df.groupby(['score_type']).idxmax()['value'].values]
-    best_hps    
-    
+    agg_df = all_hyperparam(dfm)
+    best_hps = agg_df.iloc[agg_df.groupby(['score_type']).idxmax()['value'].values]    
     return best_hps
-
-
 
 
 def perf_from_yhat(y_labels_pred, y_hat, verbose=True, limit=None):
