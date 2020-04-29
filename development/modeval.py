@@ -281,7 +281,7 @@ def perf_from_json(model_dir_or_file, tasks_for_eval=None, aggregate=False, eval
     for f in tqdm(files):
         if not f.endswith(".json"):
             print(f"{f} is not json, skipped.")
-            return None
+            continue
 
         with open(f, "r") as f:
             data = json.load(f)
