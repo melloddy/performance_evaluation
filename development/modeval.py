@@ -57,7 +57,7 @@ def perf_from_metrics(result_dir, tasks_for_eval=None, model_name='Y',
 #     :return dtype: pandas df containing performance metrics files appended to each other and including some HPs
     """    
     
-    assert os.path.isdir(result_dir), f"Can't find results directory at {model_dir}"
+    assert os.path.isdir(result_dir), f"Can't find results directory at {result_dir}"
     
     if prefix is not None: prefix_len = len(prefix)
     
