@@ -7,6 +7,7 @@ import sklearn.metrics
 import re
 import json 
 from tqdm import tqdm
+import matplotlib.pyplot as plt
 
 # function template
 def template():
@@ -262,7 +263,14 @@ def perf_from_conf(model_dir, tasks_for_eval=None, aggregate=False, model_name='
 
 
 
-def perf_from_json(model_dir_or_file, tasks_for_eval=None, aggregate=False, evaluation_set='va', model_name='Y'):
+def perf_from_json(
+        model_dir_or_file, 
+        tasks_for_eval=None, 
+        aggregate=False, 
+        evaluation_set='va',
+        model_name='Y',
+        n_cv=5,
+    ):
     """ Collects the performance from thje models/*.json files containing both the model configuration and performance.
       Useful for HP search because it includes HPs details.
 #     :param string model_dir: path to the model folder containing the .json files
@@ -270,6 +278,7 @@ def perf_from_json(model_dir_or_file, tasks_for_eval=None, aggregate=False, eval
 #     :param bool aggrgate: if True, uses the aggregate result from sparsechem (considering all tasks verifying MIN_SAMPLES).
 #     :param string model_name: adds a name in a column to resulting dataframe (default=Y)
 #     :return pandas df containing performance and configuration summaries 
+#     :param int n_cv: specify the number of folds used for cross valid, starting with 0, higher fold_va numbers will be dropped
     """
     df_res_all = []
 
@@ -279,8 +288,8 @@ def perf_from_json(model_dir_or_file, tasks_for_eval=None, aggregate=False, eval
         files = [model_dir_or_file]
 
     for f in tqdm(files):
-        if not f.endswith(".json"):
-            print(f"{f} is not json, skipped.")
+        if not f.endswith(".json") or not os.path.basename(f).startswith("sc_"):
+            print(f"{f} is not a sparsechem json, hence skipped.")
             continue
 
         with open(f, "r") as f:
@@ -306,8 +315,7 @@ def perf_from_json(model_dir_or_file, tasks_for_eval=None, aggregate=False, eval
             
             # create task column
             res_df = res_df.reset_index().rename(columns={'index':'task'})
-            
-        
+    
         # add config/hp to the dataframe
         for k,v in data["conf"].items():
             if type(v) == list: v=",".join([str(x) for x in v])
@@ -315,8 +323,13 @@ def perf_from_json(model_dir_or_file, tasks_for_eval=None, aggregate=False, eval
             res_df[k]=v
 
         df_res_all.append(res_df)
-
+ 
     output_df = pd.concat(df_res_all)
+
+    # filter out some folds 
+    cvfolds = list(range(n_cv))
+    output_df = output_df.query('fold_va in @cvfolds')
+
     return output_df
 
 
@@ -327,9 +340,9 @@ def get_sc_hps():
          'middle_dropout', 
          'last_dropout', 
          'weight_decay', 
-         'learning_rate', 
          'non_linearity',
          'last_non_linearity', 
+         'lr', 
          'lr_steps',
          'lr_alpha',
          'task_weights', # importantly, consider the task weights as hyperparameter
@@ -455,8 +468,7 @@ def all_hyperparam(dfm):
     hp_cols = list(hp_cols)
     agg_df = dfm.groupby(hp_cols).mean().sort_values('value',ascending=False).reset_index()
     for col in cols_to_remove: 
-        agg_df[col] = np.nan # restoring empty np columns
-        agg_df[col] = agg_df[col].astype(np.float64)
+        agg_df[col] = None # this works with non-numerical fields only - use np.nan for numeric 
     return agg_df
 
 
@@ -612,29 +624,40 @@ def slice_mtx_cols(M, col_indices):
     return M[col_indices, :]
 
 
-def statistical_significance_analysis(results_dir_x, t3_mapped_x, label_x, results_dir_y, t3_mapped_y, label_y, aux_assay_type='Yx'):
-    # under development 
-
+def statistical_significance_analysis(results_dir_x, t3_mapped_x, label_x, results_dir_y, t3_mapped_y, label_y, aux_assay_type='Yx', n_cv=5):
+    """ Run a statistical significance analysis between two runs, both with hyperparameter optimization
+      For now, only compatible with the json result format 
+#    :param  str path to the results folder of the 1st run, containing the json files
+#    :param  str path to the mapped T3 file of the 1st run
+#    :param  str axis label for the plot, designating the 1st run
+#    :param  str path to the results folder of the 2nd run, containing the json files
+#    :param  str path to the mapped T3 file of the 2nd run
+#    :param  str axis label for the plot, designating the 2nd run
+#    :param int n_cv: specify the number of folds used for cross valid, starting with 0, higher fold_va numbers will be dropped
+#    :return None 
+    """ 
     hp_bests = list()
     for e in ((results_dir_x, t3_mapped_x),(results_dir_y, t3_mapped_y)):
         df_t3_mapped = pd.read_csv(e[1])
         aux_assay_type='Yx'
         main_tasks = df_t3_mapped.loc[df_t3_mapped['assay_type']!=aux_assay_type].cont_classification_task_id.dropna().values
-        json_df = perf_from_json(e[0],aggregate=False,tasks_for_eval=main_tasks) 
+        json_df = perf_from_json(e[0],aggregate=False,tasks_for_eval=main_tasks, n_cv=n_cv) 
         json_melted = melt_perf(json_df, perf_metrics=['auc_pr'])
         hp_best = best_hyperparam(json_melted)
         hp_best = hp_best.drop(columns=['fold_va']) # are grouped-by (averaged)
         # keeping only the records associated to the best hyperparameters
-        hp_best = pd.merge(json_df[~json_df['auc_pr'].isna()],hp_best,how='inner',on=get_sc_hps())
+        hp_cols = ['hp_'+hp for hp in get_sc_hps()]
+        hp_best = pd.merge(json_df[~json_df['auc_pr'].isna()],hp_best,how='inner',on=hp_cols)
         hp_best = pd.merge(df_t3_mapped,hp_best,how='inner',left_on='cont_classification_task_id',right_on='task')
         hp_bests.append(hp_best)
     
     # matching x and y runs
-    df_merge = pd.merge(hp_bests[0], hp_bests[1],how='inner',on=['input_assay_id','threshold_value','fold_va'])
+    df_merge = pd.merge(hp_bests[0], hp_bests[1],how='inner',on=['input_assay_id','fold_va'])
     df_merge = df_merge[~df_merge['roc_auc_score_y'].isna()]
     df_merge = df_merge[~df_merge['roc_auc_score_x'].isna()]
     # plotting
-    table = df_merge
+    # statistical analysis only valid for aggregated figures over folds - hence groupby
+    table = df_merge.groupby(by=['input_assay_id']).mean().reset_index() # supposedly, no threshold_value needed here in the gb-clause
     metric_x = 'roc_auc_score_x'
     metric_y = 'roc_auc_score_y'
     x_lim = 0.5
@@ -645,14 +668,11 @@ def statistical_significance_analysis(results_dir_x, t3_mapped_x, label_x, resul
     return 
 
 
-### Plotting 
-
 def plot_statisical_significance(table, metric_x, metric_y, label_x, label_y, x_lim, y_lim, title=None):
     ax = plt.subplot(111)
-    table['pvalue'] = table.apply(lambda r : modeval.pvalue(r[metric_y],r['num_pos_y'],r['num_neg_y'], r[metric_x],r['num_pos_x'],r['num_neg_x']), axis=1)
+    table['pvalue'] = table.apply(lambda r : pvalue(r[metric_y],r['num_pos_y'],r['num_neg_y'], r[metric_x],r['num_pos_x'],r['num_neg_x']), axis=1)
     table['stat_rev_multi+'] = (table['pvalue']<0.05) & (table[metric_y] > table[metric_x])
     table['stat_rev_multi-'] = (table['pvalue']>0.95) & (table[metric_y] < table[metric_x])
-    #display(df_stats2.head())
     print(table['stat_rev_multi+'].value_counts())
     print(table['stat_rev_multi-'].value_counts())
     print('Metric X',table[metric_x].mean())
