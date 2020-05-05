@@ -126,7 +126,7 @@ def verify_cv_runs(metrics_df, n_cv=5):
         
      # if missing ones, print out a warning message
     folds = ",".join([str(x) for x in range(n_cv)])
-    if aggr[aggr!=folds].shape[0]:
+    if aggr[!aggr.fold_va.str.contains(folds)].shape[0]:
         print("WARNING: missing fold runs")
         print(f"Fold runs found :\n {aggr}")
     
