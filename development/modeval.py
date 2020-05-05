@@ -289,6 +289,7 @@ def perf_from_json(model_dir_or_file, tasks_for_eval=None, aggregate=False, eval
         if aggregate: 
             assert "results_agg" in data, "Error: cannot find 'results_agg' in data"
             assert evaluation_set in data["results_agg"], f"Error: cannot find '{evaluation_set}' in data results_agg"
+            assert tasks_for_eval is None, 'tasks_for_eval has no effect in combination with aggregate=True'
 
             res_df = pd.read_json(data["results_agg"][evaluation_set], typ="series").to_frame().transpose()
             res_df.columns = [x+'_agg' for x in res_df.columns]
@@ -440,11 +441,22 @@ def melt_perf(df_res, perf_metrics=['auc_pr_va','auc_va']):
     return dfm
 
 def all_hyperparam(dfm):
-
-    hp_cols = [x for x in dfm.columns if x[:3]=='hp_']
+    """ Gives a sorted overview of the performance of all hyperparameter sets """
+    dfm = dfm[~dfm['value'].isna()].reset_index() 
+    hp_cols = set([x for x in dfm.columns if x[:3]=='hp_'])
     assert len(hp_cols) > 0, 'No hyperparamters found in dataframe, use hp_* prefix for hyperparameters columns'
-    hp_cols.append('score_type')
+    ## Checking for unused hyperparameter columns: 
+    cols_to_remove = set()
+    for col in hp_cols: 
+        if dfm[col].isnull().all(): 
+            cols_to_remove.add(col)
+        hp_cols = hp_cols.difference(cols_to_remove)
+    hp_cols.add('score_type')
+    hp_cols = list(hp_cols)
     agg_df = dfm.groupby(hp_cols).mean().sort_values('value',ascending=False).reset_index()
+    for col in cols_to_remove: 
+        agg_df[col] = np.nan # restoring empty np columns
+        agg_df[col] = agg_df[col].astype(np.float64)
     return agg_df
 
 
@@ -598,4 +610,63 @@ def slice_mtx_cols(M, col_indices):
     """    
     assert type(M) == scipy.sparse.csc.csc_matrix, "M needs to be scipy.sparse.csc.csc_matrix"
     return M[col_indices, :]
+
+
+def statistical_significance_analysis(results_dir_x, t3_mapped_x, label_x, results_dir_y, t3_mapped_y, label_y, aux_assay_type='Yx'):
+    # under development 
+
+    hp_bests = list()
+    for e in ((results_dir_x, t3_mapped_x),(results_dir_y, t3_mapped_y)):
+        df_t3_mapped = pd.read_csv(e[1])
+        aux_assay_type='Yx'
+        main_tasks = df_t3_mapped.loc[df_t3_mapped['assay_type']!=aux_assay_type].cont_classification_task_id.dropna().values
+        json_df = perf_from_json(e[0],aggregate=False,tasks_for_eval=main_tasks) 
+        json_melted = melt_perf(json_df, perf_metrics=['auc_pr'])
+        hp_best = best_hyperparam(json_melted)
+        hp_best = hp_best.drop(columns=['fold_va']) # are grouped-by (averaged)
+        # keeping only the records associated to the best hyperparameters
+        hp_best = pd.merge(json_df[~json_df['auc_pr'].isna()],hp_best,how='inner',on=get_sc_hps())
+        hp_best = pd.merge(df_t3_mapped,hp_best,how='inner',left_on='cont_classification_task_id',right_on='task')
+        hp_bests.append(hp_best)
+    
+    # matching x and y runs
+    df_merge = pd.merge(hp_bests[0], hp_bests[1],how='inner',on=['input_assay_id','threshold_value','fold_va'])
+    df_merge = df_merge[~df_merge['roc_auc_score_y'].isna()]
+    df_merge = df_merge[~df_merge['roc_auc_score_x'].isna()]
+    # plotting
+    table = df_merge
+    metric_x = 'roc_auc_score_x'
+    metric_y = 'roc_auc_score_y'
+    x_lim = 0.5
+    y_lim = 0.5
+    title = 'AUC ROC'
+    plot_statisical_significance(table, metric_x, metric_y, label_x, label_y, x_lim, y_lim, title )
+
+    return 
+
+
+### Plotting 
+
+def plot_statisical_significance(table, metric_x, metric_y, label_x, label_y, x_lim, y_lim, title=None):
+    ax = plt.subplot(111)
+    table['pvalue'] = table.apply(lambda r : modeval.pvalue(r[metric_y],r['num_pos_y'],r['num_neg_y'], r[metric_x],r['num_pos_x'],r['num_neg_x']), axis=1)
+    table['stat_rev_multi+'] = (table['pvalue']<0.05) & (table[metric_y] > table[metric_x])
+    table['stat_rev_multi-'] = (table['pvalue']>0.95) & (table[metric_y] < table[metric_x])
+    #display(df_stats2.head())
+    print(table['stat_rev_multi+'].value_counts())
+    print(table['stat_rev_multi-'].value_counts())
+    print('Metric X',table[metric_x].mean())
+    print('Metric Y',table[metric_y].mean())
+    mp = {(True,False):'blue',(False,False):'lightgray',(False,True):'red'}
+    plt.scatter(table[metric_x],table[metric_y],alpha=0.3,c=[mp[e] for e in zip(table['stat_rev_multi+'],table['stat_rev_multi-'])])
+    plt.xlim(x_lim)
+    plt.ylim(y_lim)
+    plt.grid(color='lightgray', linestyle='--', linewidth=1)
+    plt.title(title)
+    plt.xlabel(label_x)
+    plt.ylabel(label_y)
+    ax.plot(ax.get_xlim(), ax.get_ylim(), ls="--", c=".3")
+
+    return 
+
 
