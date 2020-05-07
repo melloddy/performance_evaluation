@@ -161,15 +161,28 @@ def aggregate_fold_perf(metrics_df, min_samples, n_cv=5,  verify=True):
     cols2drop.append('task')
     metrics2consider_df.drop(cols2drop, axis=1,inplace=True)    
     
+    # do the mean aggregation
     aggr_mean = metrics2consider_df.groupby(hp).mean()
     aggr_mean.columns = [x+'_mean' for x in aggr_mean.columns]
+
+    # do the median aggregation
+    aggr_med = metrics2consider_df.groupby(hp).median()
+    aggr_med.columns = [x+'_median' for x in aggr_med.columns]
     
-    
+    # do the stdev aggregation
     aggr_std = metrics2consider_df.groupby(hp).std()
     aggr_std.columns = [x+'_stdev' for x in aggr_std.columns]
+
+    # do the skew aggregation
+    aggr_skew = metrics2consider_df.groupby(hp).skew()
+    aggr_skew.columns = [x+'_skewness' for x in aggr_skew.columns]
+
+    # do the kurtosis aggregation
+    aggr_kurt = metrics2consider_df.groupby(hp).apply(pd.DataFrame.kurt)
+    aggr_kurt.columns = [x+'_kurtosis' for x in aggr_kurt.columns]
     
 
-    return aggr_mean.join(aggr_std).reset_index()
+    return aggr_mean.join(aggr_med).join(aggr_std).join(aggr_skew).join(aggr_kurt).reset_index()
       
 
 def aggregate_task_perf(metrics_df, min_samples, n_cv=5,  verify=True):
@@ -195,15 +208,28 @@ def aggregate_task_perf(metrics_df, min_samples, n_cv=5,  verify=True):
 
     metrics2consider_df = metrics_df.loc[(metrics_df['num_pos']>=min_samples)&(metrics_df['num_neg']>=min_samples)]
     
+    # do the mean aggregation
     aggr_mean = metrics2consider_df.groupby(hp).mean()
     aggr_mean.columns = [x+'_mean' for x in aggr_mean.columns]
+
+    # do the median aggregation
+    aggr_med = metrics2consider_df.groupby(hp).median()
+    aggr_med.columns = [x+'_median' for x in aggr_med.columns]
     
-    
+    # do the stdev aggregation
     aggr_std = metrics2consider_df.groupby(hp).std()
     aggr_std.columns = [x+'_stdev' for x in aggr_std.columns]
+
+    # do the skew aggregation
+    aggr_skew = metrics2consider_df.groupby(hp).skew()
+    aggr_skew.columns = [x+'_skewness' for x in aggr_skew.columns]
+
+    # do the kurtosis aggregation
+    aggr_kurt = metrics2consider_df.groupby(hp).apply(pd.DataFrame.kurt)
+    aggr_kurt.columns = [x+'_kurtosis' for x in aggr_kurt.columns]
     
 
-    return aggr_mean.join(aggr_std).reset_index()
+    return aggr_mean.join(aggr_med).join(aggr_std).join(aggr_skew).reset_index()  .join(aggr_kurt)
     
 
     
@@ -229,14 +255,25 @@ def aggregate_overall(metrics_df, min_samples):
     
     # do the mean aggregation
     aggr_mean = metrics2consider_df.groupby(hp).mean()
-    aggr_mean.columns = [x+'_mean' for x in aggr_mean.columns]
+    aggr_mean.columns = [x+'_mean' for x in aggr_mean.columns]    
+    
+    # do the median aggregation
+    aggr_med = metrics2consider_df.groupby(hp).median()
+    aggr_med.columns = [x+'_median' for x in aggr_med.columns]
     
     # do the stdev aggregation
     aggr_std = metrics2consider_df.groupby(hp).std()
     aggr_std.columns = [x+'_stdev' for x in aggr_std.columns]
-    
 
-    return aggr_mean.join(aggr_std).reset_index()
+    # do the skew aggregation
+    aggr_skew = metrics2consider_df.groupby(hp).skew()
+    aggr_skew.columns = [x+'_skewness' for x in aggr_skew.columns]
+
+    # do the kurtosis aggregation
+    aggr_kurt = metrics2consider_df.groupby(hp).apply(pd.DataFrame.kurt)
+    aggr_kurt.columns = [x+'_kurtosis' for x in aggr_kurt.columns]
+    
+    return aggr_mean.join(aggr_med).join(aggr_std).join(aggr_skew).join(aggr_kurt).reset_index()  
     
 
 def perf_from_conf(model_dir, tasks_for_eval=None, aggregate=False, model_name='Y'):
@@ -280,7 +317,7 @@ def perf_from_json(
 #     :return pandas df containing performance and configuration summaries 
 #     :param int n_cv: specify the number of folds used for cross valid, starting with 0, higher fold_va numbers will be dropped
     """
-    df_res_all = []
+    res_all = []
 
     if os.path.isdir(os.path.join(model_dir_or_file)):     
         files = [os.path.join(model_dir_or_file,f) for f in os.listdir(model_dir_or_file) if os.path.isfile(os.path.join(model_dir_or_file,f))]
@@ -292,8 +329,8 @@ def perf_from_json(
             print(f"{f} is not a sparsechem json, hence skipped.")
             continue
 
-        with open(f, "r") as f:
-            data = json.load(f)
+        with open(f, "r") as fi:
+            data = json.load(fi)
 
         if aggregate: 
             assert "results_agg" in data, "Error: cannot find 'results_agg' in data"
@@ -315,16 +352,19 @@ def perf_from_json(
             
             # create task column
             res_df = res_df.reset_index().rename(columns={'index':'task'})
-    
+
         # add config/hp to the dataframe
         for k,v in data["conf"].items():
             if type(v) == list: v=",".join([str(x) for x in v])
             if k in get_sc_hps() : k = 'hp_' + k
             res_df[k]=v
-
-        df_res_all.append(res_df)
+       
+        # add filename to the dataframe
+        res_df['filename'] = str(f)
+        
+        res_all.append(res_df)
  
-    output_df = pd.concat(df_res_all)
+    output_df = pd.concat(res_all)
 
     # filter out some folds 
     cvfolds = list(range(n_cv))
@@ -624,9 +664,10 @@ def slice_mtx_cols(M, col_indices):
     return M[col_indices, :]
 
 
-def statistical_significance_analysis(results_dir_x, t3_mapped_x, label_x, results_dir_y, t3_mapped_y, label_y, aux_assay_type='Yx', n_cv=5):
+def statistical_model_comparison_analysis(results_dir_x, t3_mapped_x, label_x, results_dir_y, t3_mapped_y, label_y, aux_assay_type='Yx', n_cv=5, min_samples=25):
     """ Run a statistical significance analysis between two runs, both with hyperparameter optimization
-      For now, only compatible with the json result format 
+      For now, only compatible with the json result format . 
+      Result is the difference between the second (y) and the first (x) arguments
 #    :param  str path to the results folder of the 1st run, containing the json files
 #    :param  str path to the mapped T3 file of the 1st run
 #    :param  str axis label for the plot, designating the 1st run
@@ -634,6 +675,7 @@ def statistical_significance_analysis(results_dir_x, t3_mapped_x, label_x, resul
 #    :param  str path to the mapped T3 file of the 2nd run
 #    :param  str axis label for the plot, designating the 2nd run
 #    :param int n_cv: specify the number of folds used for cross valid, starting with 0, higher fold_va numbers will be dropped
+#    :param int n_cv: statistics calculations will be limited to the tasks which have at least this number of positives and negatives
 #    :return None 
     """ 
     hp_bests = list()
@@ -650,6 +692,7 @@ def statistical_significance_analysis(results_dir_x, t3_mapped_x, label_x, resul
         hp_best = pd.merge(json_df[~json_df['auc_pr'].isna()],hp_best,how='inner',on=hp_cols)
         hp_best = pd.merge(df_t3_mapped,hp_best,how='inner',left_on='cont_classification_task_id',right_on='task')
         hp_bests.append(hp_best)
+
     
     # matching x and y runs
     df_merge = pd.merge(hp_bests[0], hp_bests[1],how='inner',on=['input_assay_id','fold_va'])
@@ -663,20 +706,48 @@ def statistical_significance_analysis(results_dir_x, t3_mapped_x, label_x, resul
     x_lim = 0.5
     y_lim = 0.5
     title = 'AUC ROC'
-    plot_statisical_significance(table, metric_x, metric_y, label_x, label_y, x_lim, y_lim, title )
 
-    return 
+    res_wide = summarize_diff_statistics(hp_bests[0],hp_bests[1],min_samples=min_samples)
+    res_stat_sign = plot_statisical_significance(table, metric_x, metric_y, label_x, label_y, x_lim, y_lim, title )
+    res = pd.concat([res_stat_sign, res_wide], axis=1)
 
+    return res 
+
+def summarize_diff_statistics(tasks_x, tasks_y, min_samples=25): 
+    """ Get the difference of overall aggregated metrics between two task-level dataframe
+    Result is the difference between the second and the first argument
+#    :param  dataframe containing task-level metrics (reference to compare with)
+#    :param  dataframe containing task-level metrics (first term in the difference)
+    """
+    
+    ress = []
+    fields = []
+    aggs = ['mean', 'median', 'stdev', 'kurtosis', 'skewness']
+    metrics = ['roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score', 'kappa']
+    for a in aggs: 
+        for m in metrics: 
+            fields.append(m + '_' + a)
+
+    for t in [tasks_x,tasks_y]: 
+        # take care of possible missing task weights : will be ignored in groupby so any impute value would do
+        t['hp_task_weights'] =  'irrelevant'
+        ress.append(aggregate_overall(t,min_samples=min_samples))
+    res = ress[1][fields]-ress[0][fields]
+    return res 
 
 def plot_statisical_significance(table, metric_x, metric_y, label_x, label_y, x_lim, y_lim, title=None):
+
     ax = plt.subplot(111)
     table['pvalue'] = table.apply(lambda r : pvalue(r[metric_y],r['num_pos_y'],r['num_neg_y'], r[metric_x],r['num_pos_x'],r['num_neg_x']), axis=1)
     table['stat_rev_multi+'] = (table['pvalue']<0.05) & (table[metric_y] > table[metric_x])
     table['stat_rev_multi-'] = (table['pvalue']>0.95) & (table[metric_y] < table[metric_x])
-    print(table['stat_rev_multi+'].value_counts())
-    print(table['stat_rev_multi-'].value_counts())
-    print('Metric X',table[metric_x].mean())
-    print('Metric Y',table[metric_y].mean())
+
+    d = {
+        'statistically significantly better tasks (y>x)' : ['{:.4%}'.format(table['stat_rev_multi+'].sum()/len(table))],
+        'statistically significantly worse tasks (y<x)' : ['{:.4%}'.format(table['stat_rev_multi-'].sum()/len(table))],
+    }
+    res = pd.DataFrame(d)
+
     mp = {(True,False):'blue',(False,False):'lightgray',(False,True):'red'}
     plt.scatter(table[metric_x],table[metric_y],alpha=0.3,c=[mp[e] for e in zip(table['stat_rev_multi+'],table['stat_rev_multi-'])])
     plt.xlim(x_lim)
@@ -687,6 +758,6 @@ def plot_statisical_significance(table, metric_x, metric_y, label_x, label_y, x_
     plt.ylabel(label_y)
     ax.plot(ax.get_xlim(), ax.get_ylim(), ls="--", c=".3")
 
-    return 
+    return res
 
 
