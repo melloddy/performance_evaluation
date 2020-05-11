@@ -664,8 +664,28 @@ def slice_mtx_cols(M, col_indices):
     return M[col_indices, :]
 
 
+def match_best_tasks(results_dir_x, t3_mapped_x, label_x, results_dir_y, t3_mapped_y, label_y, aux_assay_type='Yx', n_cv=5): 
+
+    hp_bests = list()
+    hp_selection_metric='auc_pr'
+    for e in ((results_dir_x, t3_mapped_x),(results_dir_y, t3_mapped_y)):
+        df_t3_mapped = pd.read_csv(e[1])
+        main_tasks = df_t3_mapped.loc[df_t3_mapped['assay_type']!=aux_assay_type].cont_classification_task_id.dropna().values
+        json_df = perf_from_json(e[0],aggregate=False,tasks_for_eval=main_tasks, n_cv=n_cv) 
+        json_melted = melt_perf(json_df, perf_metrics=[hp_selection_metric])
+        hp_best = best_hyperparam(json_melted)
+        hp_best = hp_best.drop(columns=['fold_va']) # are grouped-by (averaged)
+        # keeping only the records associated to the best hyperparameters
+        hp_cols = ['hp_'+hp for hp in get_sc_hps()]
+        hp_best = pd.merge(json_df[~json_df[hp_selection_metric].isna()],hp_best,how='inner',on=hp_cols)
+        hp_best = pd.merge(df_t3_mapped,hp_best,how='inner',left_on='cont_classification_task_id',right_on='task')
+        hp_bests.append(hp_best)
+
+    return hp_bests
+
 def statistical_model_comparison_analysis(results_dir_x, t3_mapped_x, label_x, results_dir_y, t3_mapped_y, label_y, aux_assay_type='Yx', n_cv=5, min_samples=25):
     """ Run a statistical significance analysis between two runs, both with hyperparameter optimization
+      Best hyperparameters will be selected based on the auc_pr
       For now, only compatible with the json result format . 
       Result is the difference between the second (y) and the first (x) arguments
 #    :param  str path to the results folder of the 1st run, containing the json files
@@ -678,26 +698,11 @@ def statistical_model_comparison_analysis(results_dir_x, t3_mapped_x, label_x, r
 #    :param int n_cv: statistics calculations will be limited to the tasks which have at least this number of positives and negatives
 #    :return None 
     """ 
-    hp_bests = list()
-    for e in ((results_dir_x, t3_mapped_x),(results_dir_y, t3_mapped_y)):
-        df_t3_mapped = pd.read_csv(e[1])
-        aux_assay_type='Yx'
-        main_tasks = df_t3_mapped.loc[df_t3_mapped['assay_type']!=aux_assay_type].cont_classification_task_id.dropna().values
-        json_df = perf_from_json(e[0],aggregate=False,tasks_for_eval=main_tasks, n_cv=n_cv) 
-        json_melted = melt_perf(json_df, perf_metrics=['auc_pr'])
-        hp_best = best_hyperparam(json_melted)
-        hp_best = hp_best.drop(columns=['fold_va']) # are grouped-by (averaged)
-        # keeping only the records associated to the best hyperparameters
-        hp_cols = ['hp_'+hp for hp in get_sc_hps()]
-        hp_best = pd.merge(json_df[~json_df['auc_pr'].isna()],hp_best,how='inner',on=hp_cols)
-        hp_best = pd.merge(df_t3_mapped,hp_best,how='inner',left_on='cont_classification_task_id',right_on='task')
-        hp_bests.append(hp_best)
 
-    
+    hp_bests = match_best_tasks(results_dir_x, t3_mapped_x, label_x, results_dir_y, t3_mapped_y, label_y, aux_assay_type='Yx', n_cv=5)
     # matching x and y runs
     df_merge = pd.merge(hp_bests[0], hp_bests[1],how='inner',on=['input_assay_id','fold_va'])
-    df_merge = df_merge[~df_merge['roc_auc_score_y'].isna()]
-    df_merge = df_merge[~df_merge['roc_auc_score_x'].isna()]
+
     # plotting
     # statistical analysis only valid for aggregated figures over folds - hence groupby
     table = df_merge.groupby(by=['input_assay_id']).mean().reset_index() # supposedly, no threshold_value needed here in the gb-clause
@@ -708,6 +713,8 @@ def statistical_model_comparison_analysis(results_dir_x, t3_mapped_x, label_x, r
     title = 'AUC ROC'
 
     res_wide = summarize_diff_statistics(hp_bests[0],hp_bests[1],min_samples=min_samples)
+    table = table[~table['roc_auc_score_y'].isna()]
+    table = table[~table['roc_auc_score_x'].isna()]
     res_stat_sign = plot_statisical_significance(table, metric_x, metric_y, label_x, label_y, x_lim, y_lim, title )
     res = pd.concat([res_stat_sign, res_wide], axis=1)
 
@@ -719,7 +726,6 @@ def summarize_diff_statistics(tasks_x, tasks_y, min_samples=25):
 #    :param  dataframe containing task-level metrics (reference to compare with)
 #    :param  dataframe containing task-level metrics (first term in the difference)
     """
-    
     ress = []
     fields = []
     aggs = ['mean', 'median', 'stdev', 'kurtosis', 'skewness']
