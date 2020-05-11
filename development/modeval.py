@@ -325,7 +325,7 @@ def perf_from_json(
         files = [model_dir_or_file]
 
     for f in tqdm(files):
-        if not f.endswith(".json") or not os.path.basename(f).startswith("sc_"):
+        if not f.endswith(".json"):# or not os.path.basename(f).startswith("sc_"):
             print(f"{f} is not a sparsechem json, hence skipped.")
             continue
 
