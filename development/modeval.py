@@ -194,8 +194,9 @@ def aggregate_fold_perf(metrics_df, min_samples, n_cv=5,  verify=True):
     
     if verify:verify_cv_runs(metrics_df, n_cv=n_cv)
 
-    # keep only tasks verifying the min_sample rule: 
-    metrics2consider_df = metrics_df.loc[(metrics_df['num_pos']>=min_samples)&(metrics_df['num_neg']>=min_samples)].copy() 
+    # keep only tasks verifying the min_sample rule: at least N postives and N negatives in each of the 5 folds
+    metrics2consider_df = quorum_filter(metrics_df, min_class_size_per_fold=min_samples, n_cv=n_cv)
+
 
     # drop a few columns which are not relevant in this aggrgation
     cols2drop = [x for x in metrics2consider_df.columns if 'num_pos' in x]
@@ -250,8 +251,9 @@ def aggregate_task_perf(metrics_df, min_samples, n_cv=5,  verify=True):
     
     if verify:verify_cv_runs(metrics_df, n_cv=n_cv)
 
-    metrics2consider_df = metrics_df.loc[(metrics_df['num_pos']>=min_samples)&(metrics_df['num_neg']>=min_samples)]
-    
+    # keep only tasks verifying the min_sample rule: at least N postives and N negatives in each of the 5 folds
+    metrics2consider_df = quorum_filter(metrics_df, min_class_size_per_fold=min_samples, n_cv=n_cv)
+
     # do the mean aggregation
     aggr_mean = metrics2consider_df.groupby(hp).mean()
     aggr_mean.columns = [x+'_mean' for x in aggr_mean.columns]
@@ -291,7 +293,9 @@ def aggregate_overall(metrics_df, min_samples):
     assert 'num_pos' in metrics_df.columns, "metrics dataframe must contain num_pos column"
     assert 'num_neg' in metrics_df.columns, "metrics dataframe must contain num_neg column"
     
-    metrics2consider_df = metrics_df.loc[(metrics_df['num_pos']>=min_samples)&(metrics_df['num_neg']>=min_samples)].copy() 
+
+    # keep only tasks verifying the min_sample rule: at least N postives and N negatives in each of the 5 folds
+    metrics2consider_df = quorum_filter(metrics_df, min_class_size_per_fold=min_samples, n_cv=n_cv)
     
     # drop a few columns which are not relevant in this aggrgation
     cols2drop = [x for x in metrics2consider_df.columns if 'num_pos' in x]
