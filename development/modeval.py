@@ -172,15 +172,17 @@ def quorum_filter(metrics_df, min_class_size_per_fold=25, n_cv=5):
 
 # =======================================================================
 # =======================================================================
-# ==== aggregation functions 
+# ==== aggregation functions: apply only to individual task performances 
+# ==== does not apply to sparsechem aggregate performance metrics
 
 def aggregate_fold_perf(metrics_df, min_samples, n_cv=5,  verify=True):
     """ HP performance aggregation over folds. 
     From the metrics dataframe yielded by perf_from_metrics(), does the aggregation over the fold (mean, median, std, skewness, kurtosis) results in one perf per fold.
 #     :param pandas df metrics_df: metrics dataframe yielded by perf_from_metrics() 
-#     :param int min_sample: minimum number of each class (overal) to be considered in mean
+#     :param int min_sample: minimum number of each class (overal) to be present in each fold for aggregation metric
 #     :param int n_cv: number of folds to look for
 #     :param bool verify: checks for missing folds runs in CV and prints a report if missing jobs
+
 #     :return dtype: pandas df containing performance per task aggregated over each fold
     """    
 
@@ -230,13 +232,15 @@ def aggregate_fold_perf(metrics_df, min_samples, n_cv=5,  verify=True):
 
     
     
-def aggregate_task_perf(metrics_df, min_samples, n_cv=5,  verify=True):
+def aggregate_task_perf(metrics_df, min_samples, n_cv=5,  verify=True, stats='full', metrics=['roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score','kappa']):
     """ HP performance aggregation over tasks. 
     From the metrics dataframe yielded by perf_from_metrics(), does the aggregation over the CV (mean, std) results in one perf per task.
 #     :param pandas df metrics_df: metrics dataframe yielded by perf_from_metrics() 
-#     :param int min_sample: minimum number of each class (overal) to be considered in mean
+#     :param int min_sample: minimum number of each class (overal) to be present in each fold for aggregation metric
 #     :param int n_cv: number of folds to look for
 #     :param bool verify: checks for missing folds runs in CV and prints a report if missing jobs
+#     :param string stats: ['basic', 'full'], if full, calculates skewness of kurtosis
+#     :param list metircs: ['roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score','kappa'] thelist of metrics to aggregate
 #     :return dtype: pandas df containing performance per task aggregated over CV
     """    
 
@@ -246,36 +250,49 @@ def aggregate_task_perf(metrics_df, min_samples, n_cv=5,  verify=True):
     assert 'num_neg' in metrics_df.columns, "metrics dataframe must contain num_neg column"
     
     hp.append('task')
-    hp.append('num_pos')
-    hp.append('num_neg')
+    #hp.append('num_pos')
+    #hp.append('num_neg')
     
     if verify:verify_cv_runs(metrics_df, n_cv=n_cv)
 
     # keep only tasks verifying the min_sample rule: at least N postives and N negatives in each of the 5 folds
+    
     metrics2consider_df = quorum_filter(metrics_df, min_class_size_per_fold=min_samples, n_cv=n_cv)
-
+    col2drop = [col for col in metrics_df.columns if col not in metrics and col not in hp]
+    
+    
     # do the mean aggregation
-    aggr_mean = metrics2consider_df.groupby(hp).mean()
+    aggr_mean = metrics2consider_df.drop(col2drop,axis=1).groupby(hp).mean()
     aggr_mean.columns = [x+'_mean' for x in aggr_mean.columns]
-
-    # do the median aggregation
-    aggr_med = metrics2consider_df.groupby(hp).median()
-    aggr_med.columns = [x+'_median' for x in aggr_med.columns]
     
     # do the stdev aggregation
-    aggr_std = metrics2consider_df.groupby(hp).std()
+    aggr_std = metrics2consider_df.drop(col2drop,axis=1).groupby(hp).std()
     aggr_std.columns = [x+'_stdev' for x in aggr_std.columns]
-
-    # do the skew aggregation
-    aggr_skew = metrics2consider_df.groupby(hp).skew()
-    aggr_skew.columns = [x+'_skewness' for x in aggr_skew.columns]
-
-    # do the kurtosis aggregation
-    aggr_kurt = metrics2consider_df.groupby(hp).apply(pd.DataFrame.kurt)
-    aggr_kurt.columns = [x+'_kurtosis' for x in aggr_kurt.columns]
     
+    
+    # do the num_pos, num_neg aggregation
+    aggr_num = metrics2consider_df[['num_pos','num_neg']+hp].groupby(hp).sum()
+    
+    if stats == 'basic':
+        results = aggr_num.join(aggr_mean).join(aggr_med).join(aggr_std)
+        
+    
+    elif stats=='full':
+        # do the median aggregation
+        aggr_med = metrics2consider_df.drop(col2drop,axis=1).groupby(hp).median()
+        aggr_med.columns = [x+'_median' for x in aggr_med.columns]        
+        
+        # do the skew aggregation
+        aggr_skew = metrics2consider_df.drop(col2drop,axis=1).groupby(hp).skew()
+        aggr_skew.columns = [x+'_skewness' for x in aggr_skew.columns]
+        
+        # do the kurtosis aggregation
+        aggr_kurt = metrics2consider_df.drop(col2drop,axis=1).groupby(hp).apply(pd.DataFrame.kurt)
+        aggr_kurt.columns = [x+'_kurtosis' for x in aggr_kurt.columns]
+        
+        results = aggr_num.join(aggr_mean).join(aggr_med).join(aggr_std).join(aggr_skew).join(aggr_kurt)
 
-    return aggr_mean.join(aggr_med).join(aggr_std).join(aggr_skew).reset_index()  .join(aggr_kurt)
+    return results.reset_index()
     
 
     
@@ -285,7 +302,7 @@ def aggregate_overall(metrics_df, min_samples):
     """ HP performance aggregation overall . 
     From the metrics dataframe yielded by perf_from_metrics(), does the aggregation over the CV (mean, std) results in one perf hyperparameter.
 #     :param pandas df metrics_df: metrics dataframe yielded by perf_from_metrics() 
-#     :param int min_sample: minimum number of each class (overal) to be considered in mean
+#     :param int min_sample: minimum number of each class (overal) to be present in each fold for aggregation metric
 #     :return dtype: pandas df containing performance per hyperparameter setting
     """        
     hp = [x for x in metrics_df.columns if x[:3] == 'hp_']
@@ -293,7 +310,6 @@ def aggregate_overall(metrics_df, min_samples):
     assert 'num_pos' in metrics_df.columns, "metrics dataframe must contain num_pos column"
     assert 'num_neg' in metrics_df.columns, "metrics dataframe must contain num_neg column"
     
-
     # keep only tasks verifying the min_sample rule: at least N postives and N negatives in each of the 5 folds
     metrics2consider_df = quorum_filter(metrics_df, min_class_size_per_fold=min_samples, n_cv=n_cv)
     
@@ -377,7 +393,7 @@ def melt_perf(df_res, perf_metrics=['roc_auc_score', 'auc_pr', 'avg_prec_score',
 
 
 def best_hyperparam(dfm):
-    """ Gets the best hyperparameters (according to mean aggregate) for each performance metrics from dfm resulting from melt_perf(). 
+    """ Gets the best hyperparameters (according to mean aggregate) for each performance metrics from dfm resulting from melt_perf(). Assumes the quorum filtering was performed beforehands.
 #     :param pandas dfm: dataframe containing results as provided by melt_perf()
 #     :return dtype: pandas df containing best HPs per performance metrics
     """
@@ -417,6 +433,13 @@ def all_hyperparam(dfm):
 
 
 
+
+
+
+
+# =======================================================================
+# =======================================================================
+# ==== Performance calculation from y_hat
 
 def perf_from_yhat(y_labels_pred, y_hat, verbose=True, limit=None):
     
