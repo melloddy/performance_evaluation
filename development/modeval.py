@@ -524,7 +524,7 @@ def best_hyperparam(dfm):
     """
     agg_df = all_hyperparam(dfm)
     best_hps = agg_df.iloc[agg_df.groupby(['score_type']).idxmax()['value'].values]    
-    return best_hps.drop(['fold_va'],axis=1)
+    return best_hps.drop(['fold_va', 'index'],axis=1)
 
 
 def perf_from_yhat(y_labels_pred, y_hat, verbose=True, limit=None):
