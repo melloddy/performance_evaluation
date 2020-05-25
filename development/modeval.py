@@ -474,12 +474,16 @@ def perf_from_conf_individual(model_dir, tasks_for_eval, model_name='Y'):
     return df_res
 
 
-def melt_perf(df_res, perf_metrics=['auc_pr_va','auc_va']):
+def melt_perf(df_res, perf_metrics=['roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score','kappa']):
     """ Melts (or unpivot) the performance dataframe resuting from perf_from_conf(). 
 #     :param pandas df_res: dataframe containing results as provided by perf_from_conf()
 #     :param list strings perf_metrics: list of perf metrics to keep (depends on columns in df_res)
 #     :return dtype: pandas df containing performance in melted format usefull for R ggplot2
     """
+    
+    for metric in perf_metrics:
+        assert metric in df_res.columns, f"performance metrics {metric} not found in data frame"
+    
     
     hp_cols = [x for x in df_res.columns if x[:3]=='hp_']
     assert len(hp_cols) > 0, 'No hyperparamters found in dataframe, use hp_* prefix for hyperparameters columns'
