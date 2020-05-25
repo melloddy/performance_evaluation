@@ -135,7 +135,7 @@ def verify_cv_runs(metrics_df, n_cv=5):
 
 def aggregate_fold_perf(metrics_df, min_samples, n_cv=5,  verify=True):
     """ HP performance aggregation over folds. 
-    From the metrics dataframe yielded by perf_from_metrics(), does the aggregation over the fold (mean, std) results in one perf per fold.
+    From the metrics dataframe yielded by perf_from_metrics(), does the aggregation over the fold (mean, median, std, skewness, kurtosis) results in one perf per fold.
 #     :param pandas df metrics_df: metrics dataframe yielded by perf_from_metrics() 
 #     :param int min_sample: minimum number of each class (overal) to be considered in mean
 #     :param int n_cv: number of folds to look for
