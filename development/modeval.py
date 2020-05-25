@@ -175,14 +175,15 @@ def quorum_filter(metrics_df, min_class_size_per_fold=25, n_cv=5):
 # ==== aggregation functions: apply only to individual task performances 
 # ==== does not apply to sparsechem aggregate performance metrics
 
-def aggregate_fold_perf(metrics_df, min_samples, n_cv=5,  verify=True):
+def aggregate_fold_perf(metrics_df, min_samples, n_cv=5,  verify=True, stats='full', metrics=['roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score','kappa']):
     """ HP performance aggregation over folds. 
     From the metrics dataframe yielded by perf_from_metrics(), does the aggregation over the fold (mean, median, std, skewness, kurtosis) results in one perf per fold.
 #     :param pandas df metrics_df: metrics dataframe yielded by perf_from_metrics() 
 #     :param int min_sample: minimum number of each class (overal) to be present in each fold for aggregation metric
 #     :param int n_cv: number of folds to look for
 #     :param bool verify: checks for missing folds runs in CV and prints a report if missing jobs
-
+#     :param string stats: ['basic', 'full'], if full, calculates skewness of kurtosis
+#     :param list metircs: ['roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score','kappa'] thelist of metrics to aggregate
 #     :return dtype: pandas df containing performance per task aggregated over each fold
     """    
 
@@ -199,35 +200,41 @@ def aggregate_fold_perf(metrics_df, min_samples, n_cv=5,  verify=True):
     # keep only tasks verifying the min_sample rule: at least N postives and N negatives in each of the 5 folds
     metrics2consider_df = quorum_filter(metrics_df, min_class_size_per_fold=min_samples, n_cv=n_cv)
 
-
     # drop a few columns which are not relevant in this aggrgation
-    cols2drop = [x for x in metrics2consider_df.columns if 'num_pos' in x]
-    [cols2drop.append(x) for x in metrics2consider_df.columns if 'num_neg' in x]
-    cols2drop.append('task')
-    metrics2consider_df.drop(cols2drop, axis=1,inplace=True)    
+    cols2drop = [col for col in metrics_df.columns if col not in metrics and col not in hp]
+    
     
     # do the mean aggregation
-    aggr_mean = metrics2consider_df.groupby(hp).mean()
+    aggr_mean = metrics2consider_df.drop(cols2drop, axis=1).groupby(hp).mean()
     aggr_mean.columns = [x+'_mean' for x in aggr_mean.columns]
-
-    # do the median aggregation
-    aggr_med = metrics2consider_df.groupby(hp).median()
-    aggr_med.columns = [x+'_median' for x in aggr_med.columns]
     
     # do the stdev aggregation
-    aggr_std = metrics2consider_df.groupby(hp).std()
+    aggr_std = metrics2consider_df.drop(cols2drop, axis=1).groupby(hp).std()
     aggr_std.columns = [x+'_stdev' for x in aggr_std.columns]
 
-    # do the skew aggregation
-    aggr_skew = metrics2consider_df.groupby(hp).skew()
-    aggr_skew.columns = [x+'_skewness' for x in aggr_skew.columns]
-
-    # do the kurtosis aggregation
-    aggr_kurt = metrics2consider_df.groupby(hp).apply(pd.DataFrame.kurt)
-    aggr_kurt.columns = [x+'_kurtosis' for x in aggr_kurt.columns]
+    # do the num_pos, num_neg aggregation
+    aggr_num = metrics2consider_df[['num_pos','num_neg']+hp].groupby(hp).sum()  
     
+    if stats=='basic':
+        results = aggr_num.join(aggr_mean).join(aggr_std)
+    
+    
+    elif stats=='full':
+        # do the median aggregation
+        aggr_med = metrics2consider_df.drop(cols2drop, axis=1).groupby(hp).median()
+        aggr_med.columns = [x+'_median' for x in aggr_med.columns]
+    
+        # do the skew aggregation
+        aggr_skew = metrics2consider_df.drop(cols2drop, axis=1).groupby(hp).skew()
+        aggr_skew.columns = [x+'_skewness' for x in aggr_skew.columns]
 
-    return aggr_mean.join(aggr_med).join(aggr_std).join(aggr_skew).join(aggr_kurt).reset_index()
+        # do the kurtosis aggregation
+        aggr_kurt = metrics2consider_df.drop(cols2drop, axis=1).groupby(hp).apply(pd.DataFrame.kurt)
+        aggr_kurt.columns = [x+'_kurtosis' for x in aggr_kurt.columns]
+    
+        results = aggr_mean.join(aggr_med).join(aggr_std).join(aggr_skew).join(aggr_kurt).reset_index()
+        
+    return results.reset_index()
       
 
     
@@ -250,8 +257,6 @@ def aggregate_task_perf(metrics_df, min_samples, n_cv=5,  verify=True, stats='fu
     assert 'num_neg' in metrics_df.columns, "metrics dataframe must contain num_neg column"
     
     hp.append('task')
-    #hp.append('num_pos')
-    #hp.append('num_neg')
     
     if verify:verify_cv_runs(metrics_df, n_cv=n_cv)
 
@@ -269,12 +274,11 @@ def aggregate_task_perf(metrics_df, min_samples, n_cv=5,  verify=True, stats='fu
     aggr_std = metrics2consider_df.drop(col2drop,axis=1).groupby(hp).std()
     aggr_std.columns = [x+'_stdev' for x in aggr_std.columns]
     
-    
     # do the num_pos, num_neg aggregation
     aggr_num = metrics2consider_df[['num_pos','num_neg']+hp].groupby(hp).sum()
     
     if stats == 'basic':
-        results = aggr_num.join(aggr_mean).join(aggr_med).join(aggr_std)
+        results = aggr_num.join(aggr_mean).join(aggr_std)
         
     
     elif stats=='full':
