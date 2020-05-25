@@ -307,6 +307,7 @@ def perf_from_json(
         evaluation_set='va',
         model_name='Y',
         n_cv=5,
+        verbose=False
     ):
     """ Collects the performance from thje models/*.json files containing both the model configuration and performance.
       Useful for HP search because it includes HPs details.
@@ -326,7 +327,7 @@ def perf_from_json(
 
     for f in tqdm(files):
         if not f.endswith(".json"):# or not os.path.basename(f).startswith("sc_"):
-            print(f"{f} is not a sparsechem json, hence skipped.")
+            if verbose: print(f"{f} is not a sparsechem json, hence skipped.")
             continue
 
         with open(f, "r") as fi:
