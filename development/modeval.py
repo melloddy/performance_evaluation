@@ -307,16 +307,19 @@ def perf_from_json(
         evaluation_set='va',
         model_name='Y',
         n_cv=5,
+        drop_na_col=False,
         verbose=False
     ):
     """ Collects the performance from thje models/*.json files containing both the model configuration and performance.
       Useful for HP search because it includes HPs details.
-#     :param string model_dir: path to the model folder containing the .json files
+#     :param string model_dir_or_file: path to the model folder containing the .json files
 #     :param np.array (integers like) tasks_for_eval: tasks to consider for evaluation (default=None)
 #     :param bool aggrgate: if True, uses the aggregate result from sparsechem (considering all tasks verifying MIN_SAMPLES).
+#     :param string evaluation_set: keyword for result extraction from json file. 
 #     :param string model_name: adds a name in a column to resulting dataframe (default=Y)
-#     :return pandas df containing performance and configuration summaries 
 #     :param int n_cv: specify the number of folds used for cross valid, starting with 0, higher fold_va numbers will be dropped
+#     :param bool drop_na_col: if True, drops columns entirely populated with None or nan
+#     :return pandas df containing performance and configuration summaries 
     """
     res_all = []
 
@@ -371,6 +374,8 @@ def perf_from_json(
     cvfolds = list(range(n_cv))
     output_df = output_df.query('fold_va in @cvfolds')
 
+    if drop_na_col: output_df.dropna(axis='columns', how='all', inplace=True)
+    
     return output_df
 
 
@@ -523,8 +528,14 @@ def best_hyperparam(dfm):
 #     :return dtype: pandas df containing best HPs per performance metrics
     """
     agg_df = all_hyperparam(dfm)
-    best_hps = agg_df.iloc[agg_df.groupby(['score_type']).idxmax()['value'].values]    
-    return best_hps.drop(['fold_va', 'index'],axis=1)
+    best_hps = agg_df.iloc[agg_df.groupby(['score_type']).idxmax()['value'].values]
+    
+    # reorder columns
+    columns = [c for c in best_hps.columns if c[:3] == 'hp_']
+    columns.append('score_type')
+    columns.append('value')
+    
+    return best_hps[columns]
 
 
 def perf_from_yhat(y_labels_pred, y_hat, verbose=True, limit=None):
