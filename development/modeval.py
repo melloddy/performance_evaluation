@@ -108,8 +108,8 @@ def perf_from_json(
 
 
 def verify_cv_runs(metrics_df, n_cv=5):
-    """ From the metrics dataframe yielded by perf_from_metrics(), cehcks if each hyperparameter was run n_cv
-#     :param pandas df metrics_df: metrics dataframe yielded by perf_from_metrics() 
+    """ From the metrics dataframe yielded by perf_from_json(), cehcks if each hyperparameter was run n_cv
+#     :param pandas df metrics_df: metrics dataframe yielded by perf_from_json() 
 #     :param int n_cv: number of folds to look for
 #     :return void: prints message in stdout
     """    
@@ -119,16 +119,52 @@ def verify_cv_runs(metrics_df, n_cv=5):
     aggr = metrics_df.sort_values('fold_va').groupby(hp)['fold_va'].apply(lambda x: ','.join([str(x) for x in x.unique()]))
         
      # if missing ones, print out a warning message
+    valid=True
     folds = ",".join([str(x) for x in range(n_cv)])
     if aggr[~aggr.str.contains(folds)].shape[0]>0:
+        valid = False
         print("WARNING: missing fold runs")
         print(f"Fold runs found :\n {aggr}")
     
-    return 
+    return valid
 
 
 
+def quorum_filter(metrics_df, min_class_size_per_fold=25, n_cv=5):
+    """ Filter the metrics data frame of each model (as defined by a HP set) with a quorum rule: minimum N postive samples and N negative sample in each fold 
+#     :param pandas df metrics_df: metrics dataframe yielded by perf_from_json() 
+#     :param int min_class_size_per_fold: minimum class size per fold
+#     :param int n_cv: number of folds to look for
+#     :return pandas df filtered_df: metrics data frame containing , for every given HPs sets, only tasks present in each of the folds 
+    """
+    
+    # assertions
+    assert 'fold_va' in metrics_df.columns, "fold_va must be present in metrics data frame"
+    assert 'task' in metrics_df.columns, "task must be present in metrics data frame"
+    assert 'num_pos' in metrics_df.columns, "num_pos must be present in metrics data frame"
+    assert 'num_neg' in metrics_df.columns, "num_neg must be present in metrics data frame"
+    
+    index_cols = ['fold_va', 'task'] + [col for col in metrics_df if col[:3] == 'hp_'] 
+    df = metrics_df.set_index(keys=index_cols, verify_integrity=True).copy()
+    
 
+    # add a dummy column to perform the count
+    df['_'] = 1
+    
+
+    # first filter rows with at least N positives and N negatives in each fold 
+    task_mini = df.loc[(df['num_pos']>=min_class_size_per_fold)&(df['num_neg']>=min_class_size_per_fold)]
+    
+
+    # then count the number of folds for each <task,hp> and filter (it must be present in each fold)
+    levels = [x for x in range(1, len(index_cols))]
+    task_count = task_mini['_'].groupby(level=levels).count()
+    selected_tasks = task_count[task_count==n_cv].index.unique()
+    
+   
+    return df.reset_index(level=0).loc[selected_tasks, :].reset_index().drop('_',axis=1)
+    
+    
 
 
 
