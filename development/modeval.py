@@ -48,6 +48,9 @@ def perf_from_json(
 #     :param bool drop_na_col: if True, drops columns entirely populated with None or nan
 #     :return pandas df containing performance and configuration summaries 
     """
+    # pandas v0.24 (pd.read_json) is not returning expected results when used with the arguement "tasks_for_eval" 
+    assert pd.__version__[:4] =='0.25', 'Pandas version must be 0.25' # should this be placed somewhere else?
+    
     res_all = []
 
     if os.path.isdir(os.path.join(model_dir_or_file)):     
