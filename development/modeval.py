@@ -40,7 +40,7 @@ def perf_from_json(
     """ Collects the performance from thje models/*.json files containing both the model configuration and performance.
       Useful for HP search because it includes HPs details.
 #     :param string model_dir_or_file: path to the model folder containing the .json files
-#     :param np.array (integers like) tasks_for_eval: tasks to consider for evaluation (default=None)
+#     :param iterrable (of indices/integers) tasks_for_eval: tasks to consider for evaluation (default=None)
 #     :param bool aggrgate: if True, uses the aggregate result from sparsechem (considering all tasks verifying MIN_SAMPLES).
 #     :param string evaluation_set: keyword for result extraction from json file. 
 #     :param string model_name: adds a name in a column to resulting dataframe (default=Y)
@@ -50,6 +50,11 @@ def perf_from_json(
     """
     # pandas v0.24 (pd.read_json) is not returning expected results when used with the arguement "tasks_for_eval" 
     assert pd.__version__[:4] =='0.25', 'Pandas version must be 0.25' # should this be placed somewhere else?
+    assert type(tasks_for_eval) is np.ndarray, "tasks_for_eval must be an np.array"
+    assert tasks_for_eval.ndim == 1, "tasks_for_eval must be np.array with ndim=1"
+    
+    for x in tasks_for_eval:
+        assert int(x) == x, "elements in tasks_for_eval must be integer-like"
     
     res_all = []
 
