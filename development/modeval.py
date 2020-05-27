@@ -34,6 +34,7 @@ def perf_from_json(
         evaluation_set='va',
         model_name='Y',
         n_cv=5,
+        filename_mask=None,
         drop_na_col=False,
         verbose=False
     ):
@@ -44,7 +45,8 @@ def perf_from_json(
 #     :param bool aggrgate: if True, uses the aggregate result from sparsechem (considering all tasks verifying MIN_SAMPLES).
 #     :param string evaluation_set: keyword for result extraction from json file. 
 #     :param string model_name: adds a name in a column to resulting dataframe (default=Y)
-#     :param int n_cv: specify the number of folds used for cross valid, starting with 0, higher fold_va numbers will be dropped
+#     :param int n_cv: specify the number of folds used for cross valid, starting with 1, higher fold_va numbers will be dropped
+#     :param str filename_mask: specify a filename mask to restrict the perf loading to a subset of files
 #     :param bool drop_na_col: if True, drops columns entirely populated with None or nan
 #     :return pandas df containing performance and configuration summaries 
     """
@@ -58,10 +60,11 @@ def perf_from_json(
         for x in tasks_for_eval:
             assert int(x) == x, "elements in tasks_for_eval must be integer-like"
             assert x>=0, "elements in tasks_for_eval must be > 0"
-        
+            
         assert np.unique(tasks_for_eval).shape[0] == tasks_for_eval.shape[0], "tasks_for_eval must not have duplicates"
         
-        
+    assert n_cv != 0, "n_cv minimum value must be 1"
+    
     res_all = []
 
     if os.path.isdir(os.path.join(model_dir_or_file)):     
@@ -73,7 +76,11 @@ def perf_from_json(
         if not f.endswith(".json"):# or not os.path.basename(f).startswith("sc_"):
             if verbose: print(f"{f} is not a sparsechem json, hence skipped.")
             continue
-
+        
+        if filename_mask is not None and filename_mask not in f:
+            if verbose: print(f"{f} does not match filename mask, hence skipped.")
+            continue
+            
         with open(f, "r") as fi:
             data = json.load(fi)
 
@@ -109,13 +116,17 @@ def perf_from_json(
         
         res_all.append(res_df)
  
+    assert len(res_all) > 0, "No .json files found or none of them matched the filename_mask"
+    
     output_df = pd.concat(res_all)
 
     # filter out some folds 
     cvfolds = list(range(n_cv))
     output_df = output_df.query('fold_va in @cvfolds')
-
-    if drop_na_col: output_df.dropna(axis='columns', how='all', inplace=True)
+    
+    assert output_df.shape[0] > 0, f"No records found for the specified cv fold {n_cv}:{cvfolds}"
+    
+    if drop_na_col: output_df = output_df.dropna(axis='columns', how='all')
     
     return output_df
 
