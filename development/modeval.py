@@ -204,7 +204,7 @@ def quorum_filter(metrics_df, min_class_size_per_fold=5, n_cv=5, verbose=True):
 # ==== aggregation functions: apply only to individual task performances 
 # ==== does not apply to sparsechem aggregate performance metrics
 
-def aggregate_fold_perf(metrics_df, min_samples, n_cv=5,  verify=True, stats='full', metrics=['roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score','kappa']):
+def aggregate_fold_perf(metrics_df, min_samples, n_cv=5,  verify=True, stats='full', metrics=['roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score','kappa'], verbose=True):
     """ HP performance aggregation over folds. Includes a quorum filtering step (at least N actives and N inactives in each of the n_cv folds)
     From the metrics dataframe yielded by perf_from_metrics(), does the aggregation over the fold (mean, median, std, skewness, kurtosis) results in one perf per fold.
 #     :param pandas df metrics_df: metrics dataframe yielded by perf_from_metrics() 
@@ -213,6 +213,7 @@ def aggregate_fold_perf(metrics_df, min_samples, n_cv=5,  verify=True, stats='fu
 #     :param bool verify: checks for missing folds runs in CV and prints a report if missing jobs
 #     :param string stats: ['basic', 'full'], if full, calculates skewness of kurtosis
 #     :param list metircs: ['roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score','kappa'] thelist of metrics to aggregate
+#     :param bool verbose 
 #     :return dtype: pandas df containing performance per task aggregated over each fold
     """    
 
@@ -230,6 +231,7 @@ def aggregate_fold_perf(metrics_df, min_samples, n_cv=5,  verify=True, stats='fu
     metrics2consider_df = quorum_filter(metrics_df, min_class_size_per_fold=min_samples, n_cv=n_cv)
     cols2drop = [col for col in metrics_df.columns if col not in metrics and col not in hp]
     
+    if verbose: print("# Aggregatate (performance mean) hyperparameter combinations")
     
     # do the mean aggregation
     aggr_mean = metrics2consider_df.drop(cols2drop, axis=1).groupby(hp).mean()
@@ -261,12 +263,13 @@ def aggregate_fold_perf(metrics_df, min_samples, n_cv=5,  verify=True, stats='fu
     
         results = aggr_mean.join(aggr_med).join(aggr_std).join(aggr_skew).join(aggr_kurt)
         
+    if verbose: print(f"# --> Found {results.shape[0]} hyperparameters combinations")
     return results.reset_index()
       
 
     
     
-def aggregate_task_perf(metrics_df, min_samples, n_cv=5,  verify=True, stats='full', metrics=['roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score','kappa']):
+def aggregate_task_perf(metrics_df, min_samples, n_cv=5,  verify=True, stats='full', metrics=['roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score','kappa'], verbose=True):
     """ HP performance aggregation over tasks. Includes a quorum filtering step (at least N actives and N inactives in each of the n_cv folds)
     From the metrics dataframe yielded by perf_from_json(), does the aggregation over the CV (mean, std) results in one perf per task.
 #     :param pandas df metrics_df: metrics dataframe yielded by perf_from_json() 
@@ -275,6 +278,7 @@ def aggregate_task_perf(metrics_df, min_samples, n_cv=5,  verify=True, stats='fu
 #     :param bool verify: checks for missing folds runs in CV and prints a report if missing jobs
 #     :param string stats: ['basic', 'full'], if full, calculates skewness of kurtosis
 #     :param list metircs: ['roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score','kappa'] thelist of metrics to aggregate
+#     :param bool verbose
 #     :return dtype: pandas df containing performance per task aggregated over CV
     """    
 
@@ -289,9 +293,10 @@ def aggregate_task_perf(metrics_df, min_samples, n_cv=5,  verify=True, stats='fu
 
     # keep only tasks verifying the min_sample rule: at least N postives and N negatives in each of the 5 folds
     
-    metrics2consider_df = quorum_filter(metrics_df, min_class_size_per_fold=min_samples, n_cv=n_cv)
+    metrics2consider_df = quorum_filter(metrics_df, min_class_size_per_fold=min_samples, n_cv=n_cv, verbose=verbose)
     col2drop = [col for col in metrics_df.columns if col not in metrics and col not in hp]
     
+    if verbose: print("# Aggregatate (performance mean) hyperparameter combinations")
     
     # do the mean aggregation
     aggr_mean = metrics2consider_df.drop(col2drop,axis=1).groupby(hp).mean()
@@ -323,6 +328,7 @@ def aggregate_task_perf(metrics_df, min_samples, n_cv=5,  verify=True, stats='fu
         
         results = aggr_num.join(aggr_mean).join(aggr_med).join(aggr_std).join(aggr_skew).join(aggr_kurt)
 
+    if verbose: print(f"# --> Found {results.shape[0]} hyperparameters combinations")
     return results.reset_index()
     
 
@@ -338,6 +344,7 @@ def aggregate_overall(metrics_df, min_samples, stats='full', n_cv=5, verify=True
 #     :param bool verify: checks for missing folds runs in CV and prints a report if missing jobs
 #     :param string stats: ['basic', 'full'], if full, calculates skewness of kurtosis
 #     :param list metircs: ['roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score','kappa'] thelist of metrics to aggregate
+#     :param bool verbose
 #     :return dtype: pandas df containing performance per hyperparameter setting
     """ 
         
@@ -383,8 +390,7 @@ def aggregate_overall(metrics_df, min_samples, stats='full', n_cv=5, verify=True
     
         results = aggr_mean.join(aggr_med).join(aggr_std).join(aggr_skew).join(aggr_kurt)
 
-    if verbose: print(f"# --> Found {results.shape[0]} hyperparameters combinations")
-        
+    if verbose: print(f"# --> Found {results.shape[0]} hyperparameters combinations")   
     return results.reset_index()  
     
     
