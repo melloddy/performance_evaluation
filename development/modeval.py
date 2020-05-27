@@ -164,7 +164,8 @@ def quorum_filter(metrics_df, min_class_size_per_fold=5, n_cv=5, verbose=True):
 #     :return pandas df filtered_df: metrics data frame containing , for every given HPs sets, only tasks present in each of the folds 
     """
     if verbose: print(f"# Quorum on class size applied: {min_class_size_per_fold}-{min_class_size_per_fold}")
-    # assertions
+    
+    assert verify_cv_runs(metrics_df, n_cv=n_cv), "Missing cv run, abort."
     assert 'fold_va' in metrics_df.columns, "fold_va must be present in metrics data frame"
     assert 'task' in metrics_df.columns, "task must be present in metrics data frame"
     assert 'num_pos' in metrics_df.columns, "num_pos must be present in metrics data frame"
