@@ -179,7 +179,7 @@ def quorum_filter(metrics_df, min_class_size_per_fold=25, n_cv=5):
 # ==== does not apply to sparsechem aggregate performance metrics
 
 def aggregate_fold_perf(metrics_df, min_samples, n_cv=5,  verify=True, stats='full', metrics=['roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score','kappa']):
-    """ HP performance aggregation over folds. 
+    """ HP performance aggregation over folds. Includes a quorum filtering step (at least N actives and N inactives in each of the n_cv folds)
     From the metrics dataframe yielded by perf_from_metrics(), does the aggregation over the fold (mean, median, std, skewness, kurtosis) results in one perf per fold.
 #     :param pandas df metrics_df: metrics dataframe yielded by perf_from_metrics() 
 #     :param int min_sample: minimum number of each class (overal) to be present in each fold for aggregation metric
@@ -241,7 +241,7 @@ def aggregate_fold_perf(metrics_df, min_samples, n_cv=5,  verify=True, stats='fu
     
     
 def aggregate_task_perf(metrics_df, min_samples, n_cv=5,  verify=True, stats='full', metrics=['roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score','kappa']):
-    """ HP performance aggregation over tasks. 
+    """ HP performance aggregation over tasks. Includes a quorum filtering step (at least N actives and N inactives in each of the n_cv folds)
     From the metrics dataframe yielded by perf_from_json(), does the aggregation over the CV (mean, std) results in one perf per task.
 #     :param pandas df metrics_df: metrics dataframe yielded by perf_from_json() 
 #     :param int min_sample: minimum number of each class (overal) to be present in each fold for aggregation metric
@@ -304,7 +304,7 @@ def aggregate_task_perf(metrics_df, min_samples, n_cv=5,  verify=True, stats='fu
     
     
 def aggregate_overall(metrics_df, min_samples, stats='full', n_cv=5, verify=True, metrics=['roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score','kappa']):
-    """ HP performance aggregation overall . 
+    """ HP performance aggregation overall . Includes a quorum filtering step (at least N actives and N inactives in each of the n_cv folds)
     From the metrics dataframe yielded by perf_from_json(), does the aggregation over the CV (mean, std) results in one perf per hyperparameter.
 #     :param pandas df metrics_df: metrics dataframe yielded by perf_from_json() 
 #     :param int min_sample: minimum number of each class (overal) to be present in each fold for aggregation metric
@@ -378,6 +378,8 @@ def get_sc_hps():
 # =======================================================================
 # ==== Hyperparameter selection
 
+       
+
 def melt_perf(df_res, perf_metrics=['roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score','kappa']):
     """ Melts (or unpivot) the performance dataframe resuting from perf_from_conf(). 
 #     :param pandas df_res: dataframe containing results as provided by perf_from_conf()
@@ -401,6 +403,8 @@ def melt_perf(df_res, perf_metrics=['roc_auc_score', 'auc_pr', 'avg_prec_score',
     dfm['value'] = dfm['value'].astype(float)
     
     return dfm
+
+
 
 
 
