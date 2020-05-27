@@ -40,7 +40,7 @@ def perf_from_json(
     """ Collects the performance from thje models/*.json files containing both the model configuration and performance.
       Useful for HP search because it includes HPs details.
 #     :param string model_dir_or_file: path to the model folder containing the .json files
-#     :param iterrable (of indices/integers) tasks_for_eval: tasks to consider for evaluation (default=None)
+#     :param np.array (of indices/integers) tasks_for_eval: tasks to consider for evaluation (default=None)
 #     :param bool aggrgate: if True, uses the aggregate result from sparsechem (considering all tasks verifying MIN_SAMPLES).
 #     :param string evaluation_set: keyword for result extraction from json file. 
 #     :param string model_name: adds a name in a column to resulting dataframe (default=Y)
@@ -57,7 +57,11 @@ def perf_from_json(
     
         for x in tasks_for_eval:
             assert int(x) == x, "elements in tasks_for_eval must be integer-like"
-    
+            assert x>0, "elements in tasks_for_eval must be > 0"
+        
+        assert np.unique(tasks_for_eval).shape[0] == tasks_for_eval.shape[0], "tasks_for_eval must not have duplicates"
+        
+        
     res_all = []
 
     if os.path.isdir(os.path.join(model_dir_or_file)):     
