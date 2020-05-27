@@ -57,7 +57,7 @@ def perf_from_json(
     
         for x in tasks_for_eval:
             assert int(x) == x, "elements in tasks_for_eval must be integer-like"
-            assert x>0, "elements in tasks_for_eval must be > 0"
+            assert x>=0, "elements in tasks_for_eval must be > 0"
         
         assert np.unique(tasks_for_eval).shape[0] == tasks_for_eval.shape[0], "tasks_for_eval must not have duplicates"
         
