@@ -133,14 +133,15 @@ def verify_cv_runs(metrics_df, n_cv=5):
 
 
 
-def quorum_filter(metrics_df, min_class_size_per_fold=25, n_cv=5):
+def quorum_filter(metrics_df, min_class_size_per_fold=25, n_cv=5, verbose=True):
     """ Filter the metrics data frame of each model (as defined by a HP set) with a quorum rule: minimum N postive samples and N negative sample in each fold 
 #     :param pandas df metrics_df: metrics dataframe yielded by perf_from_json() 
 #     :param int min_class_size_per_fold: minimum class size per fold
 #     :param int n_cv: number of folds to look for
+#     :param bool verbose: adds verbosity
 #     :return pandas df filtered_df: metrics data frame containing , for every given HPs sets, only tasks present in each of the folds 
     """
-    
+    if verbose: print(f"# Quorum on class size applied: {min_class_size_per_fold}-{min_class_size_per_fold}")
     # assertions
     assert 'fold_va' in metrics_df.columns, "fold_va must be present in metrics data frame"
     assert 'task' in metrics_df.columns, "task must be present in metrics data frame"
@@ -150,22 +151,24 @@ def quorum_filter(metrics_df, min_class_size_per_fold=25, n_cv=5):
     index_cols = ['fold_va', 'task'] + [col for col in metrics_df if col[:3] == 'hp_'] 
     df = metrics_df.set_index(keys=index_cols, verify_integrity=True).copy()
     
-
     # add a dummy column to perform the count
     df['_'] = 1
     
-
     # first filter rows with at least N positives and N negatives in each fold 
     task_mini = df.loc[(df['num_pos']>=min_class_size_per_fold)&(df['num_neg']>=min_class_size_per_fold)]
     
-
     # then count the number of folds for each <task,hp> and filter (it must be present in each fold)
     levels = [x for x in range(1, len(index_cols))]
     task_count = task_mini['_'].groupby(level=levels).count()
     selected_tasks = task_count[task_count==n_cv].index.unique()
     
+    filtered_res = df.reset_index(level=0).loc[selected_tasks, :].reset_index().drop('_',axis=1)
+    
+    if verbose: 
+        print(f"# --> Total number of tasks   : {metrics_df.task.unique().shape[0]}")
+        print(f"# --> Tasks further considerd : {filtered_res.task.unique().shape[0]}")
    
-    return df.reset_index(level=0).loc[selected_tasks, :].reset_index().drop('_',axis=1)
+    return filtered_res
     
     
 
@@ -314,7 +317,6 @@ def aggregate_overall(metrics_df, min_samples, stats='full', n_cv=5, verify=True
 #     :param list metircs: ['roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score','kappa'] thelist of metrics to aggregate
 #     :return dtype: pandas df containing performance per hyperparameter setting
     """ 
-    if verbose: print("# Aggregatate (mean) hyperparameter combinations")
         
     hp = [x for x in metrics_df.columns if x[:3] == 'hp_']
     assert len(hp) > 0, "metrics dataframe must contain hyperparameter columns starting with hp_"
@@ -322,14 +324,15 @@ def aggregate_overall(metrics_df, min_samples, stats='full', n_cv=5, verify=True
     assert 'num_neg' in metrics_df.columns, "metrics dataframe must contain num_neg column"
     
     if verify:
-        status = verify_cv_runs(metrics_df, n_cv=n_cv)
-        if not status: return None
+        verify_cv_runs(metrics_df, n_cv=n_cv)
+        #if not status: return None
 
     
     # keep only tasks verifying the min_sample rule: at least N postives and N negatives in each of the 5 folds
-    if verbose: print(f"# Quorum on class size applied: {min_samples}-{min_samples}")
-    metrics2consider_df = quorum_filter(metrics_df, min_class_size_per_fold=min_samples, n_cv=n_cv)
+    metrics2consider_df = quorum_filter(metrics_df, min_class_size_per_fold=min_samples, n_cv=n_cv, verbose=verbose)
     cols2drop = [col for col in metrics_df.columns if col not in metrics and col not in hp]
+    
+    if verbose: print("# Aggregatate (performance mean) hyperparameter combinations")
     
     # do the mean aggregation
     aggr_mean = metrics2consider_df.drop(cols2drop, axis=1).groupby(hp).mean()
@@ -395,7 +398,7 @@ def find_best_hyperparam(metrics_df, min_samples, n_cv=5, perf_metrics=['roc_auc
 #     :return dtype: pandas df containing best HPs per performance metrics
     """
     
-    if verbose: print(f"# metrics considered: {perf_metrics}")
+    if verbose: print(f"# Hyperparameter selection considered score types: {perf_metrics}")
     
     # aggregate over HPs (does the quorum on class size filtering)
     aggr_df = aggregate_overall(metrics_df, min_samples, stats='basic', n_cv=n_cv, verify=True, metrics=perf_metrics, verbose=verbose)
