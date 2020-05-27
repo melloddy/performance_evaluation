@@ -133,7 +133,7 @@ def verify_cv_runs(metrics_df, n_cv=5):
 
 
 
-def quorum_filter(metrics_df, min_class_size_per_fold=25, n_cv=5, verbose=True):
+def quorum_filter(metrics_df, min_class_size_per_fold=5, n_cv=5, verbose=True):
     """ Filter the metrics data frame of each model (as defined by a HP set) with a quorum rule: minimum N postive samples and N negative sample in each fold 
 #     :param pandas df metrics_df: metrics dataframe yielded by perf_from_json() 
 #     :param int min_class_size_per_fold: minimum class size per fold
