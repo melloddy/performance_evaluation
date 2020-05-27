@@ -50,11 +50,13 @@ def perf_from_json(
     """
     # pandas v0.24 (pd.read_json) is not returning expected results when used with the arguement "tasks_for_eval" 
     assert pd.__version__[:4] =='0.25', 'Pandas version must be 0.25' # should this be placed somewhere else?
-    assert type(tasks_for_eval) is np.ndarray, "tasks_for_eval must be an np.array"
-    assert tasks_for_eval.ndim == 1, "tasks_for_eval must be np.array with ndim=1"
     
-    for x in tasks_for_eval:
-        assert int(x) == x, "elements in tasks_for_eval must be integer-like"
+    if tasks_for_eval is not None: 
+        assert type(tasks_for_eval) is np.ndarray, "tasks_for_eval must be an np.array"
+        assert tasks_for_eval.ndim == 1, "tasks_for_eval must be np.array with ndim=1"
+    
+        for x in tasks_for_eval:
+            assert int(x) == x, "elements in tasks_for_eval must be integer-like"
     
     res_all = []
 
