@@ -303,7 +303,7 @@ def aggregate_task_perf(metrics_df, min_samples, n_cv=5,  verify=True, stats='fu
     
     
     
-def aggregate_overall(metrics_df, min_samples, stats='full', n_cv=5, verify=True, metrics=['roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score','kappa']):
+def aggregate_overall(metrics_df, min_samples, stats='full', n_cv=5, verify=True, metrics=['roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score','kappa'], verbose=True):
     """ HP performance aggregation overall . Includes a quorum filtering step (at least N actives and N inactives in each of the n_cv folds)
     From the metrics dataframe yielded by perf_from_json(), does the aggregation over the CV (mean, std) results in one perf per hyperparameter.
 #     :param pandas df metrics_df: metrics dataframe yielded by perf_from_json() 
@@ -313,15 +313,21 @@ def aggregate_overall(metrics_df, min_samples, stats='full', n_cv=5, verify=True
 #     :param string stats: ['basic', 'full'], if full, calculates skewness of kurtosis
 #     :param list metircs: ['roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score','kappa'] thelist of metrics to aggregate
 #     :return dtype: pandas df containing performance per hyperparameter setting
-    """        
+    """ 
+    if verbose: print("# Aggregatate (mean) hyperparameter combinations")
+        
     hp = [x for x in metrics_df.columns if x[:3] == 'hp_']
     assert len(hp) > 0, "metrics dataframe must contain hyperparameter columns starting with hp_"
     assert 'num_pos' in metrics_df.columns, "metrics dataframe must contain num_pos column"
     assert 'num_neg' in metrics_df.columns, "metrics dataframe must contain num_neg column"
     
-    if verify:verify_cv_runs(metrics_df, n_cv=n_cv)
+    if verify:
+        status = verify_cv_runs(metrics_df, n_cv=n_cv)
+        if not status: return None
+
     
     # keep only tasks verifying the min_sample rule: at least N postives and N negatives in each of the 5 folds
+    if verbose: print(f"# Quorum on class size applied: {min_samples}-{min_samples}")
     metrics2consider_df = quorum_filter(metrics_df, min_class_size_per_fold=min_samples, n_cv=n_cv)
     cols2drop = [col for col in metrics_df.columns if col not in metrics and col not in hp]
     
@@ -350,7 +356,9 @@ def aggregate_overall(metrics_df, min_samples, stats='full', n_cv=5, verify=True
         aggr_kurt.columns = [x+'_kurtosis' for x in aggr_kurt.columns]
     
         results = aggr_mean.join(aggr_med).join(aggr_std).join(aggr_skew).join(aggr_kurt)
-    
+
+    if verbose: print(f"# --> Found {results.shape[0]} hyperparameters combinations")
+        
     return results.reset_index()  
     
     
@@ -378,6 +386,34 @@ def get_sc_hps():
 # =======================================================================
 # ==== Hyperparameter selection
 
+def find_best_hyperparam(metrics_df, min_samples, n_cv=5, perf_metrics=['roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score','kappa'], verbose=True):
+    """ Gets the best hyperparameters (according to mean aggregate) for each performance metrics. Performs the quorum filtering.
+#     :param pandas metrics_df: dataframe containing results as provided by perf_from_json()
+#     :param int min_sample: minimum number of each class (overal) to be present in each fold for aggregation metric
+#     :param int n_cv: number of folds to look for
+#     :param list strings perf_metrics: list of perf metrics to keep (depends on columns in df_res)
+#     :return dtype: pandas df containing best HPs per performance metrics
+    """
+    
+    if verbose: print(f"# metrics considered: {perf_metrics}")
+    
+    # aggregate over HPs (does the quorum on class size filtering)
+    aggr_df = aggregate_overall(metrics_df, min_samples, stats='basic', n_cv=n_cv, verify=True, metrics=perf_metrics, verbose=verbose)
+
+    # melt the resulting data  
+    aggr_dfm = melt_perf(aggr_df, perf_metrics=[s+'_mean' for s in perf_metrics])
+
+    # find out best HPs for each score type
+    best_hps = aggr_dfm.iloc[aggr_dfm.groupby(['score_type']).idxmax()['value'].values]
+    
+    # reorder columns
+    columns = [c for c in best_hps.columns if c[:3] == 'hp_']
+    columns.append('score_type')
+    columns.append('value')
+    
+    return best_hps[columns]
+    
+    
        
 
 def melt_perf(df_res, perf_metrics=['roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score','kappa']):
@@ -393,7 +429,7 @@ def melt_perf(df_res, perf_metrics=['roc_auc_score', 'auc_pr', 'avg_prec_score',
     
     hp_cols = [x for x in df_res.columns if x[:3]=='hp_']
     assert len(hp_cols) > 0, 'No hyperparamters found in dataframe, use hp_* prefix for hyperparameters columns'
-    hp_cols.append('fold_va')
+    if 'fold_va' in df_res.columns: hp_cols.append('fold_va')
     
     for p in perf_metrics: 
         assert p in df_res.columns, f'"{p}" column not found in df_res'
