@@ -263,7 +263,7 @@ def aggregate_fold_perf(metrics_df, min_samples, n_cv=5,  verify=True, stats='fu
     
         results = aggr_mean.join(aggr_med).join(aggr_std).join(aggr_skew).join(aggr_kurt)
         
-    if verbose: print(f"# --> Found {results.shape[0]} hyperparameters combinations")
+    if verbose: print(f"# --> Found {results.shape[0]} fold performance records")
     return results.reset_index()
       
 
@@ -328,7 +328,7 @@ def aggregate_task_perf(metrics_df, min_samples, n_cv=5,  verify=True, stats='fu
         
         results = aggr_num.join(aggr_mean).join(aggr_med).join(aggr_std).join(aggr_skew).join(aggr_kurt)
 
-    if verbose: print(f"# --> Found {results.shape[0]} hyperparameters combinations")
+    if verbose: print(f"# --> Found {results.shape[0]} task performance records")
     return results.reset_index()
     
 
@@ -448,7 +448,7 @@ def find_best_hyperparam(metrics_df, min_samples, n_cv=5, perf_metrics=['roc_auc
     
        
 
-def melt_perf(df_res, perf_metrics=['roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score','kappa']):
+def melt_perf(metrics_df, perf_metrics=['roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score','kappa']):
     """ Melts (or unpivot) the performance dataframe resuting from perf_from_conf(). 
 #     :param pandas df_res: dataframe containing results as provided by perf_from_conf()
 #     :param list strings perf_metrics: list of perf metrics to keep (depends on columns in df_res)
@@ -456,23 +456,24 @@ def melt_perf(df_res, perf_metrics=['roc_auc_score', 'auc_pr', 'avg_prec_score',
     """
     
     for metric in perf_metrics:
-        assert metric in df_res.columns, f"performance metrics {metric} not found in data frame"
+        assert metric in metrics_df.columns, f"performance metrics {metric} not found in data frame"
     
     
-    hp_cols = [x for x in df_res.columns if x[:3]=='hp_']
+    hp_cols = [x for x in metrics_df.columns if x[:3]=='hp_']
     assert len(hp_cols) > 0, 'No hyperparamters found in dataframe, use hp_* prefix for hyperparameters columns'
-    if 'fold_va' in df_res.columns: hp_cols.append('fold_va')
+    
+    # add possible columns in the id col for melting 
+    if 'fold_va' in metrics_df.columns: hp_cols.append('fold_va')
     
     for p in perf_metrics: 
-        assert p in df_res.columns, f'"{p}" column not found in df_res'
+        assert p in metrics_df.columns, f'"{p}" column not found in df_res'
     
-    dfm = df_res.melt(id_vars=hp_cols, value_name='value', var_name='score_type')
+    dfm = metrics_df.melt(id_vars=hp_cols, value_name='value', var_name='score_type')
     dfm = dfm.loc[dfm['score_type'].isin(perf_metrics)]
     dfm['value'] = dfm['value'].astype(float)
     
+    
     return dfm
-
-
 
 
 
