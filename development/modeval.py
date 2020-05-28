@@ -413,20 +413,21 @@ def get_sc_hps():
 
 
 
-def make_hp_string_col(perf_metrics, hp_cols, new_colname='hp_string'):
+def make_hp_string_col(perf_metrics, hp_cols):
     """ Create a column containing a hyperparameter string, resulting from the concatenation of all settings
 #     :param pandas df metrics_df: metrics dataframe like what is returned by perf_from_json() 
 #     :param list of str hp_cols: list of columns to concatenate into and hyperparamter string
-#     :return pandas df perf_metrics with new column containing the hp string
+#     :return pandas series with hp string
     """
-    assert new_colname not in perf_metrics.columns, f"{new_colname} already presen in the perf_metrics data frame"
+    for hp in hp_cols: 
+        assert hp in perf_metrics.columns, f"{hp} not present in the perf_metrics data frame"
     
-    perf_metrics[new_colname]=perf_metrics[hp_cols[0]]
+    hp_string=perf_metrics[hp_cols[0]]
     if len(hp_cols)>1:
         for hp in hp_cols[1:]: 
-            perf_metrics[new_colname] +='_'+perf_metrics[hp].astype(str)
+            hp_string +='_'+perf_metrics[hp].astype(str)
             
-    return perf_metrics
+    return hp_string
 
 
 
