@@ -140,11 +140,11 @@ def verify_cv_runs(metrics_df, n_cv=5):
 #     :param int n_cv: number of folds to look for
 #     :return void: prints message in stdout
     """    
-    hp = [x for x in metrics_df.columns if x[:3] == 'hp_']
+    hp = [x for x in metrics_df.columns if x[:3] == 'hp_' and not metrics_df[x].isnull().all()]
     assert len(hp) > 0, "metrics dataframe must contain hyperparameter columns starting with hp_"
-
-    aggr = metrics_df.sort_values('fold_va').groupby(hp)['fold_va'].apply(lambda x: ','.join([str(x) for x in x.unique()]))
-        
+    
+    aggr = metrics_df.dropna(axis='columns', how='all').sort_values('fold_va').groupby(hp)['fold_va'].apply(lambda x: ','.join([str(x) for x in x.unique()]))
+    
      # if missing ones, print out a warning message
     valid=True
     folds = ",".join([str(x) for x in range(n_cv)])
@@ -206,7 +206,7 @@ def quorum_filter(metrics_df, min_class_size_per_fold=5, n_cv=5, verbose=True):
 # ==== aggregation functions: apply only to individual task performances 
 # ==== does not apply to sparsechem aggregate performance metrics
 
-def aggregate_fold_perf(metrics_df, min_samples, n_cv=5,  verify=True, stats='full', metrics=['roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score','kappa'], verbose=True):
+def aggregate_fold_perf(metrics_df, min_samples, n_cv=5, stats='full', metrics=['roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score','kappa'], verbose=True):
     """ HP performance aggregation over folds. Includes a quorum filtering step (at least N actives and N inactives in each of the n_cv folds)
     From the metrics dataframe yielded by perf_from_metrics(), does the aggregation over the fold (mean, median, std, skewness, kurtosis) results in one perf per fold.
 #     :param pandas df metrics_df: metrics dataframe yielded by perf_from_metrics() 
@@ -226,8 +226,6 @@ def aggregate_fold_perf(metrics_df, min_samples, n_cv=5,  verify=True, stats='fu
     assert 'fold_va' in metrics_df.columns, "metrics dataframe must contain fold_va column"
     
     hp.append('fold_va')
-    
-    if verify:verify_cv_runs(metrics_df, n_cv=n_cv)
 
     # keep only tasks verifying the min_sample rule: at least N postives and N negatives in each of the 5 folds
     metrics2consider_df = quorum_filter(metrics_df, min_class_size_per_fold=min_samples, n_cv=n_cv)
@@ -271,7 +269,7 @@ def aggregate_fold_perf(metrics_df, min_samples, n_cv=5,  verify=True, stats='fu
 
     
     
-def aggregate_task_perf(metrics_df, min_samples, n_cv=5,  verify=True, stats='full', metrics=['roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score','kappa'], verbose=True):
+def aggregate_task_perf(metrics_df, min_samples, n_cv=5, stats='full', metrics=['roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score','kappa'], verbose=True):
     """ HP performance aggregation over tasks. Includes a quorum filtering step (at least N actives and N inactives in each of the n_cv folds)
     From the metrics dataframe yielded by perf_from_json(), does the aggregation over the CV (mean, std) results in one perf per task.
 #     :param pandas df metrics_df: metrics dataframe yielded by perf_from_json() 
@@ -291,10 +289,7 @@ def aggregate_task_perf(metrics_df, min_samples, n_cv=5,  verify=True, stats='fu
     
     hp.append('task')
     
-    if verify:verify_cv_runs(metrics_df, n_cv=n_cv)
-
     # keep only tasks verifying the min_sample rule: at least N postives and N negatives in each of the 5 folds
-    
     metrics2consider_df = quorum_filter(metrics_df, min_class_size_per_fold=min_samples, n_cv=n_cv, verbose=verbose)
     col2drop = [col for col in metrics_df.columns if col not in metrics and col not in hp]
     
@@ -337,7 +332,7 @@ def aggregate_task_perf(metrics_df, min_samples, n_cv=5,  verify=True, stats='fu
     
     
     
-def aggregate_overall(metrics_df, min_samples, stats='full', n_cv=5, verify=True, metrics=['roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score','kappa'], verbose=True):
+def aggregate_overall(metrics_df, min_samples, stats='full', n_cv=5, metrics=['roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score','kappa'], verbose=True):
     """ HP performance aggregation overall . Includes a quorum filtering step (at least N actives and N inactives in each of the n_cv folds)
     From the metrics dataframe yielded by perf_from_json(), does the aggregation over the CV (mean, std) results in one perf per hyperparameter.
 #     :param pandas df metrics_df: metrics dataframe yielded by perf_from_json() 
@@ -354,11 +349,6 @@ def aggregate_overall(metrics_df, min_samples, stats='full', n_cv=5, verify=True
     assert len(hp) > 0, "metrics dataframe must contain hyperparameter columns starting with hp_"
     assert 'num_pos' in metrics_df.columns, "metrics dataframe must contain num_pos column"
     assert 'num_neg' in metrics_df.columns, "metrics dataframe must contain num_neg column"
-    
-    if verify:
-        verify_cv_runs(metrics_df, n_cv=n_cv)
-        #if not status: return None
-
     
     # keep only tasks verifying the min_sample rule: at least N postives and N negatives in each of the 5 folds
     metrics2consider_df = quorum_filter(metrics_df, min_class_size_per_fold=min_samples, n_cv=n_cv, verbose=verbose)
@@ -459,7 +449,7 @@ def find_best_hyperparam(metrics_df, min_samples, n_cv=5, perf_metrics=['roc_auc
     if verbose: print(f"# Hyperparameter selection considered score types: {perf_metrics}")
     
     # aggregate over HPs (does the quorum on class size filtering)
-    aggr_df = aggregate_overall(metrics_df, min_samples, stats='basic', n_cv=n_cv, verify=True, metrics=perf_metrics, verbose=verbose)
+    aggr_df = aggregate_overall(metrics_df, min_samples, stats='basic', n_cv=n_cv, metrics=perf_metrics, verbose=verbose)
 
     # melt the resulting data  
     aggr_dfm = melt_perf(aggr_df, perf_metrics=[s+'_mean' for s in perf_metrics])
