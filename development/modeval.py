@@ -8,23 +8,25 @@ import re
 import json 
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+import seaborn as sns
+
+
+sns.set_style("whitegrid")
+
 
 # function template
-def template():
-    """ description
+#def template():
+#    """ description
 #     :param dtype name: description
 #     :param dtype name: description
 #     :return dtype: description
-    """
-    
-    return
+#    """
+#    return
 
-# TO DO : 
 
-# - split Y and X by test set for eval
+# TO DO 
 # - delta predictions perf between two (or more) models
-
-# better manage hyperparameters (consistent to the code)
+# - better manage hyperparameters (consistent to the code)
 
 
 def perf_from_json(
@@ -413,18 +415,28 @@ def get_sc_hps():
 
 
 
-def make_hp_string_col(perf_metrics, hp_cols):
+def make_hp_string_col(perf_metrics):
     """ Create a column containing a hyperparameter string, resulting from the concatenation of all settings
 #     :param pandas df metrics_df: metrics dataframe like what is returned by perf_from_json() 
 #     :param list of str hp_cols: list of columns to concatenate into and hyperparamter string
 #     :return pandas series with hp string
     """
-    for hp in hp_cols: 
-        assert hp in perf_metrics.columns, f"{hp} not present in the perf_metrics data frame"
     
-    hp_string=perf_metrics[hp_cols[0]]
-    if len(hp_cols)>1:
-        for hp in hp_cols[1:]: 
+    # create one HP string from variable HPs
+    hp_cols=[col for col in perf_metrics.columns if col[:3]=='hp_']
+    col2drop=[]
+    for col in hp_cols:
+        if perf_metrics[col].unique().shape[0] == 1:
+            col2drop.append(col)
+        
+    remain_hp = list(set(hp_cols).difference(set(col2drop)))
+    
+    print(f'hp string formalism: <{">_<".join([x for x in remain_hp])}>')
+    
+    hp_string=perf_metrics[remain_hp[0]].copy()
+
+    if len(perf_metrics)>1:
+        for hp in remain_hp[1:]:
             hp_string +='_'+perf_metrics[hp].astype(str)
             
     return hp_string
@@ -628,6 +640,19 @@ def all_metrics(y_true, y_score):
     return df
 
 
+
+
+
+
+
+
+
+
+
+# =======================================================================
+# =======================================================================
+# ==== Performance analysis
+
     
 # This function calculates the p value for the statistical difference between two ROC AUC curves
 # Based on :  http://www.med.mcgill.ca/epidemiology/hanley/software/Hanley_McNeil_Radiology_82.pdf
@@ -647,41 +672,53 @@ def pvalue(auc1, num_pos1, num_neg1, auc2, num_pos2, num_neg2):
 
 
 
-
-
-# MTX manipulatiosn such as splitting per fold
-
-def split_folds(M, fold_vector):
-    """ Splits global M (i.e. Y or X) into folds Ms
-#     :param  scipy.sparse.csr.csr_matrix M
-#     :param  np.array fold_vector: containing folds assignment for each row.
-#     :return list of size=n_folds where each element is a csr_matrix representing a fold
+def swarmplot_fold_perf(metrics_df, 
+                        perf_metrics=['roc_auc_score_mean', 'auc_pr_mean', 'avg_prec_score_mean', 'max_f1_score_mean', 'kappa_mean'],
+                        hp_order='auto',
+                        figsize = (20, 18), 
+                        n_cv=5
+                        ):
+    """ Seaborn swarplot of fold mean performance. X-axis: hyperparamter combinations; Y-axis: mean performance of a fold 
+#     :param pandas df metrics_df: metrics dataframe like what is returned by perf_from_json() 
+#     :param list of str perf_metrics: list of score types to consider
+#     :param list of str hp_order: list of hyperparamter strings to use ( modeval.make_hp_string_col(metrics_df, hp_cols) lists the HPs)
+#     :return pandas series with hp string  
     """
-    assert type(M) == scipy.sparse.csr.csr_matrix, "M needs to be scipy.sparse.csr.csr_matrix"
-    assert folds.shape[0] == M.shape[0], "fold_vector must have same shape[0] than M"
     
-    folds = [M[fold_vector==f,:] for f in np.unique(folds)]
-    return folds
+    perf_fold  = aggregate_fold_perf(metrics_df, 5, stats='basic', n_cv=n_cv)
+    perf_foldm = melt_perf(perf_fold, perf_metrics=perf_metrics)
+
+    perf_foldm['hp'] = make_hp_string_col(perf_foldm)
+
+    if hp_order=='auto':hp_order=np.sort(perf_foldm['hp'].unique())
+
+    num_metrics = len(perf_metrics)
+    fig, axes = plt.subplots(num_metrics,1, figsize=figsize)
+
+
+    i=0
+    for score_type in perf_foldm.score_type.unique():
+    
+        sns.swarmplot(x="hp", 
+                      y="value", 
+                      data=perf_foldm.loc[perf_foldm['score_type']==score_type], 
+                      hue="hp", 
+                      palette="husl", 
+                      order=hp_order, 
+                      size=8, linewidth=1, dodge=True, alpha=.85, ax=axes[i])
+
+        if i == len(perf_metrics)-1: axes[i].set_xticklabels(axes[i].get_xticklabels(), rotation=90)
+        else:axes[i].set_xticklabels([])
+            
+        axes[i].set_xlabel("")
+        axes[i].set_title(score_type)
+        axes[i].get_legend().remove()
+        i+=1
+
+    return
     
 
-def slice_mtx_rows(M, rows_indices):
-    """ Slices out rows of a scipy.sparse.csr_matrix
-#     :param  scipy.sparse.csr.csr_matrix M
-#     :param  np.array containing integer indices of rows to extract or boolean vector where True is a row to extract
-#     :return scipy.sparse.csr.csr_matrix
-    """
-    assert type(M) == scipy.sparse.csr.csr_matrix, "M needs to be scipy.sparse.csr.csr_matrix"
-    return M[row_indices, :]
 
-
-def slice_mtx_cols(M, col_indices):
-    """ Slices out columns of a scipy.sparse.csc_matrix
-#     :param  scipy.sparse.csc.csc_matrix M
-#     :param  np.array containing integer indices of columns to extract or boolean vector where True is a row to extract
-#     :return scipy.sparse.csc.csc_matrix
-    """    
-    assert type(M) == scipy.sparse.csc.csc_matrix, "M needs to be scipy.sparse.csc.csc_matrix"
-    return M[col_indices, :]
 
 
 def match_best_tasks(results_dir_x, t3_mapped_x, label_x, results_dir_y, t3_mapped_y, label_y, aux_assay_type='Yx', n_cv=5): 
@@ -786,6 +823,44 @@ def plot_statisical_significance(table, metric_x, metric_y, label_x, label_y, x_
 
     return res
 
+
+
+
+
+
+# MTX manipulatiosn such as splitting per fold
+
+def split_folds(M, fold_vector):
+    """ Splits global M (i.e. Y or X) into folds Ms
+#     :param  scipy.sparse.csr.csr_matrix M
+#     :param  np.array fold_vector: containing folds assignment for each row.
+#     :return list of size=n_folds where each element is a csr_matrix representing a fold
+    """
+    assert type(M) == scipy.sparse.csr.csr_matrix, "M needs to be scipy.sparse.csr.csr_matrix"
+    assert folds.shape[0] == M.shape[0], "fold_vector must have same shape[0] than M"
+    
+    folds = [M[fold_vector==f,:] for f in np.unique(folds)]
+    return folds
+    
+
+def slice_mtx_rows(M, rows_indices):
+    """ Slices out rows of a scipy.sparse.csr_matrix
+#     :param  scipy.sparse.csr.csr_matrix M
+#     :param  np.array containing integer indices of rows to extract or boolean vector where True is a row to extract
+#     :return scipy.sparse.csr.csr_matrix
+    """
+    assert type(M) == scipy.sparse.csr.csr_matrix, "M needs to be scipy.sparse.csr.csr_matrix"
+    return M[row_indices, :]
+
+
+def slice_mtx_cols(M, col_indices):
+    """ Slices out columns of a scipy.sparse.csc_matrix
+#     :param  scipy.sparse.csc.csc_matrix M
+#     :param  np.array containing integer indices of columns to extract or boolean vector where True is a row to extract
+#     :return scipy.sparse.csc.csc_matrix
+    """    
+    assert type(M) == scipy.sparse.csc.csc_matrix, "M needs to be scipy.sparse.csc.csc_matrix"
+    return M[col_indices, :]
 
 
 
