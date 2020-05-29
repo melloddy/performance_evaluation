@@ -173,7 +173,7 @@ def quorum_filter(metrics_df, min_samples=5, n_cv=5, verbose=True):
     assert 'num_pos' in metrics_df.columns, "num_pos must be present in metrics data frame"
     assert 'num_neg' in metrics_df.columns, "num_neg must be present in metrics data frame"
     
-    index_cols = ['fold_va', 'task'] + [col for col in metrics_df if col[:3] == 'hp_'] 
+    index_cols = ['fold_va', 'task'] + [col for col in metrics_df if col[:3] == 'hp_' if not metrics_df[col].isna().all()] 
     df = metrics_df.set_index(keys=index_cols, verify_integrity=True).copy()
     
     # add a dummy column to perform the count
@@ -686,7 +686,7 @@ def swarmplot_fold_perf(metrics_df,
 
     if hp_order=='auto':hp_order=np.sort(perf_foldm['hp'].unique())
 
-    num_metrics = len(perf_metrics)
+    num_metrics = len(score_type)
     fig, axes = plt.subplots(num_metrics,1, figsize=figsize)
 
 
@@ -701,7 +701,7 @@ def swarmplot_fold_perf(metrics_df,
                       order=hp_order, 
                       size=8, linewidth=1, dodge=True, alpha=.85, ax=axes[i])
 
-        if i == len(perf_metrics)-1: axes[i].set_xticklabels(axes[i].get_xticklabels(), rotation=90)
+        if i == len(score_type)-1: axes[i].set_xticklabels(axes[i].get_xticklabels(), rotation=90)
         else:axes[i].set_xticklabels([])
         
         mini=perf_data['value'].min()
