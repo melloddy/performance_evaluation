@@ -422,11 +422,11 @@ def make_hp_string_col(metrics_df):
 
     remain_hp = list(set(hp_cols).difference(set(col2drop)))
     if len(remain_hp) == 0:
-        hp_string='best_hp'
+        hp_string='single_hp'
     else: 
         print(f'hp string formalism: <{">_<".join([x for x in remain_hp])}>')
     
-        hp_string=metrics_df[remain_hp[0]].copy()
+        hp_string=metrics_df[remain_hp[0]].astype(str).copy()
 
         if len(remain_hp)>1:
             for hp in remain_hp[1:]:
@@ -452,7 +452,7 @@ def find_best_hyperparam(metrics_df, min_samples=5, n_cv=5, score_type=['roc_auc
     if verbose: print(f"# Hyperparameter selection considered score types: {perf_metrics}")
     
     # aggregate over HPs (does the quorum on class size filtering)
-    aggr_df = aggregate_overall(metrics_df, min_samples, stats='basic', n_cv=n_cv, score_type=score_type, verbose=verbose)
+    aggr_df = aggregate_overall(metrics_df, min_samples=min_samples, stats='basic', n_cv=n_cv, score_type=score_type, verbose=verbose)
 
     # melt the resulting data  
     aggr_dfm = melt_perf(aggr_df, score_type=[s+'_mean' for s in score_type])
@@ -683,7 +683,7 @@ def swarmplot_fold_perf(metrics_df,
     perf_foldm = melt_perf(perf_fold, score_type=[x+'_mean' for x in score_type])
 
     perf_foldm['hp'] = make_hp_string_col(perf_foldm)
-
+    print(f'# --> {perf_foldm['hp'].unique().shape[0]} hp combin found')
     if hp_order=='auto':hp_order=np.sort(perf_foldm['hp'].unique())
 
     num_metrics = len(score_type)
