@@ -414,20 +414,23 @@ def make_hp_string_col(perf_metrics):
     
     # create one HP string from variable HPs
     hp_cols=[col for col in perf_metrics.columns if col[:3]=='hp_']
+
     col2drop=[]
     for col in hp_cols:
         if perf_metrics[col].unique().shape[0] == 1:
             col2drop.append(col)
-        
-    remain_hp = list(set(hp_cols).difference(set(col2drop)))
-    
-    print(f'hp string formalism: <{">_<".join([x for x in remain_hp])}>')
-    
-    hp_string=perf_metrics[remain_hp[0]].copy()
 
-    if len(perf_metrics)>1:
-        for hp in remain_hp[1:]:
-            hp_string +='_'+perf_metrics[hp].astype(str)
+    remain_hp = list(set(hp_cols).difference(set(col2drop)))
+    if len(remain_hp) == 0:
+        hp_string='best_hp'
+    else: 
+        print(f'hp string formalism: <{">_<".join([x for x in remain_hp])}>')
+    
+        hp_string=perf_metrics[remain_hp[0]].copy()
+
+        if len(perf_metrics)>1:
+            for hp in remain_hp[1:]:
+                hp_string +='_'+perf_metrics[hp].astype(str)
             
     return hp_string
 
@@ -688,10 +691,10 @@ def swarmplot_fold_perf(metrics_df,
 
     i=0
     for score_type in perf_foldm.score_type.unique():
-    
+        perf_data = perf_foldm.loc[perf_foldm['score_type']==score_type]
         sns.swarmplot(x="hp", 
                       y="value", 
-                      data=perf_foldm.loc[perf_foldm['score_type']==score_type], 
+                      data=perf_data, 
                       hue="hp", 
                       palette="husl", 
                       order=hp_order, 
@@ -699,7 +702,10 @@ def swarmplot_fold_perf(metrics_df,
 
         if i == len(perf_metrics)-1: axes[i].set_xticklabels(axes[i].get_xticklabels(), rotation=90)
         else:axes[i].set_xticklabels([])
-            
+        
+        mini=perf_data['value'].min()
+        maxi=perf_data['value'].max()
+        axes[i].set_ylim(mini-mini/100,maxi+maxi/100)
         axes[i].set_xlabel("")
         axes[i].set_title(score_type)
         axes[i].get_legend().remove()
