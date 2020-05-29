@@ -386,7 +386,7 @@ def aggregate_overall(metrics_df, min_samples, stats='full', n_cv=5, metrics=['r
     return results.reset_index()  
     
     
-    
+
 def get_sc_hps(): 
     hps = [
          'epochs', 
@@ -663,7 +663,7 @@ def pvalue(auc1, num_pos1, num_neg1, auc2, num_pos2, num_neg2):
 
 
 def swarmplot_fold_perf(metrics_df, 
-                        perf_metrics=['roc_auc_score_mean', 'auc_pr_mean', 'avg_prec_score_mean', 'max_f1_score_mean', 'kappa_mean'],
+                        perf_metrics=['roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score', 'kappa'],
                         hp_order='auto',
                         figsize = (20, 18), 
                         n_cv=5
@@ -675,8 +675,8 @@ def swarmplot_fold_perf(metrics_df,
 #     :return pandas series with hp string  
     """
     
-    perf_fold  = aggregate_fold_perf(metrics_df, 5, stats='basic', n_cv=n_cv)
-    perf_foldm = melt_perf(perf_fold, perf_metrics=perf_metrics)
+    perf_fold  = aggregate_fold_perf(metrics_df, 5, stats='basic', n_cv=n_cv, metrics=perf_metrics)
+    perf_foldm = melt_perf(perf_fold, perf_metrics=[x+'_mean' for x in perf_metrics])
 
     perf_foldm['hp'] = make_hp_string_col(perf_foldm)
 
