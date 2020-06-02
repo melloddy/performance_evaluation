@@ -129,6 +129,7 @@ def perf_from_json(
     assert output_df.shape[0] > 0, f"No records found for the specified cv fold {n_cv}:{cvfolds}"
     
     if drop_na_col: output_df = output_df.dropna(axis='columns', how='all')
+    output_df['model_name'] = model_name
     
     return output_df
 
