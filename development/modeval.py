@@ -683,7 +683,7 @@ def swarmplot_fold_perf(metrics_df,
     perf_foldm = melt_perf(perf_fold, score_type=[x+'_mean' for x in score_type])
 
     perf_foldm['hp'] = make_hp_string_col(perf_foldm)
-    print(f'# --> {perf_foldm['hp'].unique().shape[0]} hp combin found')
+    print(f'# --> {perf_foldm["hp"].unique().shape[0]} hp combin found')
     if hp_order=='auto':hp_order=np.sort(perf_foldm['hp'].unique())
 
     num_metrics = len(score_type)
