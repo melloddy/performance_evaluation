@@ -128,7 +128,7 @@ def perf_from_json(
     
     assert output_df.shape[0] > 0, f"No records found for the specified cv fold {n_cv}:{cvfolds}"
     
-    if drop_na_col: output_df = output_df.dropna(axis='columns', how='all')
+    #if drop_na_col: output_df = output_df.dropna(axis='columns', how='all')
     
     return output_df
 
@@ -350,6 +350,7 @@ def aggregate_overall(metrics_df, min_samples=5, stats='basic', n_cv=5, score_ty
     assert 'num_pos' in metrics_df.columns, "metrics dataframe must contain num_pos column"
     assert 'num_neg' in metrics_df.columns, "metrics dataframe must contain num_neg column"
     
+    print(min_samples)
     # keep only tasks verifying the min_sample rule: at least N postives and N negatives in each of the 5 folds
     metrics2consider_df = quorum_filter(metrics_df, min_samples=min_samples, n_cv=n_cv, verbose=verbose)
     cols2drop = [col for col in metrics_df.columns if col not in score_type and col not in hp]
@@ -683,7 +684,7 @@ def swarmplot_fold_perf(metrics_df,
     perf_foldm = melt_perf(perf_fold, score_type=[x+'_mean' for x in score_type])
 
     perf_foldm['hp'] = make_hp_string_col(perf_foldm)
-    print(f'# --> {perf_foldm['hp'].unique().shape[0]} hp combin found')
+    print(f"# --> {perf_foldm['hp'].unique().shape[0]} hp combin found")
     if hp_order=='auto':hp_order=np.sort(perf_foldm['hp'].unique())
 
     num_metrics = len(score_type)
@@ -718,17 +719,15 @@ def swarmplot_fold_perf(metrics_df,
 
 
 
-def match_best_tasks(results_dir_x, t3_mapped_x, label_x, results_dir_y, t3_mapped_y, label_y, aux_assay_type='Yx', n_cv=5): 
+def match_best_tasks(results_dir_x, t3_mapped_x, label_x, results_dir_y, t3_mapped_y, label_y, aux_assay_type='Yx', n_cv=5, hp_selection_metric='auc_pr'): 
 
     hp_bests = list()
-    hp_selection_metric='auc_pr'
     for e in ((results_dir_x, t3_mapped_x),(results_dir_y, t3_mapped_y)):
         df_t3_mapped = pd.read_csv(e[1])
         main_tasks = df_t3_mapped.loc[df_t3_mapped['assay_type']!=aux_assay_type].cont_classification_task_id.dropna().values
         json_df = perf_from_json(e[0],aggregate=False,tasks_for_eval=main_tasks, n_cv=n_cv) 
         json_melted = melt_perf(json_df, score_type=[hp_selection_metric])
         hp_best = best_hyperparam(json_melted)
-        hp_best = hp_best.drop(columns=['fold_va']) # are grouped-by (averaged)
         # keeping only the records associated to the best hyperparameters
         hp_cols = ['hp_'+hp for hp in get_sc_hps()]
         hp_best = pd.merge(json_df[~json_df[hp_selection_metric].isna()],hp_best,how='inner',on=hp_cols)
@@ -753,9 +752,9 @@ def statistical_model_comparison_analysis(results_dir_x, t3_mapped_x, label_x, r
 #    :return None 
     """ 
 
-    hp_bests = match_best_tasks(results_dir_x, t3_mapped_x, label_x, results_dir_y, t3_mapped_y, label_y, aux_assay_type='Yx', n_cv=5)
+    hp_bests = match_best_tasks(results_dir_x, t3_mapped_x, label_x, results_dir_y, t3_mapped_y, label_y, aux_assay_type='Yx', n_cv=n_cv)
     # matching x and y runs
-    df_merge = pd.merge(hp_bests[0], hp_bests[1],how='inner',on=['input_assay_id','fold_va'])
+    df_merge = pd.merge(hp_bests[0], hp_bests[1],how='inner',on=['input_assay_id','threshold_value','fold_va'])
 
     # plotting
     # statistical analysis only valid for aggregated figures over folds - hence groupby
@@ -766,7 +765,7 @@ def statistical_model_comparison_analysis(results_dir_x, t3_mapped_x, label_x, r
     y_lim = 0.5
     title = 'AUC ROC'
 
-    res_wide = summarize_diff_statistics(hp_bests[0],hp_bests[1],min_samples=min_samples)
+    res_wide = summarize_diff_statistics(hp_bests[0],hp_bests[1],min_samples=min_samples, n_cv=n_cv)
     table = table[~table['roc_auc_score_y'].isna()]
     table = table[~table['roc_auc_score_x'].isna()]
     res_stat_sign = plot_statisical_significance(table, metric_x, metric_y, label_x, label_y, x_lim, y_lim, title )
@@ -774,7 +773,7 @@ def statistical_model_comparison_analysis(results_dir_x, t3_mapped_x, label_x, r
 
     return res 
 
-def summarize_diff_statistics(tasks_x, tasks_y, min_samples=25): 
+def summarize_diff_statistics(tasks_x, tasks_y, min_samples=25, n_cv=5): 
     """ Get the difference of overall aggregated metrics between two task-level dataframe
     Result is the difference between the second and the first argument
 #    :param  dataframe containing task-level metrics (reference to compare with)
@@ -791,7 +790,7 @@ def summarize_diff_statistics(tasks_x, tasks_y, min_samples=25):
     for t in [tasks_x,tasks_y]: 
         # take care of possible missing task weights : will be ignored in groupby so any impute value would do
         t['hp_task_weights'] =  'irrelevant'
-        ress.append(aggregate_overall(t,min_samples=min_samples))
+        ress.append(aggregate_overall(t,min_samples=min_samples, n_cv=n_cv, stats='full'))
     res = ress[1][fields]-ress[0][fields]
     return res 
 
