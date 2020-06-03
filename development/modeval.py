@@ -37,7 +37,6 @@ def perf_from_json(
         model_name='Y',
         n_cv=5,
         filename_mask=None,
-        drop_na_col=True,
         verbose=False
     ):
     """ Collects the performance from thje models/*.json files containing both the model configuration and performance.
@@ -49,7 +48,6 @@ def perf_from_json(
 #     :param string model_name: adds a name in a column to resulting dataframe (default=Y)
 #     :param int n_cv: specify the number of folds used for cross valid, starting with 1, higher fold_va numbers will be dropped
 #     :param str filename_mask: specify a filename mask to restrict the perf loading to a subset of files
-#     :param bool drop_na_col: if True, drops columns entirely populated with None or nan
 #     :return pandas df containing performance and configuration summaries 
     """
     # pandas v0.24 (pd.read_json) is not returning expected results when used with the arguement "tasks_for_eval" 
@@ -128,7 +126,6 @@ def perf_from_json(
     
     assert output_df.shape[0] > 0, f"No records found for the specified cv fold {n_cv}:{cvfolds}"
     
-    #if drop_na_col: output_df = output_df.dropna(axis='columns', how='all')
     output_df['model_name'] = model_name
     
     return output_df
@@ -220,14 +217,14 @@ def aggregate_fold_perf(metrics_df, min_samples=5, n_cv=5, stats='basic', score_
 #     :return dtype: pandas df containing performance per task aggregated over each fold
     """    
 
-    hp = [x for x in metrics_df.columns if x[:3] == 'hp_']
+    hp = [x for x in metrics_df.columns if x[:3] == 'hp_' and not metrics_df[x].isna().all()]
     assert len(hp) > 0, "metrics dataframe must contain hyperparameter columns starting with hp_"
     assert 'num_pos' in metrics_df.columns, "metrics dataframe must contain num_pos column"
     assert 'num_neg' in metrics_df.columns, "metrics dataframe must contain num_neg column"
     assert 'fold_va' in metrics_df.columns, "metrics dataframe must contain fold_va column"
     
     hp.append('fold_va')
-
+    
     # keep only tasks verifying the min_sample rule: at least N postives and N negatives in each of the 5 folds
     metrics2consider_df = quorum_filter(metrics_df, min_samples=min_samples, n_cv=n_cv)
     cols2drop = [col for col in metrics_df.columns if col not in score_type and col not in hp]
@@ -283,7 +280,7 @@ def aggregate_task_perf(metrics_df, min_samples=5, n_cv=5, stats='basic', score_
 #     :return dtype: pandas df containing performance per task aggregated over CV
     """    
 
-    hp = [x for x in metrics_df.columns if x[:3] == 'hp_']
+    hp = [x for x in metrics_df.columns if x[:3] == 'hp_' and not metrics_df[x].isna().all()]
     assert len(hp) > 0, "metrics dataframe must contain hyperparameter columns starting with hp_"
     assert 'num_pos' in metrics_df.columns, "metrics dataframe must contain num_pos column"
     assert 'num_neg' in metrics_df.columns, "metrics dataframe must contain num_neg column"
@@ -346,12 +343,11 @@ def aggregate_overall(metrics_df, min_samples=5, stats='basic', n_cv=5, score_ty
 #     :return dtype: pandas df containing performance per hyperparameter setting
     """ 
         
-    hp = [x for x in metrics_df.columns if x[:3] == 'hp_']
+    hp = [x for x in metrics_df.columns if x[:3] == 'hp_' and not metrics_df[x].isna().all()]
     assert len(hp) > 0, "metrics dataframe must contain hyperparameter columns starting with hp_"
     assert 'num_pos' in metrics_df.columns, "metrics dataframe must contain num_pos column"
     assert 'num_neg' in metrics_df.columns, "metrics dataframe must contain num_neg column"
     
-    print(min_samples)
     # keep only tasks verifying the min_sample rule: at least N postives and N negatives in each of the 5 folds
     metrics2consider_df = quorum_filter(metrics_df, min_samples=min_samples, n_cv=n_cv, verbose=verbose)
     cols2drop = [col for col in metrics_df.columns if col not in score_type and col not in hp]
