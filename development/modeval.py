@@ -714,6 +714,40 @@ def pvalue(auc1, num_pos1, num_neg1, auc2, num_pos2, num_neg2):
 
 
 
+def delta_to_baseline(top_baseline, list_top_perfs):
+    """ Computes the delta-to-baseline of a list of models to compare. The performance data frames are like what perf_from_json returns
+#       :param pandas df top_baseline, all task performance of the baseline model (assumed to correspond to the best HP)    
+#       :param list of pandas df top_perf: a list of performance data frames corresponding to models to comapre 
+#       :return pandas df containing the performance deltas
+    """
+    deltas = []
+
+    col2keep = ['task', 'fold_va', 'input_assay_id', 'model_name', 'roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score','kappa', 'num_pos', 'num_neg']
+    top_baseline_scores = top_baseline.drop([x for x in top_baseline.columns if x not in col2keep],axis=1)
+
+    for top_perf in list_top_perfs:
+    
+        top_perf_scores = top_perf.drop([x for x in top_perf.columns if x not in col2keep],axis=1)
+        model_name = top_perf['model_name'].iloc[0]
+    
+        #print(model_name)
+    
+        merged = top_baseline_scores.merge(top_perf_scores, on=['task', 'fold_va', 'input_assay_id',  'num_pos', 'num_neg'], suffixes=('', '_'+model_name))
+    
+        # calculate the delta for each score now
+        for s in ['roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score','kappa']:
+            merged[s+'_delta'] = merged[s+'_'+model_name] - merged[s]
+
+        d = merged[['task', 'fold_va', 'input_assay_id','roc_auc_score_delta', 'auc_pr_delta', 'avg_prec_score_delta', 'max_f1_score_delta','kappa_delta', 'num_pos', 'num_neg']].copy()
+        d['model_name'] = model_name
+        deltas.append(d)    
+    
+    return pd.concat(deltas, sort=False)
+    
+
+
+
+
 def swarmplot_fold_perf(metrics_df, 
                         score_type=['roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score', 'kappa'],
                         hp_order='auto',
