@@ -171,7 +171,7 @@ def quorum_filter(metrics_df, min_samples=5, n_cv=5, verbose=True):
     assert 'num_pos' in metrics_df.columns, "num_pos must be present in metrics data frame"
     assert 'num_neg' in metrics_df.columns, "num_neg must be present in metrics data frame"
     
-    index_cols = ['fold_va', 'task'] + [col for col in metrics_df if col[:3] == 'hp_' if not metrics_df[col].isna().all()] 
+    index_cols = ['fold_va', 'task', 'model_name'] + [col for col in metrics_df if col[:3] == 'hp_' if not metrics_df[col].isna().all()] 
     df = metrics_df.set_index(keys=index_cols, verify_integrity=True).copy()
     
     # add a dummy column to perform the count
@@ -224,6 +224,8 @@ def aggregate_fold_perf(metrics_df, min_samples=5, n_cv=5, stats='basic', score_
     assert 'fold_va' in metrics_df.columns, "metrics dataframe must contain fold_va column"
     
     hp.append('fold_va')
+    hp.append('model_name')
+    
     
     # keep only tasks verifying the min_sample rule: at least N postives and N negatives in each of the 5 folds
     metrics2consider_df = quorum_filter(metrics_df, min_samples=min_samples, n_cv=n_cv)
@@ -286,6 +288,7 @@ def aggregate_task_perf(metrics_df, min_samples=5, n_cv=5, stats='basic', score_
     assert 'num_neg' in metrics_df.columns, "metrics dataframe must contain num_neg column"
     
     hp.append('task')
+    hp.append('model_name')
     
     # keep only tasks verifying the min_sample rule: at least N postives and N negatives in each of the 5 folds
     metrics2consider_df = quorum_filter(metrics_df, min_samples=min_samples, n_cv=n_cv, verbose=verbose)
@@ -347,6 +350,8 @@ def aggregate_overall(metrics_df, min_samples=5, stats='basic', n_cv=5, score_ty
     assert len(hp) > 0, "metrics dataframe must contain hyperparameter columns starting with hp_"
     assert 'num_pos' in metrics_df.columns, "metrics dataframe must contain num_pos column"
     assert 'num_neg' in metrics_df.columns, "metrics dataframe must contain num_neg column"
+    
+    hp.append('model_name')
     
     # keep only tasks verifying the min_sample rule: at least N postives and N negatives in each of the 5 folds
     metrics2consider_df = quorum_filter(metrics_df, min_samples=min_samples, n_cv=n_cv, verbose=verbose)
@@ -411,13 +416,13 @@ def make_hp_string_col(metrics_df):
     """
     
     # create one HP string from variable HPs
-    hp_cols=[col for col in metrics_df.columns if col[:3]=='hp_']
+    hp_cols=[col for col in metrics_df.columns if col[:3]=='hp_' or col=='model_name']
 
     col2drop=[]
     for col in hp_cols:
         if metrics_df[col].unique().shape[0] == 1:
             col2drop.append(col)
-
+            
     remain_hp = list(set(hp_cols).difference(set(col2drop)))
     if len(remain_hp) == 0:
         hp_string='single_hp'
@@ -479,9 +484,9 @@ def melt_perf(metrics_df, score_type=['roc_auc_score', 'auc_pr', 'avg_prec_score
         assert metric in metrics_df.columns, f"performance metrics {metric} not found in data frame"
     
     
-    hp_cols = [x for x in metrics_df.columns if x[:3]=='hp_']
+    hp_cols = [x for x in metrics_df.columns if x[:3]=='hp_' or x=='model_name']
     assert len(hp_cols) > 0, 'No hyperparamters found in dataframe, use hp_* prefix for hyperparameters columns'
-    
+    print("melt", hp_cols)
     # add possible columns in the id col for melting 
     if 'fold_va' in metrics_df.columns: hp_cols.append('fold_va')
     
