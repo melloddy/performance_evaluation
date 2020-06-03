@@ -150,7 +150,8 @@ def verify_cv_runs(metrics_df, n_cv=5):
 #     :return void: prints message in stdout
     """    
     hp = [x for x in metrics_df.columns if x[:3] == 'hp_' and not metrics_df[x].isnull().all()]
-    assert len(hp) > 0, "metrics dataframe must contain hyperparameter columns starting with hp_"
+    hp.append('model_name')
+    assert len(hp) > 0, "metrics dataframe must contain hyperparameter columns starting with hp_ and model_name"
     
     aggr = metrics_df.dropna(axis='columns', how='all').sort_values('fold_va').groupby(hp)['fold_va'].apply(lambda x: ','.join([str(x) for x in x.unique()]))
     
@@ -229,13 +230,14 @@ def aggregate_fold_perf(metrics_df, min_samples=5, n_cv=5, stats='basic', score_
     """    
 
     hp = [x for x in metrics_df.columns if x[:3] == 'hp_' and not metrics_df[x].isna().all()]
-    assert len(hp) > 0, "metrics dataframe must contain hyperparameter columns starting with hp_"
+    
     assert 'num_pos' in metrics_df.columns, "metrics dataframe must contain num_pos column"
     assert 'num_neg' in metrics_df.columns, "metrics dataframe must contain num_neg column"
     assert 'fold_va' in metrics_df.columns, "metrics dataframe must contain fold_va column"
     
     hp.append('fold_va')
     hp.append('model_name')
+    assert len(hp) > 0, "metrics dataframe must contain hyperparameter columns starting with hp_, fold_va and model_name"
     
     
     # keep only tasks verifying the min_sample rule: at least N postives and N negatives in each of the 5 folds
@@ -298,12 +300,13 @@ def aggregate_task_perf(metrics_df, min_samples=5, n_cv=5, stats='basic', score_
     """    
 
     hp = [x for x in metrics_df.columns if x[:3] == 'hp_' and not metrics_df[x].isna().all()]
-    assert len(hp) > 0, "metrics dataframe must contain hyperparameter columns starting with hp_"
+    
     assert 'num_pos' in metrics_df.columns, "metrics dataframe must contain num_pos column"
     assert 'num_neg' in metrics_df.columns, "metrics dataframe must contain num_neg column"
     
     hp.append('task')
     hp.append('model_name')
+    assert len(hp) > 0, "metrics dataframe must contain hyperparameter columns starting with hp_, task and model_name"
     
     # keep only tasks verifying the min_sample rule: at least N postives and N negatives in each of the 5 folds
     metrics2consider_df = quorum_filter(metrics_df, min_samples=min_samples, n_cv=n_cv, verbose=verbose)
@@ -365,11 +368,13 @@ def aggregate_overall(metrics_df, min_samples=5, stats='basic', n_cv=5, score_ty
     """ 
         
     hp = [x for x in metrics_df.columns if x[:3] == 'hp_' and not metrics_df[x].isna().all()]
-    assert len(hp) > 0, "metrics dataframe must contain hyperparameter columns starting with hp_"
+    
     assert 'num_pos' in metrics_df.columns, "metrics dataframe must contain num_pos column"
     assert 'num_neg' in metrics_df.columns, "metrics dataframe must contain num_neg column"
     
     hp.append('model_name')
+    assert len(hp) > 0, "metrics dataframe must contain hyperparameter columns starting with hp_ and model_name"
+    
     
     # keep only tasks verifying the min_sample rule: at least N postives and N negatives in each of the 5 folds
     metrics2consider_df = quorum_filter(metrics_df, min_samples=min_samples, n_cv=n_cv, verbose=verbose)
@@ -520,6 +525,25 @@ def melt_perf(metrics_df, score_type=['roc_auc_score', 'auc_pr', 'avg_prec_score
     
     
     return dfm
+
+
+
+def extract_best_hp_records(perf_metrics, wanted_metrics):
+    """From a HP search results df , extracts the rows corresponding to the best HP given a score type. The best HP is selected with an aggregate_overall() [mean]
+#      :param pandas perf_metrics containing the HP search results return from perf_from_json()
+#      :str wanted_metrics: the score type name to use for HP selection
+    """
+
+    best_hps = find_best_hyperparam(perf_metrics, min_samples=5, score_type=[wanted_metrics])
+    
+    hp_cols = [col for col in best_hps.columns if col[:3]=='hp_']
+    selection = best_hps.loc[best_hps['score_type']==wanted_metrics+'_mean']
+    hp_set = selection.set_index(hp_cols).index[0]
+    
+    top_perf = perf_metrics.set_index(hp_cols).loc[hp_set,:].reset_index()
+    
+    return top_perf
+
 
 
 
