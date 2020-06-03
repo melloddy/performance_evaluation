@@ -473,7 +473,7 @@ def find_best_hyperparam(metrics_df, min_samples=5, n_cv=5, score_type=['roc_auc
 #     :return dtype: pandas df containing best HPs per performance metrics
     """
     
-    if verbose: print(f"# Hyperparameter selection considered score types: {metrics_df}")
+    if verbose: print(f"# Hyperparameter selection considered score types: {score_type}")
     
     # aggregate over HPs (does the quorum on class size filtering)
     aggr_df = aggregate_overall(metrics_df, min_samples=min_samples, stats='basic', n_cv=n_cv, score_type=score_type, verbose=verbose)
