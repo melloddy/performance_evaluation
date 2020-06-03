@@ -128,7 +128,18 @@ def perf_from_json(
     
     output_df['model_name'] = model_name
     
-    return output_df
+    # HP wihtout set value cannot be None otherwise they get dropped in quorum filter as hp columns get set as index and used to mask out
+    # only HPs set to None by default in sparsechem can be in this situation
+    values = {'hp_task_weights':'noTaskWeights',
+             'internal_batch_max':'None',
+             'fold_te':'None',
+             'input_size_freq':'None',
+             'fold_inputs':'None',
+             'filename':'None'}
+    
+    # should be asserted here
+    
+    return output_df.fillna(value=values)
 
 
 
@@ -190,7 +201,7 @@ def quorum_filter(metrics_df, min_samples=5, n_cv=5, verbose=True):
     if verbose: 
         print(f"# --> Total number of tasks   : {metrics_df.task.unique().shape[0]}")
         print(f"# --> Tasks further considerd : {filtered_res.task.unique().shape[0]}")
-   
+    
     return filtered_res
     
     
@@ -232,6 +243,10 @@ def aggregate_fold_perf(metrics_df, min_samples=5, n_cv=5, stats='basic', score_
     cols2drop = [col for col in metrics_df.columns if col not in score_type and col not in hp]
     
     if verbose: print("# Aggregatate (performance mean) hyperparameter combinations")
+    
+    ### Scores must be numeric types!!!
+    # should assert that scores are numeric types
+    
     
     # do the mean aggregation
     aggr_mean = metrics2consider_df.drop(cols2drop, axis=1).groupby(hp).mean()
@@ -296,6 +311,9 @@ def aggregate_task_perf(metrics_df, min_samples=5, n_cv=5, stats='basic', score_
     
     if verbose: print("# Aggregatate (performance mean) hyperparameter combinations")
     
+    ### Scores must be numeric types!!!
+    # should assert that scores are numeric types
+    
     # do the mean aggregation
     aggr_mean = metrics2consider_df.drop(col2drop,axis=1).groupby(hp).mean()
     aggr_mean.columns = [x+'_mean' for x in aggr_mean.columns]
@@ -358,6 +376,9 @@ def aggregate_overall(metrics_df, min_samples=5, stats='basic', n_cv=5, score_ty
     cols2drop = [col for col in metrics_df.columns if col not in score_type and col not in hp]
     
     if verbose: print("# Aggregatate (performance mean) hyperparameter combinations")
+    
+    ### Scores must be numeric types!!!
+    # should assert that scores are numeric types
     
     # do the mean aggregation
     aggr_mean = metrics2consider_df.drop(cols2drop, axis=1).groupby(hp).mean()
@@ -486,7 +507,7 @@ def melt_perf(metrics_df, score_type=['roc_auc_score', 'auc_pr', 'avg_prec_score
     
     hp_cols = [x for x in metrics_df.columns if x[:3]=='hp_' or x=='model_name']
     assert len(hp_cols) > 0, 'No hyperparamters found in dataframe, use hp_* prefix for hyperparameters columns'
-    print("melt", hp_cols)
+    
     # add possible columns in the id col for melting 
     if 'fold_va' in metrics_df.columns: hp_cols.append('fold_va')
     
