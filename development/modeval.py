@@ -745,7 +745,92 @@ def delta_to_baseline(top_baseline, list_top_perfs):
     return pd.concat(deltas, sort=False)
     
 
+def pointplot_fold_perf(metrics_df, 
+                        score_type=['roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score', 'kappa'],
+                        figsize = (20, 18), 
+                        n_cv=5, 
+                        x_group='fold_va',
+                        x_order='auto',
+                        hue_order='auto',
+                        hue_group='hp',
+                        ):
+    """ Seaborn swarplot of fold mean performance. X-axis: hyperparamter combinations; Y-axis: mean performance of a fold 
+#     :param pandas df metrics_df: metrics dataframe like what is returned by perf_from_json() 
+#     :param list of str score_type: list of score types to consider
+#     :param list of str hp_order: list of hyperparamter strings to use ( modeval.make_hp_string_col(metrics_df, hp_cols) lists the HPs)
+#     :param str x_group: allows displaying swarms of dots by different variables. The specifed value will be used for X-axis. This is required to be present in melted dataframe [see melt_perf(...)]
+#     :param str hue_group: allows ordering of hue swarms of dots by different variables. The specifed value will be used to determine order. This is required to be present in melted dataframe [see melt_perf(...)]
+#     :return pandas series with hp string  
+    """
+    assert len(score_type) > 1, "Minimum number of score_types is 2"
+    assert x_group != hue_group, "x_group and hue_group need to be different "
+    assert (x_group == 'fold_va' and hue_group=='hp') or (x_group == 'hp' and hue_group=='fold_va'), "x_group and hue_group need to be either 'fold_va' or 'hp', interverted"
+    
+    # filter performance applying the quorumn filter
+    perf_to_consider  = quorum_filter(metrics_df, min_samples=5, n_cv=n_cv, verbose=True)
+    
+    # format for plotting
+    perf_to_consider['hp'] = make_hp_string_col(perf_to_consider)
+    print(f"# --> {perf_to_consider['hp'].unique().shape[0]} hp combin found")
+    
+    # set the order of x and hue 
+    if x_order=='auto' and x_group=='hp': x_order=np.sort(perf_to_consider['hp'].unique())
+    elif x_order=='auto' and x_group=='fold_va': x_order=np.sort(perf_to_consider['fold_va'].unique())
+    if hue_order=='auto' and hue_group=='hp': hue_order=np.sort(perf_to_consider['hp'].unique())
+    elif hue_order=='auto' and hue_group=='fold_va': hue_order=np.sort(perf_to_consider['fold_va'].unique())
+    
+    # this will be a subplots stack, each of them shows perf according to one score type
+    num_metrics = len(score_type)
+    fig, axes = plt.subplots(num_metrics,1, figsize=figsize)
 
+    i=0
+    for score_name in score_type:
+        
+        # do a swarmplot for every score type
+        perf_data = perf_to_consider[['hp', 'fold_va',score_name]].copy()
+        
+        sns.pointplot(x=x_group, 
+                      y=score_name, 
+                      data=perf_data, 
+                      order=x_order,
+                      hue=hue_group, 
+                      hue_order=hue_order,
+                      dodge=0.4, 
+                      join=False, 
+                      palette='husl', 
+                      ci="sd",
+                      errwidth=0.7,
+                      capsize=0.02,
+                      ax=axes[i])
+        
+        # if last panel, display axis ticks, axis title and a legend
+        if i == len(score_type)-1 or len(score_type)==1: 
+            if x_group == 'hp': axes[i].set_xticklabels(axes[i].get_xticklabels(), rotation=90)
+            elif x_group == 'fold_va': axes[i].set_xticklabels(axes[i].get_xticklabels(), rotation=0)
+            
+        else:
+            axes[i].set_xticklabels([])
+            axes[i].set_xlabel("")
+        
+        # set the legend out of the plot area
+        axes[i].legend(loc='center left', bbox_to_anchor=(1, 0.5), title=hue_group)   
+        
+        # control the window range
+        mini=perf_data[score_name].mean() - perf_data[score_name].std()
+        maxi=perf_data[score_name].mean() + perf_data[score_name].std()
+        #axes[i].set_ylim(mini-mini/10,maxi+maxi/10)
+        axes[i].set_ylim(0,1)
+        axes[i].set_title(score_name)
+
+        # add a vertical line separation
+        for k in range(len(x_order)):
+            axes[i].axvline(k+0.5, 0,1, color="grey", alpha=0.5)
+
+        i+=1
+
+    return
+    
+    
 
 
 def swarmplot_fold_perf(metrics_df, 
@@ -801,7 +886,6 @@ def swarmplot_fold_perf(metrics_df,
                       order=x_order, 
                       size=8, linewidth=1, dodge=True, alpha=.85, ax=axes[i])
 
-        
         # if last panel, display axis ticks, axis title and a legend
         if i == len(score_type)-1 or len(score_type)==1: 
             if x_group == 'hp': axes[i].set_xticklabels(axes[i].get_xticklabels(), rotation=90)
