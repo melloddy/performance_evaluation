@@ -781,7 +781,7 @@ def swarmplot_fold_perf(metrics_df,
                       hue="hp", 
                       palette="husl", 
                       order=hp_order, 
-                      size=8, linewidth=1, dodge=True, alpha=.85, ax=axes[i])
+                      size=8, linewidth=1, dodge=False, alpha=.85, ax=axes[i])
 
         if i == len(score_type)-1: axes[i].set_xticklabels(axes[i].get_xticklabels(), rotation=90)
         else:axes[i].set_xticklabels([])
