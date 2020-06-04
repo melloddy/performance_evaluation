@@ -750,48 +750,79 @@ def delta_to_baseline(top_baseline, list_top_perfs):
 
 def swarmplot_fold_perf(metrics_df, 
                         score_type=['roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score', 'kappa'],
-                        hp_order='auto',
                         figsize = (20, 18), 
-                        n_cv=5
+                        n_cv=5, 
+                        x_group='fold_va',
+                        x_order='auto',
+                        hue_order='auto',
+                        hue_group='hp',
                         ):
     """ Seaborn swarplot of fold mean performance. X-axis: hyperparamter combinations; Y-axis: mean performance of a fold 
 #     :param pandas df metrics_df: metrics dataframe like what is returned by perf_from_json() 
 #     :param list of str score_type: list of score types to consider
 #     :param list of str hp_order: list of hyperparamter strings to use ( modeval.make_hp_string_col(metrics_df, hp_cols) lists the HPs)
+#     :param str x_group: allows displaying swarms of dots by different variables. The specifed value will be used for X-axis. This is required to be present in melted dataframe [see melt_perf(...)]
+#     :param str hue_group: allows ordering of hue swarms of dots by different variables. The specifed value will be used to determine order. This is required to be present in melted dataframe [see melt_perf(...)]
 #     :return pandas series with hp string  
     """
+    assert len(score_type) > 1, "Minimum number of score_types is 2"
+    assert x_group != hue_group, "x_group and hue_group need to be different "
+    assert (x_group == 'fold_va' and hue_group=='hp') or (x_group == 'hp' and hue_group=='fold_va'), "x_group and hue_group need to be either 'fold_va' or 'hp', interverted"
     
+    # aggregate performance of each fold to get a value per fold per HP
     perf_fold  = aggregate_fold_perf(metrics_df, 5, stats='basic', n_cv=n_cv, score_type=score_type)
+    
+    # format for plotting
     perf_foldm = melt_perf(perf_fold, score_type=[x+'_mean' for x in score_type])
-
     perf_foldm['hp'] = make_hp_string_col(perf_foldm)
     print(f"# --> {perf_foldm['hp'].unique().shape[0]} hp combin found")
-    if hp_order=='auto':hp_order=np.sort(perf_foldm['hp'].unique())
-
+    
+    # set the order of x and hue 
+    if x_order=='auto' and x_group=='hp': x_order=np.sort(perf_foldm['hp'].unique())
+    elif x_order=='auto' and x_group=='fold_va': x_order=np.sort(perf_foldm['fold_va'].unique())
+    if hue_order=='auto' and hue_group=='hp': hue_order=np.sort(perf_foldm['hp'].unique())
+    elif hue_order=='auto' and hue_group=='fold_va': hue_order=np.sort(perf_foldm['fold_va'].unique())
+    
+    # this will be a subplots stack, each of them shows perf according to one score type
     num_metrics = len(score_type)
     fig, axes = plt.subplots(num_metrics,1, figsize=figsize)
 
-
     i=0
     for score_name in perf_foldm.score_type.unique():
+        
+        # do a swarmplot for every score type
         perf_data = perf_foldm.loc[perf_foldm['score_type']==score_name]
-        sns.swarmplot(x="hp", 
+        sns.swarmplot(x=x_group, 
                       y="value", 
                       data=perf_data, 
-                      hue="hp", 
+                      hue=hue_group, 
+                      hue_order=hue_order,
                       palette="husl", 
-                      order=hp_order, 
-                      size=8, linewidth=1, dodge=False, alpha=.85, ax=axes[i])
+                      order=x_order, 
+                      size=8, linewidth=1, dodge=True, alpha=.85, ax=axes[i])
 
-        if i == len(score_type)-1: axes[i].set_xticklabels(axes[i].get_xticklabels(), rotation=90)
-        else:axes[i].set_xticklabels([])
         
+        # if last panel, display axis ticks, axis title and a legend
+        if i == len(score_type)-1 or len(score_type)==1: 
+            if x_group == 'hp': axes[i].set_xticklabels(axes[i].get_xticklabels(), rotation=90)
+            elif x_group == 'fold_va': axes[i].set_xticklabels(axes[i].get_xticklabels(), rotation=0)
+            axes[i].legend(loc='center left', bbox_to_anchor=(1, 0.5), title=hue_group)   
+        else:
+            axes[i].set_xticklabels([])
+            axes[i].set_xlabel("")
+            axes[i].get_legend().remove()
+        
+        # control the window range
         mini=perf_data['value'].min()
         maxi=perf_data['value'].max()
         axes[i].set_ylim(mini-mini/100,maxi+maxi/100)
-        axes[i].set_xlabel("")
+        
         axes[i].set_title(score_name)
-        axes[i].get_legend().remove()
+
+        # add a vertical line separation
+        for k in range(len(x_order)):
+            axes[i].axvline(k+0.5, 0,1, color="grey", alpha=0.5)
+
         i+=1
 
     return
