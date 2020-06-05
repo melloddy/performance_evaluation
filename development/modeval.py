@@ -754,7 +754,7 @@ def pointplot_fold_perf(metrics_df,
                         hue_order='auto',
                         hue_group='hp',
                         ):
-    """ Seaborn swarplot of fold mean performance. X-axis: hyperparamter combinations; Y-axis: mean performance of a fold 
+    """ Seaborn poinplot of fold mean performance with standard dev error bars. X-axis: hyperparamter combinations; Y-axis: mean performance of a fold 
 #     :param pandas df metrics_df: metrics dataframe like what is returned by perf_from_json() 
 #     :param list of str score_type: list of score types to consider
 #     :param list of str hp_order: list of hyperparamter strings to use ( modeval.make_hp_string_col(metrics_df, hp_cols) lists the HPs)
@@ -788,6 +788,17 @@ def pointplot_fold_perf(metrics_df,
         
         # do a swarmplot for every score type
         perf_data = perf_to_consider[['hp', 'fold_va',score_name]].copy()
+
+        
+        #means = np.array([perf_data.loc[perf_data['fold_va']==x][score_name].mean() for x in perf_data['fold_va'].unique()])
+        #lower_error = means - perf_data[score_name].quantile(.25)
+        #upper_error = perf_data[score_name].quantile(.75) - means
+        #asymmetric_error = [lower_error, upper_error]
+        #axes[i].errorbar(x=x_order, y=means, yerr=asymmetric_error, fmt='o')
+        
+        #pl.errorbar(np.array(parameters)-0.01, mean_1, yerr=std_1, fmt='bo')
+        #pl.errorbar(parameters, mean_2, yerr=std_2, fmt='go')
+        #pl.errorbar(np.array(parameters)+0.01, mean_3, yerr=std_3, fmt='ro')
         
         sns.pointplot(x=x_group, 
                       y=score_name, 
@@ -816,10 +827,10 @@ def pointplot_fold_perf(metrics_df,
         axes[i].legend(loc='center left', bbox_to_anchor=(1, 0.5), title=hue_group)   
         
         # control the window range
-        mini=perf_data[score_name].mean() - perf_data[score_name].std()
-        maxi=perf_data[score_name].mean() + perf_data[score_name].std()
+        #mini=perf_data[score_name].mean() - perf_data[score_name].std()
+        #maxi=perf_data[score_name].mean() + perf_data[score_name].std()
         #axes[i].set_ylim(mini-mini/10,maxi+maxi/10)
-        axes[i].set_ylim(0,1)
+        #axes[i].set_ylim(0.805,0.825)
         axes[i].set_title(score_name)
 
         # add a vertical line separation
