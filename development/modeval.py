@@ -520,7 +520,7 @@ def melt_perf(metrics_df, score_type=['roc_auc_score', 'auc_pr', 'avg_prec_score
     for p in score_type: 
         assert p in metrics_df.columns, f'"{p}" column not found in df_res'
     
-    dfm = metrics_df.melt(id_vars=hp_cols, value_name='value', var_name='score_type')
+    dfm = metrics_df.melt(id_vars=hp_cols, value_name='value', var_name='score_type').reset_index()
     dfm = dfm.loc[dfm['score_type'].isin(score_type)]
     dfm['value'] = dfm['value'].astype(float)
     
@@ -938,7 +938,61 @@ def pointplot_fold_perf(metrics_df,
     return
     
 
+def ratioplot(perf_metrics,
+              min_samples=5,
+              n_cv=5,
+              score_type=['roc_auc_score', 'auc_pr','avg_prec_score', 'max_f1_score', 'kappa'], 
+              order='auto'):
+    """
+    
+    """
+    
+    perf_2_consider = quorum_filter(perf_metrics, min_samples=min_samples, n_cv=n_cv)
 
+
+    # aggregate performance of tasks over the folds
+    aggr_perf = aggregate_task_perf(perf_2_consider, n_cv=n_cv, min_samples=min_samples,score_type=score_type , stats='basic')
+    aggr_perf['hp'] = make_hp_string_col(aggr_perf)    
+    score_type = [x+'_mean' for x in score_type]
+    
+    if order == 'auto':order=aggr_perf['hp'].unique()
+
+    data = {x:[] for x in score_type}
+    for score in score_type:
+        
+        cutoff_sets = []
+        hp_sets = []
+        for hp in order:
+        
+            one_hp = aggr_perf.loc[aggr_perf['hp']==hp]
+    
+            for cutoff in np.arange(0, 1.01, 0.01)[::-1]:
+                r = np.where(one_hp[score]>= cutoff, 1, 0).sum()/one_hp.shape[0]
+        
+                cutoff_sets.append(cutoff)
+                hp_sets.append(hp)
+                data[score].append(r)
+
+    df = pd.DataFrame(data)
+    df['hp'] = hp_sets
+    df['cutoff'] = cutoff_sets
+    
+
+    num_metrics = len(score_type)
+    fig, ax = plt.subplots(1,num_metrics, figsize=(20, 10))
+
+    for i, score in enumerate(score_type):
+        print(i, score)
+        sns.lineplot(x="cutoff", y=score, data=df[['hp', "cutoff", score]], hue="hp", hue_order=order, ax=ax[i], palette='husl')
+        ax[i].set_xlim(1, 0)
+        ax[i].set_xlabel(f"{score} cutoff")
+        ax[i].set_ylabel(f"ratio tasks with better than X {score}")
+    
+    return df
+    
+    
+    
+    
 def swarmplot_fold_perf(metrics_df, 
                         score_type=['roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score', 'kappa'],
                         figsize = (20, 18), 
