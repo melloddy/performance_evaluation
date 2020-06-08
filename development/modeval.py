@@ -9,6 +9,7 @@ import json
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 import seaborn as sns
+import itertools
 
 
 sns.set_style("whitegrid")
@@ -743,7 +744,113 @@ def delta_to_baseline(top_baseline, list_top_perfs):
         deltas.append(d)    
     
     return pd.concat(deltas, sort=False)
+
+
+
+
+
+def folds_asym_error_plot(metrics_df,  
+                          min_samples=5,
+                          n_cv=5,
+                          score_type=['roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score', 'kappa'],
+                          error_bar_fraction_tasks=0.62,
+                          gap_hue=0.5,
+                          figsize = (20, 18), 
+                          hue_order='auto'):
+    """ Validation folds means plotted with matplotlib errorbar and asymetric error bars. The error bar will cover 'error_bar_fraction_tasks' tasks (default, 62%) and will guaranty that the mean point separates the error bar in two parts covering equivalent fractions of the tasks. Peforms the quorum filtering and mean aggregation over folds.
+#     :param pandas df metrics_df: metrics dataframe like what is returned by perf_from_json() 
+#     :param int min_samples: minimum samples of positive / negative to be present in each fold for a task performance to be considerd (on thee basis of HPs)
+#     :param int n_cv: number of folds to be looking for
+#     :param float error_bar_fraction_tasks, the fraction of tasks that the error bar will cover (0<=f<=1)
+#     :param float gap_hue, x interval in which HP fold performance will be plotted (around X=n_cv)
+#     :param list of str score_type: list of score types to consider
+#     :param list of str hp_order: list of hyperparamter strings to use ( modeval.make_hp_string_col(metrics_df, hp_cols) lists the HPs)
+#     :param str x_group: allows displaying swarms of dots by different variables. The specifed value will be used for X-axis. This is required to be present in melted dataframe [see melt_perf(...)]
+#     :param str hue_group: allows ordering of hue swarms of dots by different variables. The specifed value will be used to determine order. This is required to be present in melted dataframe [see melt_perf(...)]
+#     :return void (plots the figure) 
+    """
+    assert error_bar_fraction_tasks > 0 and error_bar_fraction_tasks <=1, "error_bar_fraction_tasks must be < 0 and <= 1"
+
+    # data filtering: filters tasks-HP that do not fullfill the requirement: min_samples from each class in each n_cv fold
+    perf_to_consider = quorum_filter(metrics_df, min_samples=5, n_cv=n_cv, verbose=True)
+    perf_to_consider['hp'] = make_hp_string_col(perf_to_consider)
     
+    if hue_order == 'auto':hue_order = perf_to_consider['hp'].unique()
+        
+
+    # example error bar values that vary with x-position
+    fig, axes= plt.subplots(nrows=5, figsize=figsize)
+
+    # define color range
+    colors = itertools.cycle(sns.color_palette("husl", len(hue_order)))
+
+    
+
+    k=0
+    for score_name in score_type:
+        for fold in range(n_cv):
+                                               
+            # first calculate the means for each fold-HP in specifed order
+            means = np.array([perf_to_consider.loc[(perf_to_consider['hp']==x)&(perf_to_consider['fold_va']==fold)][score_name].mean() for x in hue_order])
+        
+            # get the number of tasks corresponding to the wanted fraction of task p and divide by two to find out upper and lower errors
+            # this number will be used to truncate the perf records above and below the mean at the position corresponding to the number of wanted records on each side 
+            # (half the numebr of records in wanted fraction)
+            n=int(perf_to_consider.loc[(perf_to_consider['fold_va']==fold)].shape[0]/len(hue_order)*error_bar_fraction_tasks/2)
+            
+            lower_quantiles, higer_quantiles= [],[]
+            for x in range(len(hue_order)):
+
+                
+                lower_limit = perf_to_consider.loc[(perf_to_consider['hp']==hue_order[x])&
+                                                   (perf_to_consider['fold_va']==fold)&
+                                                   (perf_to_consider[score_name]<means[x])][score_name].sort_values().iloc[-n] 
+                
+                higher_limit = perf_to_consider.loc[(perf_to_consider['hp']==hue_order[x])&
+                                                    (perf_to_consider['fold_va']==fold)&
+                                                    (perf_to_consider[score_name]>means[x])][score_name].sort_values().iloc[n] 
+                
+                lower_quantiles.append(lower_limit) 
+                higer_quantiles.append(higher_limit) 
+                
+        
+            # then determine the y-coordinates of the error bars
+            lower_error = means - lower_quantiles
+            upper_error = higer_quantiles - means
+            asymmetric_error = [lower_error, upper_error]
+        
+           
+            # determine the X-shift between HPs of the same plot
+            # we want to plot in interval [-.4 , + .4] relative to each fold X coordinate (i.e. 0,1,2,3,4) 
+            # interval is = 0.8 and we want to plot all HP with regular intervals
+            shift = gap_hue/len(hue_order)
+            
+        
+            # finally, apply the error plotting with previousely defined limits
+            for i in range(len(means)):
+                axes[k].errorbar(x=fold+shift*i-(len(means)-1)/2*shift, 
+                                 y=means[i], 
+                                 yerr=[[asymmetric_error[0][i]],[asymmetric_error[1][i]]], 
+                                 fmt='o',
+                                 color=next(colors),
+                                 elinewidth=0.6,
+                                 capsize=2)
+                axes[k].set_title(score_name)
+            
+                if k < len(range(n_cv)) - 1: 
+                    axes[k].set_xticklabels([])
+                    
+                else:
+                    axes[k].set_xlabel("validation fold")
+        k+=1
+    
+    plt.show()
+    
+    return
+
+
+
+
 
 def pointplot_fold_perf(metrics_df, 
                         score_type=['roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score', 'kappa'],
@@ -760,7 +867,7 @@ def pointplot_fold_perf(metrics_df,
 #     :param list of str hp_order: list of hyperparamter strings to use ( modeval.make_hp_string_col(metrics_df, hp_cols) lists the HPs)
 #     :param str x_group: allows displaying swarms of dots by different variables. The specifed value will be used for X-axis. This is required to be present in melted dataframe [see melt_perf(...)]
 #     :param str hue_group: allows ordering of hue swarms of dots by different variables. The specifed value will be used to determine order. This is required to be present in melted dataframe [see melt_perf(...)]
-#     :return pandas series with hp string  
+#     :return void (plots the figure) 
     """
     assert len(score_type) > 1, "Minimum number of score_types is 2"
     assert x_group != hue_group, "x_group and hue_group need to be different "
@@ -788,17 +895,6 @@ def pointplot_fold_perf(metrics_df,
         
         # do a swarmplot for every score type
         perf_data = perf_to_consider[['hp', 'fold_va',score_name]].copy()
-
-        
-        #means = np.array([perf_data.loc[perf_data['fold_va']==x][score_name].mean() for x in perf_data['fold_va'].unique()])
-        #lower_error = means - perf_data[score_name].quantile(.25)
-        #upper_error = perf_data[score_name].quantile(.75) - means
-        #asymmetric_error = [lower_error, upper_error]
-        #axes[i].errorbar(x=x_order, y=means, yerr=asymmetric_error, fmt='o')
-        
-        #pl.errorbar(np.array(parameters)-0.01, mean_1, yerr=std_1, fmt='bo')
-        #pl.errorbar(parameters, mean_2, yerr=std_2, fmt='go')
-        #pl.errorbar(np.array(parameters)+0.01, mean_3, yerr=std_3, fmt='ro')
         
         sns.pointplot(x=x_group, 
                       y=score_name, 
@@ -840,7 +936,6 @@ def pointplot_fold_perf(metrics_df,
         i+=1
 
     return
-    
     
 
 
