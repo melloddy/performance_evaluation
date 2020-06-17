@@ -25,10 +25,6 @@ sns.set_style("whitegrid")
 #    return
 
 
-# TO DO 
-# - delta predictions perf between two (or more) models
-# - better manage hyperparameters (consistent to the code)
-
 
 def perf_from_json(
         model_dir_or_file, 
@@ -185,7 +181,8 @@ def quorum_filter(metrics_df, min_samples=5, n_cv=5, verbose=True):
     assert 'num_neg' in metrics_df.columns, "num_neg must be present in metrics data frame"
     
     index_cols = ['fold_va', 'task', 'model_name'] + [col for col in metrics_df if col[:3] == 'hp_' if not metrics_df[col].isna().all()] 
-    df = metrics_df.set_index(keys=index_cols, verify_integrity=True).copy()
+    df = metrics_df.loc[metrics_df['fold_va']<n_cv].set_index(keys=index_cols, verify_integrity=True).copy()
+    
     
     # add a dummy column to perform the count
     df['_'] = 1
