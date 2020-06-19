@@ -183,7 +183,6 @@ def quorum_filter(metrics_df, min_samples=5, n_cv=5, verbose=True):
     index_cols = ['fold_va', 'task', 'model_name'] + [col for col in metrics_df if col[:3] == 'hp_' if not metrics_df[col].isna().all()] 
     df = metrics_df.loc[metrics_df['fold_va']<n_cv].set_index(keys=index_cols, verify_integrity=True).copy()
     
-    
     # add a dummy column to perform the count
     df['_'] = 1
     
@@ -1170,7 +1169,7 @@ def plot_statisical_significance(table, metric_x, metric_y, label_x, label_y, x_
     plt.ylabel(label_y)
     ax.plot(ax.get_xlim(), ax.get_ylim(), ls="--", c=".3")
 
-    return res
+    return res, table
 
 
 
@@ -1186,9 +1185,9 @@ def split_folds(M, fold_vector):
 #     :return list of size=n_folds where each element is a csr_matrix representing a fold
     """
     assert type(M) == scipy.sparse.csr.csr_matrix, "M needs to be scipy.sparse.csr.csr_matrix"
-    assert folds.shape[0] == M.shape[0], "fold_vector must have same shape[0] than M"
+    assert fold_vector.shape[0] == M.shape[0], "fold_vector must have same shape[0] than M"
     
-    folds = [M[fold_vector==f,:] for f in np.unique(folds)]
+    folds = [M[fold_vector==f,:] for f in np.unique(fold_vector)]
     return folds
     
 
