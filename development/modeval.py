@@ -748,6 +748,43 @@ def delta_to_baseline(top_baseline, list_top_perfs):
 
 
 
+def delta_to_baseline_from_assay_ids(top_baseline, list_top_perfs):
+    """ Computes the delta-to-baseline of a list of models to compare. The performance data frames are like what perf_from_json returns
+#       :param pandas df top_baseline, all task performance of the baseline model (assumed to correspond to the best HP)    
+#       :param list of pandas df top_perf: a list of performance data frames corresponding to models to comapre 
+#       :return pandas df containing the performance deltas
+    """
+    deltas = []
+
+    col2keep = ['task', 'fold_va', 'input_assay_id', 'model_name', 'roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score','kappa', 'num_pos', 'num_neg', 'threshold_value']
+    top_baseline_scores = top_baseline.drop([x for x in top_baseline.columns if x not in col2keep],axis=1)
+    
+    baseline_valid = modeval.quorum_filter(top_baseline_scores)
+    baseline_valid['threshold_value'] = baseline_valid['threshold_value'].round(4)
+    
+    
+    for top_perf in list_top_perfs:
+        
+        top_perf_scores = top_perf.drop([x for x in top_perf.columns if x not in col2keep],axis=1)
+        top_perf_scores['threshold_value'] = top_perf_scores['threshold_value'].round(4)
+        
+        model_name = top_perf['model_name'].iloc[0]
+        
+        
+        # merge performance based on input_assay_id and num_pos, num_neg (not task identifiers since they could in principle be different)
+        merged = baseline_valid.merge(top_perf_scores, on=['fold_va', 'input_assay_id',  'threshold_value', 'num_pos', 'num_neg'], suffixes=('', '_'+model_name))
+        
+        # calculate the delta for each score now
+        for s in ['roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score','kappa']:
+            merged[s+'_delta'] = merged[s+'_'+model_name] - merged[s]
+
+        d = merged[['task', 'task_'+model_name, 'fold_va', 'input_assay_id','roc_auc_score_delta', 'auc_pr_delta', 'avg_prec_score_delta', 'max_f1_score_delta','kappa_delta', 'num_pos', 'num_neg']].copy()   
+        d['model_name'] = model_name
+        deltas.append(d)
+
+    return pd.concat(deltas, sort=False)
+
+
 
 def folds_asym_error_plot(metrics_df,  
                           min_samples=5,
