@@ -712,9 +712,10 @@ def pvalue(auc1, num_pos1, num_neg1, auc2, num_pos2, num_neg2):
 
 
 
-def delta_to_baseline(top_baseline, list_top_perfs):
-    """ Computes the delta-to-baseline of a list of models to compare. The performance data frames are like what perf_from_json returns
+def delta_to_baseline(top_baseline, list_top_perfs, n_cv=5):
+    """ Computes the delta-to-baseline of a list of models to compare. The performance data frames are like what perf_from_json returns. A quorum selection filter will take place.
 #       :param pandas df top_baseline, all task performance of the baseline model (assumed to correspond to the best HP)    
+#       :param list of pandas df top_perf: a list of performance data frames corresponding to models to comapre 
 #       :param list of pandas df top_perf: a list of performance data frames corresponding to models to comapre 
 #       :return pandas df containing the performance deltas
     """
@@ -724,7 +725,7 @@ def delta_to_baseline(top_baseline, list_top_perfs):
     top_baseline_scores = top_baseline.drop([x for x in top_baseline.columns if x not in col2keep],axis=1)
 
     # apply quorum filtering to baseline results
-    baseline_valid = quorum_filter(top_baseline_scores, n_cv=5)
+    baseline_valid = quorum_filter(top_baseline_scores, n_cv=n_cv)
     
     for top_perf in list_top_perfs:
     
@@ -749,8 +750,8 @@ def delta_to_baseline(top_baseline, list_top_perfs):
 
 
 
-def delta_to_baseline_from_assay_ids(top_baseline, list_top_perfs):
-    """ Computes the delta-to-baseline of a list of models to compare. The performance data frames are like what perf_from_json returns
+def delta_to_baseline_from_assay_ids(top_baseline, list_top_perfs, n_cv=5):
+    """ Computes the delta-to-baseline of a list of models to compare. The performance data frames are like what perf_from_json returns. A quorum selection filter will take place.
 #       :param pandas df top_baseline, all task performance of the baseline model (assumed to correspond to the best HP)    
 #       :param list of pandas df top_perf: a list of performance data frames corresponding to models to comapre 
 #       :return pandas df containing the performance deltas
@@ -760,7 +761,7 @@ def delta_to_baseline_from_assay_ids(top_baseline, list_top_perfs):
     col2keep = ['task', 'fold_va', 'input_assay_id', 'model_name', 'roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score','kappa', 'num_pos', 'num_neg', 'threshold_value']
     top_baseline_scores = top_baseline.drop([x for x in top_baseline.columns if x not in col2keep],axis=1)
     
-    baseline_valid = modeval.quorum_filter(top_baseline_scores)
+    baseline_valid = quorum_filter(top_baseline_scores, n_cv=n_cv)
     baseline_valid['threshold_value'] = baseline_valid['threshold_value'].round(4)
     
     
