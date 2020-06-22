@@ -64,11 +64,17 @@ optional arguments:
 ## Running the performance evaluation script
 i.e. for pharma 1, the following would be run:
 
-> python performance_evaluation.py --y_true_all pharma_partners/pharma_y_partner_3.npy --y_pred_single Single-pharma-run/substra/medias/subtuple/29e625fafef2822df68e8907b612fe81143847ceb4061d7da1502c7e0f0f939d/pred/pred --y_pred_multi Multi-pharma-run/substra/medias/subtuple/29e625fafef2822df68e8907b612fe81143847ceb4061d7da1502c7e0f0f939d/pred/pred --folding pharma_partners/folding_partner_3.npy --task_weights pharma_partners/weights_3 --single_performance_report Single-pharma-run/substra/medias/subtuple/29e625fafef2822df68e8907b612fe81143847ceb4061d7da1502c7e0f0f939d/pred/perf.json --multi_performance_report Multi-pharma-run/substra/medias/subtuple/29e625fafef2822df68e8907b612fe81143847ceb4061d7da1502c7e0f0f939d/pred/perf.json 
+`python performance_evaluation.py --y_true_all pharma_partners/pharma_y_partner_1.npy --y_pred_single Single_pharma_run-1/medias/subtuple/c4f1c9b9d44fea66f9b856d346a0bb9aa5727e587185e87daca170f239a70029/pred/pred --y_pred_multi Multi_pharma_run-1/medias/subtuple/374d81d50d0df484bfa40708f270225780aa36dd15a366eb0691e89496653212/pred/pred --folding pharma_partners/folding_partner_1.npy --single_performance_report Single_pharma_run-1/medias/subtuple/c4f1c9b9d44fea66f9b856d346a0bb9aa5727e587185e87daca170f239a70029/pred/perf.json --multi_performance_report Multi_pharma_run-1/medias/subtuple/374d81d50d0df484bfa40708f270225780aa36dd15a366eb0691e89496653212/pred/perf.json`
+
+or
+
+`python performance_evaluation.py --y_true_all pharma_partners/pharma_y_partner_1.npy --y_pred_single Single_pharma_run-1/medias/subtuple/c4f1c9b9d44fea66f9b856d346a0bb9aa5727e587185e87daca170f239a70029/pred/pred --y_pred_multi Multi_pharma_run-1/medias/subtuple/374d81d50d0df484bfa40708f270225780aa36dd15a366eb0691e89496653212/pred/pred --folding pharma_partners/folding_partner_1.npy --single_performance_report Single_pharma_run-1/medias/subtuple/c4f1c9b9d44fea66f9b856d346a0bb9aa5727e587185e87daca170f239a70029/pred/perf.json --multi_performance_report Multi_pharma_run-1/medias/subtuple/374d81d50d0df484bfa40708f270225780aa36dd15a366eb0691e89496653212/pred/perf.json --task_weights pharma_partners/weights_1`
+
+for a weighted output (TBC if this is needed)
 
 ## Output from the script
 
-`$ ls global_deltas.csv  local_deltas.csv  pred_global_performances.csv  pred_local_performances.csv`
+`$ ls: global_deltas.csv  local_deltas.csv  pred_global_performances.csv  pred_local_performances.csv`
 
 ## Comparison with reference performance evaulation results
 
