@@ -525,13 +525,14 @@ def melt_perf(metrics_df, score_type=['roc_auc_score', 'auc_pr', 'avg_prec_score
 
 
 
-def extract_best_hp_records(perf_metrics, wanted_metrics):
+def extract_best_hp_records(perf_metrics, wanted_metrics, n_cv=5):
     """From a HP search results df , extracts the rows corresponding to the best HP given a score type. The best HP is selected with an aggregate_overall() [mean]
 #      :param pandas perf_metrics containing the HP search results return from perf_from_json()
 #      :str wanted_metrics: the score type name to use for HP selection
+#      :int n_cv: the number of valid folds
     """
 
-    best_hps = find_best_hyperparam(perf_metrics, min_samples=5, score_type=[wanted_metrics])
+    best_hps = find_best_hyperparam(perf_metrics, min_samples=5, score_type=[wanted_metrics], n_cv=n_cv)
     
     hp_cols = [col for col in best_hps.columns if col[:3]=='hp_']
     selection = best_hps.loc[best_hps['score_type']==wanted_metrics+'_mean']
