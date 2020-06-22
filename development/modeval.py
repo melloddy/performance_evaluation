@@ -727,15 +727,15 @@ def delta_to_baseline(top_baseline, list_top_perfs):
         top_perf_scores = top_perf.drop([x for x in top_perf.columns if x not in col2keep],axis=1)
         model_name = top_perf['model_name'].iloc[0]
     
-        # merge performance based on input_assay_id and num_pos, num_neg (not task identifiers since they could in principle be different)
-        merged = top_baseline_scores.merge(top_perf_scores, on=['fold_va', 'input_assay_id',  'num_pos', 'num_neg'], suffixes=('', '_'+model_name))
+        # merge performance based on input_assay_id and num_pos, num_neg (not task identifiers since they could in principle be different) ???
+        merged = top_baseline_scores.merge(top_perf_scores, on=['task','fold_va', 'input_assay_id',  'num_pos', 'num_neg'], suffixes=('', '_'+model_name))
         
     
         # calculate the delta for each score now
         for s in ['roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score','kappa']:
             merged[s+'_delta'] = merged[s+'_'+model_name] - merged[s]
 
-        d = merged[['task', 'task_'+model_name, 'fold_va', 'input_assay_id','roc_auc_score_delta', 'auc_pr_delta', 'avg_prec_score_delta', 'max_f1_score_delta','kappa_delta', 'num_pos', 'num_neg']].copy()   
+        d = merged[['task', 'fold_va', 'input_assay_id','roc_auc_score_delta', 'auc_pr_delta', 'avg_prec_score_delta', 'max_f1_score_delta','kappa_delta', 'num_pos', 'num_neg']].copy()   
         
         d['model_name'] = model_name
         deltas.append(d)    
