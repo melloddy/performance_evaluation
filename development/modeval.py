@@ -722,13 +722,16 @@ def delta_to_baseline(top_baseline, list_top_perfs):
     col2keep = ['task', 'fold_va', 'input_assay_id', 'model_name', 'roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score','kappa', 'num_pos', 'num_neg']
     top_baseline_scores = top_baseline.drop([x for x in top_baseline.columns if x not in col2keep],axis=1)
 
+    # apply quorum filtering to baseline results
+    baseline_valid = quorum_filter(top_baseline_scores, n_cv=5)
+    
     for top_perf in list_top_perfs:
     
         top_perf_scores = top_perf.drop([x for x in top_perf.columns if x not in col2keep],axis=1)
         model_name = top_perf['model_name'].iloc[0]
     
         # merge performance based on input_assay_id and num_pos, num_neg (not task identifiers since they could in principle be different) ???
-        merged = top_baseline_scores.merge(top_perf_scores, on=['task','fold_va', 'input_assay_id',  'num_pos', 'num_neg'], suffixes=('', '_'+model_name))
+        merged = baseline_valid.merge(top_perf_scores, on=['task','fold_va', 'input_assay_id',  'num_pos', 'num_neg'], suffixes=('', '_'+model_name))
         
     
         # calculate the delta for each score now
