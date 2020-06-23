@@ -1164,7 +1164,7 @@ def statistical_model_comparison_analysis(results_dir_x, t3_mapped_x, label_x, r
     table = table[~table['roc_auc_score_y'].isna()]
     table = table[~table['roc_auc_score_x'].isna()]
     res_stat_sign = plot_statisical_significance(table, metric_x, metric_y, label_x, label_y, x_lim, y_lim, title )
-    res = pd.concat([res_stat_sign, res_wide], axis=1)
+    res = pd.concat([res_stat_sign[0], res_wide], axis=1)
 
     return res 
 
