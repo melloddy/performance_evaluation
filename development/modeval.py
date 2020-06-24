@@ -1114,13 +1114,13 @@ def swarmplot_fold_perf(metrics_df,
 
 
 
-def match_best_tasks(results_dir_x, t3_mapped_x, label_x, results_dir_y, t3_mapped_y, label_y, aux_assay_type='Yx', n_cv=5, hp_selection_metric='auc_pr'): 
+def match_best_tasks(results_dir_x, t3_mapped_x, label_x, results_dir_y, t3_mapped_y, label_y, aux_assay_type='Yx', n_cv=5, hp_selection_metric='auc_pr',filename_mask_x=None, filename_mask_y=None): 
 
     hp_bests = list()
-    for e in ((results_dir_x, t3_mapped_x),(results_dir_y, t3_mapped_y)):
+    for e in ((results_dir_x, t3_mapped_x, filename_mask_x),(results_dir_y, t3_mapped_y, filename_mask_y)):
         df_t3_mapped = pd.read_csv(e[1])
         main_tasks = df_t3_mapped.loc[df_t3_mapped['assay_type']!=aux_assay_type].cont_classification_task_id.dropna().values
-        json_df = perf_from_json(e[0],aggregate=False,tasks_for_eval=main_tasks, n_cv=n_cv) 
+        json_df = perf_from_json(e[0],aggregate=False,tasks_for_eval=main_tasks, n_cv=n_cv, filename_mask=e[2]) 
         json_melted = melt_perf(json_df, score_type=[hp_selection_metric])
         hp_best = best_hyperparam(json_melted)
         # keeping only the records associated to the best hyperparameters
@@ -1131,29 +1131,31 @@ def match_best_tasks(results_dir_x, t3_mapped_x, label_x, results_dir_y, t3_mapp
 
     return hp_bests
 
-def statistical_model_comparison_analysis(results_dir_x, t3_mapped_x, label_x, results_dir_y, t3_mapped_y, label_y, aux_assay_type='Yx', n_cv=5, min_samples=25):
+def statistical_model_comparison_analysis(results_dir_x, t3_mapped_x, label_x, results_dir_y, t3_mapped_y, label_y, aux_assay_type='Yx', n_cv=5, min_samples=25, filename_mask_x=None, filename_mask_y=None):
     """ Run a statistical significance analysis between two runs, both with hyperparameter optimization
-      Best hyperparameters will be selected based on the auc_pr
-      For now, only compatible with the json result format . 
-      Result is the difference between the second (y) and the first (x) arguments
-#    :param  str path to the results folder of the 1st run, containing the json files
-#    :param  str path to the mapped T3 file of the 1st run
-#    :param  str axis label for the plot, designating the 1st run
-#    :param  str path to the results folder of the 2nd run, containing the json files
-#    :param  str path to the mapped T3 file of the 2nd run
-#    :param  str axis label for the plot, designating the 2nd run
-#    :param int n_cv: specify the number of folds used for cross valid, starting with 0, higher fold_va numbers will be dropped
-#    :param int n_cv: statistics calculations will be limited to the tasks which have at least this number of positives and negatives
-#    :return None 
+     Best hyperparameters will be selected based on the auc_pr
+     For now, only compatible with the json result format . 
+     Result is the difference between the second (y) and the first (x) arguments
+    :param  str path to the results folder of the 1st run, containing the json files
+    :param  str path to the mapped T3 file of the 1st run
+    :param  str axis label for the plot, designating the 1st run
+    :param  str path to the results folder of the 2nd run, containing the json files
+    :param  str path to the mapped T3 file of the 2nd run
+    :param  str axis label for the plot, designating the 2nd run
+    :param int n_cv: specify the number of folds used for cross valid, starting with 0, higher fold_va numbers will be dropped
+    :param int n_cv: statistics calculations will be limited to the tasks which have at least this number of positives and negatives
+    :param str filename_mask_x: specify a filename mask to restrict the perf loading to a subset of files for the 1st run results
+    :param str filename_mask_y: specify a filename mask to restrict the perf loading to a subset of files for the 2nd run results
+    :return None 
     """ 
 
-    hp_bests = match_best_tasks(results_dir_x, t3_mapped_x, label_x, results_dir_y, t3_mapped_y, label_y, aux_assay_type='Yx', n_cv=n_cv)
+    hp_bests = match_best_tasks(results_dir_x, t3_mapped_x, label_x, results_dir_y, t3_mapped_y, label_y, aux_assay_type='Yx', n_cv=n_cv, filename_mask_x=filename_mask_x, filename_mask_y=filename_mask_y)
     # matching x and y runs
     df_merge = pd.merge(hp_bests[0], hp_bests[1],how='inner',on=['input_assay_id','threshold_value','fold_va'])
 
     # plotting
     # statistical analysis only valid for aggregated figures over folds - hence groupby
-    table = df_merge.groupby(by=['input_assay_id']).mean().reset_index() # supposedly, no threshold_value needed here in the gb-clause
+    table = df_merge.groupby(by=['input_assay_id','threshold_value']).mean().reset_index() 
     metric_x = 'roc_auc_score_x'
     metric_y = 'roc_auc_score_y'
     x_lim = 0.5
