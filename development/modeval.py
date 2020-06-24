@@ -788,6 +788,88 @@ def delta_to_baseline_from_assay_ids(top_baseline, list_top_perfs, n_cv=5):
 
 
 
+
+
+
+
+
+# =======================================================================
+# =======================================================================
+# ==== Plotting functions
+
+
+# function to capture the boxplot specs
+def get_box_plot_data(labels, bp):
+    rows_list = []
+
+    for i in range(len(labels)):
+        dict1 = {}
+        dict1['label']  = labels[i]
+        dict1['whislo'] = bp['whiskers'][i*2].get_ydata()[1]
+        dict1['q1']     = bp['boxes'][i].get_ydata()[1]
+        dict1['med']    = bp['medians'][i].get_ydata()[1]
+        dict1['mean']   = bp['means'][i].get_ydata()[0]
+        dict1['q3']     = bp['boxes'][i].get_ydata()[2]
+        dict1['whishi'] = bp['whiskers'][(i*2)+1].get_ydata()[1]
+        rows_list.append(dict1)
+
+    return pd.DataFrame(rows_list)
+
+
+# This function allows to compute the boxplot of performance delta per task size category
+# capture the boxes lower whisker, q1, med, q3 and higher lower whisker
+# this will allow sharing data necessary for boxplots by preserving the privacy of the full performance data frame
+def compute_boxplots(perf_deltas, labels, category_column, score_type=['roc_auc_score_delta', 'auc_pr_delta', 'avg_prec_score_delta', 'max_f1_score_delta', 'kappa_delta']):
+    boxes = []
+    scored_labels = []
+    fig, ax = plt.subplots(figsize=(20,5))
+    for cat in labels:
+        cat_df = perf_deltas.loc[perf_deltas[category_column]==cat]
+        
+        for score in score_type: 
+            b = ax.boxplot(cat_df[score], showmeans=True)
+            boxes.append(b)
+            scored_labels.append(f'{score}:{cat}')
+
+    plt.close()
+
+    # concatenate the different boxplots specs into a data frame
+    boxplots_specs = pd.concat([get_box_plot_data([scored_labels[i]],boxes[i]) for i in range(len(boxes))], ignore_index=True)
+    
+    label_split = boxplots_specs.label.str.split(':', expand=True)
+    
+    boxplots_specs['score_type'] = label_split[0]
+    boxplots_specs['label'] = label_split[1]
+    
+    return boxplots_specs#, boxes[0], scored_labels[0]
+
+
+#  exple of how to reconstruct boxplot from the boxplot specs
+def reconstruct_boxplot(boxplot_specs, figsize=(10,10)):
+    score_type = boxplot_specs['score_type'].unique()
+    num_scores = score_type.shape[0]
+    
+    fig, ax = plt.subplots( num_scores, 1, figsize=figsize)
+    for i, score in enumerate(score_type): 
+        boxes= []
+        score_df = boxplot_specs.loc[boxplot_specs['score_type']==score].drop('score_type',axis=1)
+        for k,v in score_df.to_dict(orient='index').items():
+            v['fliers'] = []
+            boxes.append(v)
+
+        ax[i].bxp(boxes, showmeans=True, showfliers=True)
+        ax[i].set_title(score)
+        
+    plt.show()
+    return 
+
+
+
+
+
+
+
+
 def folds_asym_error_plot(metrics_df,  
                           min_samples=5,
                           n_cv=5,
