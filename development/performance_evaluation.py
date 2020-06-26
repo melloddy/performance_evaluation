@@ -5,6 +5,8 @@ import numpy as np
 import torch
 import sklearn.metrics
 import json 
+from VennABERS import get_VA_margin_median_cross
+
 
 parser = argparse.ArgumentParser(description="Calculate Performance Metrics")
 parser.add_argument("--y_true_all", help="Activity file (npy) (i.e. from files_4_ml/)", type=str, default="T10_y.npy")
@@ -87,7 +89,7 @@ def global_perf_from_json(performance_report):
 def write_global_report(args_name,global_performances):
 	global name
 	perf_df = pd.DataFrame([global_performances],columns=\
-		['aucpr_mean','aucroc_mean','maxf1_mean', 'kappa_mean','tn', 'fp', 'fn', 'tp'])
+		['aucpr_mean','aucroc_mean','maxf1_mean', 'kappa_mean', 'tn', 'fp', 'fn', 'tp', 'vennabers_mean'])
 	perf_df.to_csv(name + '/'+ os.path.basename(args_name) + '_global_performances.csv')
 	return perf_df
 
@@ -114,6 +116,8 @@ def per_run_performance(y_pred_arg, performance_report):
 	fp      = np.full(y_true.shape[1], np.nan)
 	fn      = np.full(y_true.shape[1], np.nan)
 	tp      = np.full(y_true.shape[1], np.nan)
+	vennabers = np.full(y_true.shape[1], np.nan)
+	
 	num_pos = (y_true == +1).sum(0)
 	num_neg = (y_true == -1).sum(0)
 	cols55  = np.array((num_pos >= 5) & (num_neg >= 5)).flatten()
@@ -122,6 +126,9 @@ def per_run_performance(y_pred_arg, performance_report):
 	for col in range(y_true.shape[1]):
 		y_true_col = y_true.data[y_true.indptr[col] : y_true.indptr[col+1]] == 1
 		y_pred_col = y_pred.data[y_pred.indptr[col] : y_pred.indptr[col+1]]
+		
+		pts = np.vstack((y_pred_col, y_true_col)).T # points for Venn-ABERS
+		
 		if y_true_col.shape[0] <= 1:
 			## not enough data for current column, skipping
 			continue
@@ -135,11 +142,12 @@ def per_run_performance(y_pred_arg, performance_report):
 		maxf1[col]  = find_max_f1(precision, recall)
 		kappa[col]  = sklearn.metrics.cohen_kappa_score(y_true_col, y_classes)
 		tn[col], fp[col], fn[col], tp[col] = sklearn.metrics.confusion_matrix(y_true = y_true_col, y_pred = y_classes).ravel()
+		vennabers[col] = get_VA_margin_median_cross(pts)
 
 	##local performance:
 	local_performance=pd.DataFrame(np.array([aucpr[cols55],aucroc[cols55],maxf1[cols55],\
-						kappa[cols55],tn[cols55],fp[cols55],fn[cols55],tp[cols55]]).T,\
-						columns=['aucpr','aucroc','maxf1','kappa','tn','fp','fn','tp'])
+						kappa[cols55],tn[cols55],fp[cols55],fn[cols55],tp[cols55], vennabers[cols55]]).T,\
+						columns=['aucpr','aucroc','maxf1','kappa','tn','fp','fn','tp', 'vennabers'])
 	write_local_report(y_pred_arg,local_performance)
 						
 	##global aggregation:
@@ -153,12 +161,13 @@ def per_run_performance(y_pred_arg, performance_report):
 	fp_sum = fp[cols55].sum()
 	fn_sum = fn[cols55].sum()
 	tp_sum = tp[cols55].sum()
+	vennabers_mean  = np.average(vennabers[cols55],weights=tw_weights)
 
 	global_pre_calculated_performance = global_perf_from_json(performance_report)
 	#only assert pre-calculated performance if not weight averaging for compatability
 	if not args.task_weights:
 		assert global_pre_calculated_performance == aucpr_mean, f"reported performance in {performance_report} ({global_pre_calculated_performance}) does not match calculated performance for {y_pred_arg} ({aucpr_mean})"
-	global_performance = write_global_report(y_pred_arg,[aucpr_mean,aucroc_mean,maxf1_mean,kappa_mean, tn_sum, fp_sum, fn_sum, tp_sum])
+	global_performance = write_global_report(y_pred_arg,[aucpr_mean,aucroc_mean,maxf1_mean,kappa_mean, tn_sum, fp_sum, fn_sum, tp_sum, vennabers_mean])
 	return [local_performance,global_performance]
 
 
