@@ -117,12 +117,18 @@ def write_global_report(args_name,global_performances,single_multi):
     perf_df = pd.DataFrame([global_performances],columns=\
         ['aucpr_mean','aucroc_mean','maxf1_mean', 'kappa_mean', 'tn', 'fp', 'fn', 'tp', 'vennabers_mean'])
     perf_df.to_csv(name + '/' + single_multi + "_" + os.path.basename(args_name) + '_global_performances.csv')
+    
     return perf_df
 
 def write_local_report(args_name,local_performances, single_multi):
     vprint("local_performances: " + str(local_performances.shape))
 
+    # write local report
     local_performances.to_csv(name + '/' + single_multi + "_" + os.path.basename(args_name) + '_local_performances.csv')
+    
+    # write local report aggregated by assay type, ignore task id
+    df = local_performances.loc[:,'assay type':].groupby('assay type').mean()
+    df.to_csv(name + '/' + single_multi + "_assay_type" + "_" + os.path.basename(args_name) + '_local_performances.csv')
     return
 
 
@@ -309,8 +315,11 @@ def per_run_performance(y_pred_arg, performance_report, single_multi):
                         columns=['task id', 'assay type', 'aucpr','aucroc','maxf1','kappa','tn','fp','fn','tp', 'vennabers'])
     
     ##correct the datatypes for numeric columns
-    local_performance.loc[:,"aucpr":] = local_performance.loc[:,"aucpr":].apply(pd.to_numeric)
-    
+    # local_performance.loc[:,"aucpr":] = local_performance.loc[:,"aucpr":].apply(pd.to_numeric)
+    vprint(local_performance)
+    for c in local_performance.iloc[:,2:].columns:
+        local_performance.loc[:,c] = local_performance.loc[:,c].astype(float)
+    # local_performance.loc[:,"aucpr":] = local_performance.loc[:,"aucpr":].astype(float)
     write_local_report(y_pred_arg,local_performance, single_multi)
                         
     ##global aggregation:
@@ -349,8 +358,12 @@ def calculate_deltas(single_results, multi_results):
             delta = (multi_results[idx].loc[:, "aucpr":]-single_results[idx].loc[:, "aucpr":])
             tdf = pd.concat([at, delta], axis = 1)
             tdf.to_csv(name + '/' + delta_comparison)
-        else:
+            
+            # aggregate on assay type level
+            tdf.groupby("assay type").mean().to_csv(name + '/' + 'assay_type' + delta_comparison)
+        elif (delta_comparison == 'global_deltas.csv'):
             (multi_results[idx]-single_results[idx]).to_csv(name + '/' + delta_comparison)
+            
             
 
 vprint(f"Calculating '{args.y_pred_single}' performance.")
