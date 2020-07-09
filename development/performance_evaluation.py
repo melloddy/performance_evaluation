@@ -163,7 +163,7 @@ def mask_y_hat(true_path, pred_path_single, pred_path_multi, single_task_input, 
     
     true_data = true_data.todense()
 
-	assert true_data.shape[1] != pred_data_single.shape[1], "True data should have different shape to SP data to mask"
+    assert true_data.shape[1] != pred_data_single.shape[1], "True data should have different shape to SP data to mask"
     
     """ remove tasks 
     
@@ -171,69 +171,69 @@ def mask_y_hat(true_path, pred_path_single, pred_path_multi, single_task_input, 
     since the overall model predicts on all tasks it saw during training, 
     not only the ones relevant for prediction.
     """
-	
-	""" read data required
+    
+    """ read data required
 
-	file: results/weight_table_T3_mapped.csv, for the single and the multi pharma data
-	contains mappings of the taks, so we can filter the tasks out for the MP y_hat file, since we ust not compare tasks that are not in SP y hat
-	"""
-	SP_tasks_rel = single_task_input[["classification_task_id", "cont_classification_task_id"]] 
-	MP_tasks_rel = multi_task_input[["classification_task_id", "cont_classification_task_id"]] 
+    file: results/weight_table_T3_mapped.csv, for the single and the multi pharma data
+    contains mappings of the taks, so we can filter the tasks out for the MP y_hat file, since we ust not compare tasks that are not in SP y hat
+    """
+    SP_tasks_rel = single_task_input[["classification_task_id", "cont_classification_task_id"]] 
+    MP_tasks_rel = multi_task_input[["classification_task_id", "cont_classification_task_id"]] 
 
-	#create overall df
-	global_index = pd.DataFrame({"id": range(multi_task_input.shape[0] + 1)})
+    #create overall df
+    global_index = pd.DataFrame({"id": range(multi_task_input.shape[0] + 1)})
 
-	"""
-	# we drop all MP row indices from SP and MP index table
-	# all remaining relative position-indices (not "id", nor the pandas index, but only position in the table) in SP are the ones we need to keep
-	"""
+    """
+    # we drop all MP row indices from SP and MP index table
+    # all remaining relative position-indices (not "id", nor the pandas index, but only position in the table) in SP are the ones we need to keep
+    """
 
-	# cont class id as first column
-	# extend by essay_type
+    # cont class id as first column
+    # extend by essay_type
 
-	# merge global index with task indices from MP and SP task table, which are subsets of the global index
-	MP_df = global_index.merge(MP_tasks_rel, left_on = "id", right_on = "classification_task_id", how='left')        
-	SP_df = global_index.merge(SP_tasks_rel, left_on = "id", right_on = "classification_task_id", how='left')
+    # merge global index with task indices from MP and SP task table, which are subsets of the global index
+    MP_df = global_index.merge(MP_tasks_rel, left_on = "id", right_on = "classification_task_id", how='left')        
+    SP_df = global_index.merge(SP_tasks_rel, left_on = "id", right_on = "classification_task_id", how='left')
 
-	#get filled indices from MP and keep onlye thse in SP and MP 
-	keep_MPs = [not i for i in MP_df["cont_classification_task_id"].isnull()]
+    #get filled indices from MP and keep onlye thse in SP and MP 
+    keep_MPs = [not i for i in MP_df["cont_classification_task_id"].isnull()]
 
-	# drop taks missing in MP (to make them same shaped)
-	MP_df = MP_df[keep_MPs]
-	SP_df = SP_df[keep_MPs]
+    # drop taks missing in MP (to make them same shaped)
+    MP_df = MP_df[keep_MPs]
+    SP_df = SP_df[keep_MPs]
 
-	# get the final indices to be kept in y hat prediction matrix
-	# drop remaining
-	task_ids_keep = [not i for i in SP_df["cont_classification_task_id"].isnull()]
-	pred_data_single = pred_data_single[:, task_ids_keep]
-	pred_data_multi = pred_data_multi[:, task_ids_keep]
+    # get the final indices to be kept in y hat prediction matrix
+    # drop remaining
+    task_ids_keep = [not i for i in SP_df["cont_classification_task_id"].isnull()]
+    pred_data_single = pred_data_single[:, task_ids_keep]
+    pred_data_multi = pred_data_multi[:, task_ids_keep]
 
-	# debugging
-	vprint("SP Shape after task removal:" + str(pred_data_single.shape))
-	vprint("MP Shape after task removal:" + str(pred_data_multi.shape))
+    # debugging
+    vprint("SP Shape after task removal:" + str(pred_data_single.shape))
+    vprint("MP Shape after task removal:" + str(pred_data_multi.shape))
 
 
-	""" masking y hat
+    """ masking y hat
 
-	mask the pred matrix the same as true label matrix, 
-	i.e. set all values in pred zero, that are zero (not predicted) in true label matrix
-	"""
+    mask the pred matrix the same as true label matrix, 
+    i.e. set all values in pred zero, that are zero (not predicted) in true label matrix
+    """
 
-	for row in range(pred_data_single.shape[0]):
-		for col in range(pred_data_single.shape[1]):
-			if true_data[row, col]== 0:
-				pred_data[row, col] = 0
+    for row in range(pred_data_single.shape[0]):
+        for col in range(pred_data_single.shape[1]):
+            if true_data[row, col]== 0:
+                pred_data[row, col] = 0
 
-	for row in range(pred_data_multi.shape[0]):
-		for col in range(pred_data_multi.shape[1]):
-			if true_data[row, col]== 0:
-				pred_data[row, col] = 0
-				
-	assert true_data.shape == pred_data_single.shape, f"True shape {true_data.shape} and SP Pred shape {pred_data.shape} need to be identical"
-	assert true_data.shape == pred_data_multi.shape, f"True shape {true_data.shape} and MP Pred shape {pred_data.shape} need to be identical"
+    for row in range(pred_data_multi.shape[0]):
+        for col in range(pred_data_multi.shape[1]):
+            if true_data[row, col]== 0:
+                pred_data[row, col] = 0
+                
+    assert true_data.shape == pred_data_single.shape, f"True shape {true_data.shape} and SP Pred shape {pred_data.shape} need to be identical"
+    assert true_data.shape == pred_data_multi.shape, f"True shape {true_data.shape} and MP Pred shape {pred_data.shape} need to be identical"
 
-	# debugging
-	vprint("out shape" + str(pred_data_single.shape)) + + str(pred_data_multi.shape))
+    # debugging
+    vprint("out shape" + str(pred_data_single.shape) + str(pred_data_multi.shape))
     return pred_data_single, pred_data_multi
 
 ## run performance code for single- or multi-pharma run
