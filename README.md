@@ -7,7 +7,8 @@ Performance evaluation scripts from the Single- and Multi-pharma outputs
 1. Python 3.6 or higher
 2. Local Conda installation (e.g. miniconda)
 3. Git installation
-4. melloddy_tuner environment from WP1 code
+4. melloddy_tuner environment from WP1 code: https://git.infra.melloddy.eu/wp1/data_prep
+5. sparsechem installation from WP2 code: https://git.infra.melloddy.eu/wp2/sparsechem
 
 ## Setup
 
