@@ -857,13 +857,38 @@ def reconstruct_boxplot(boxplot_specs, figsize=(10,10)):
             v['fliers'] = []
             boxes.append(v)
 
-        ax[i].bxp(boxes, showmeans=True, showfliers=True)
+        ax[i].bxp(boxes, showmeans=True, showfliers=True,  patch_artist=True)
         ax[i].set_title(score)
         
     plt.show()
     return 
 
 
+def reconstruct_boxplot_colored(boxplot_specs, n_partner, n_bins, figsize=(10,10)):
+    
+    score_type = boxplot_specs['score_type'].unique()
+    num_scores = score_type.shape[0]
+
+    
+    color_list = list(itertools.chain.from_iterable(itertools.repeat(x, n_bins) for x in sns.color_palette("husl", n_partner)))
+    colors = itertools.cycle(color_list)
+    
+    fig, ax = plt.subplots( num_scores, 1, figsize=figsize)
+    for i, score in enumerate(score_type): 
+        boxes= []
+        score_df = boxplot_specs.loc[boxplot_specs['score_type']==score].drop('score_type',axis=1)
+        for k,v in score_df.to_dict(orient='index').items():
+            v['fliers'] = []
+            boxes.append(v)
+
+        bplot = ax[i].bxp(boxes, showmeans=True, showfliers=True,  patch_artist=True)
+        ax[i].set_title(score)
+            
+        # fill with colors
+        for patch, color in zip(bplot['boxes'], colors):
+            patch.set_facecolor(color)
+    plt.show()
+    return colors
 
 
 
