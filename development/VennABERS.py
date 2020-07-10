@@ -7,8 +7,7 @@
 import numpy as np
 from sklearn.model_selection import StratifiedKFold
 import warnings
-warnings.filterwarnings("ignore", category=DeprecationWarning)
-
+warnings.filterwarnings("ignore", category=UserWarning)
 
 # Some elementary functions to speak the same language as the paper
 # (at some point we'll just replace the occurrence of the calls with the function body itself)
