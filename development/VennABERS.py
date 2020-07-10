@@ -6,7 +6,8 @@
 
 import numpy as np
 from sklearn.model_selection import StratifiedKFold
-
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 
 # Some elementary functions to speak the same language as the paper
@@ -247,9 +248,7 @@ def get_VA_margin_median_cross(pts):
             
             split_medians.append(get_VA_margin_median(calibrPts, test_scores))
     except:
-        scores = pts[:,1]
-        pts = [tuple(i) for i in pts]
-        return(get_VA_margin_median(pts, scores))
+    	return np.nan
         
     return np.mean(split_medians)
         
