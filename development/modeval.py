@@ -48,7 +48,7 @@ def perf_from_json(
 #     :return pandas df containing performance and configuration summaries 
     """
     # pandas v0.24 (pd.read_json) is not returning expected results when used with the arguement "tasks_for_eval" 
-    assert pd.__version__[:4] =='0.25', 'Pandas version must be 0.25' # should this be placed somewhere else?
+    assert pd.__version__ > '0.25', 'Pandas version must be 0.25 or higher' # string comparison will compare first char # should this be placed somewhere else?
     
     if tasks_for_eval is not None: 
         assert type(tasks_for_eval) is np.ndarray, "tasks_for_eval must be an np.array"
@@ -1221,15 +1221,17 @@ def swarmplot_fold_perf(metrics_df,
 
 
 
-def match_best_tasks(results_dir_x, t3_mapped_x, label_x, results_dir_y, t3_mapped_y, label_y, aux_assay_type='Yx', n_cv=5, hp_selection_metric='auc_pr',filename_mask_x=None, filename_mask_y=None): 
+def match_best_tasks(results_dir_x, t3_mapped_x, label_x, results_dir_y, t3_mapped_y, label_y, aux_assay_type='Yx', n_cv=5, hp_selection_metric='auc_pr',filename_mask_x=None, filename_mask_y=None, min_samples=5): 
 
     hp_bests = list()
     for e in ((results_dir_x, t3_mapped_x, filename_mask_x),(results_dir_y, t3_mapped_y, filename_mask_y)):
         df_t3_mapped = pd.read_csv(e[1])
         main_tasks = df_t3_mapped.loc[df_t3_mapped['assay_type']!=aux_assay_type].cont_classification_task_id.dropna().values
         json_df = perf_from_json(e[0],aggregate=False,tasks_for_eval=main_tasks, n_cv=n_cv, filename_mask=e[2]) 
-        json_melted = melt_perf(json_df, score_type=[hp_selection_metric])
-        hp_best = best_hyperparam(json_melted)
+        #json_melted = melt_perf(json_df, score_type=[hp_selection_metric])
+        #hp_best = best_hyperparam(json_melted)
+
+        hp_best = find_best_hyperparam(json_df, n_cv=n_cv,min_samples=min_samples,score_type=[hp_selection_metric])
         # keeping only the records associated to the best hyperparameters
         hp_cols = ['hp_'+hp for hp in get_sc_hps()]
         hp_best = pd.merge(json_df[~json_df[hp_selection_metric].isna()],hp_best,how='inner',on=hp_cols)
@@ -1238,7 +1240,7 @@ def match_best_tasks(results_dir_x, t3_mapped_x, label_x, results_dir_y, t3_mapp
 
     return hp_bests
 
-def statistical_model_comparison_analysis(results_dir_x, t3_mapped_x, label_x, results_dir_y, t3_mapped_y, label_y, aux_assay_type='Yx', n_cv=5, min_samples=25, filename_mask_x=None, filename_mask_y=None):
+def statistical_model_comparison_analysis(results_dir_x, t3_mapped_x, label_x, results_dir_y, t3_mapped_y, label_y, aux_assay_type='Yx', n_cv=5, min_samples=5, filename_mask_x=None, filename_mask_y=None):
     """ Run a statistical significance analysis between two runs, both with hyperparameter optimization
      Best hyperparameters will be selected based on the auc_pr
      For now, only compatible with the json result format . 
@@ -1256,7 +1258,7 @@ def statistical_model_comparison_analysis(results_dir_x, t3_mapped_x, label_x, r
     :return None 
     """ 
 
-    hp_bests = match_best_tasks(results_dir_x, t3_mapped_x, label_x, results_dir_y, t3_mapped_y, label_y, aux_assay_type='Yx', n_cv=n_cv, filename_mask_x=filename_mask_x, filename_mask_y=filename_mask_y)
+    hp_bests = match_best_tasks(results_dir_x, t3_mapped_x, label_x, results_dir_y, t3_mapped_y, label_y, aux_assay_type='Yx', n_cv=n_cv, filename_mask_x=filename_mask_x, filename_mask_y=filename_mask_y, min_samples=min_samples)
     # matching x and y runs
     df_merge = pd.merge(hp_bests[0], hp_bests[1],how='inner',on=['input_assay_id','threshold_value','fold_va'])
 
@@ -1277,7 +1279,7 @@ def statistical_model_comparison_analysis(results_dir_x, t3_mapped_x, label_x, r
 
     return res 
 
-def summarize_diff_statistics(tasks_x, tasks_y, min_samples=25, n_cv=5): 
+def summarize_diff_statistics(tasks_x, tasks_y, min_samples=5, n_cv=5): 
     """ Get the difference of overall aggregated metrics between two task-level dataframe
     Result is the difference between the second and the first argument
 #    :param  dataframe containing task-level metrics (reference to compare with)
@@ -1294,7 +1296,16 @@ def summarize_diff_statistics(tasks_x, tasks_y, min_samples=25, n_cv=5):
     for t in [tasks_x,tasks_y]: 
         # take care of possible missing task weights : will be ignored in groupby so any impute value would do
         t['hp_task_weights'] =  'irrelevant'
-        ress.append(aggregate_overall(t,min_samples=min_samples, n_cv=n_cv, stats='full'))
+
+        # aggregate_overall goes over the folds and tasks, meaning e.g. the median will be calculated over the folds and tasks
+        # it might be preferable to first compute the mean over the folds, then generate the full set of statistics
+        t = aggregate_task_perf(t,min_samples=min_samples, n_cv=n_cv, stats='basic')
+        t = t.rename(columns={'roc_auc_score_mean': 'roc_auc_score', 'auc_pr_mean': 'auc_pr', 'avg_prec_score_mean': 'avg_prec_score','max_f1_score_mean':'max_f1_score','kappa_mean':'kappa'})
+        t.to_csv('t.csv')
+        t['fold_va'] = 0  # on previous line, aggregated over the folds, this will trick the aggregate_overall in believing that all folds are there
+        ress.append(aggregate_overall(t,min_samples=min_samples, n_cv=1, stats='full'))
+        
+    ress[1].to_csv('ress1.csv')
     res = ress[1][fields]-ress[0][fields]
     return res 
 
