@@ -21,13 +21,16 @@ Performance evaluation scripts from the Single- and Multi-pharma outputs
 ```
 python performance_evaluation.py -h
 usage: performance_evaluation.py [-h] [--y_true_all Y_TRUE_ALL]
-                                 [--y_pred_single Y_PRED_SINGLE]
-                                 [--y_pred_multi Y_PRED_MULTI]
-                                 [--folding FOLDING]
+                                 --y_pred_single Y_PRED_SINGLE --y_pred_multi
+                                 Y_PRED_MULTI [--folding FOLDING]
                                  [--task_weights TASK_WEIGHTS]
-                                 [--single_performance_report SINGLE_PERFORMANCE_REPORT]
-                                 [--multi_performance_report MULTI_PERFORMANCE_REPORT]
+                                 --single_performance_report
+                                 SINGLE_PERFORMANCE_REPORT
+                                 --multi_performance_report
+                                 MULTI_PERFORMANCE_REPORT
                                  [--filename FILENAME] [--verbose {0,1}]
+                                 [--task_map_single TASK_MAP_SINGLE]
+                                 [--task_map_multi TASK_MAP_MULTI] [--derisk]
 
 Calculate Performance Metrics
 
@@ -39,14 +42,16 @@ optional arguments:
                         Yhat prediction output from single-pharma run
                         (./Single-pharma-
                         run/substra/medias/subtuple/<pharma_hash>/pred/pred)
+                        or (<single pharma dir>/y_hat.npy)
   --y_pred_multi Y_PRED_MULTI
                         Yhat prediction output from multi-pharma run (./Multi-
                         pharma-
                         run/substra/medias/subtuple/<pharma_hash>/pred/pred)
+                        or (<multi pharma dir>/y_hat.npy)
   --folding FOLDING     LSH Folding file (npy) (i.e. from files_4_ml/)
   --task_weights TASK_WEIGHTS
-                        CSV file with columns task_id and weight (i.e. from
-                        files_4_ml/)
+                        CSV file with columns task_id and weight (i.e.
+                        files_4_ml/T9_red.csv)
   --single_performance_report SINGLE_PERFORMANCE_REPORT
                         JSON file with global reported single-pharma
                         performance (i.e. ./Single-pharma-run/substra/medias/s
@@ -57,27 +62,11 @@ optional arguments:
                         btuple/<pharma_hash>/pred/perf.json)
   --filename FILENAME   Filename for results from this output
   --verbose {0,1}       Verbosity level: 1 = Full; 0 = no output
+  --task_map_single TASK_MAP_SINGLE
+                        Taskmap from MELLODDY_tuner output of single run
+                        (results/weight_table_T3_mapped.csv)
+  --task_map_multi TASK_MAP_MULTI
+                        Taskmap from MELLODDY_tuner output of single run
+                        (results/weight_table_T3_mapped.csv)
+  --derisk              Phase 2 derisk check toggle
 ```
-
-
-
-## Running the performance evaluation script
-i.e. for pharma 1, the following would be run:
-
-`python performance_evaluation.py --y_true_all pharma_partners/pharma_y_partner_1.npy --y_pred_single Single_pharma_run-1/medias/subtuple/c4f1c9b9d44fea66f9b856d346a0bb9aa5727e587185e87daca170f239a70029/pred/pred --y_pred_multi Multi_pharma_run-1/medias/subtuple/374d81d50d0df484bfa40708f270225780aa36dd15a366eb0691e89496653212/pred/pred --folding pharma_partners/folding_partner_1.npy --single_performance_report Single_pharma_run-1/medias/subtuple/c4f1c9b9d44fea66f9b856d346a0bb9aa5727e587185e87daca170f239a70029/pred/perf.json --multi_performance_report Multi_pharma_run-1/medias/subtuple/374d81d50d0df484bfa40708f270225780aa36dd15a366eb0691e89496653212/pred/perf.json`
-
-or
-
-`python performance_evaluation.py --y_true_all pharma_partners/pharma_y_partner_1.npy --y_pred_single Single_pharma_run-1/medias/subtuple/c4f1c9b9d44fea66f9b856d346a0bb9aa5727e587185e87daca170f239a70029/pred/pred --y_pred_multi Multi_pharma_run-1/medias/subtuple/374d81d50d0df484bfa40708f270225780aa36dd15a366eb0691e89496653212/pred/pred --folding pharma_partners/folding_partner_1.npy --single_performance_report Single_pharma_run-1/medias/subtuple/c4f1c9b9d44fea66f9b856d346a0bb9aa5727e587185e87daca170f239a70029/pred/perf.json --multi_performance_report Multi_pharma_run-1/medias/subtuple/374d81d50d0df484bfa40708f270225780aa36dd15a366eb0691e89496653212/pred/perf.json --task_weights pharma_partners/weights_1`
-
-for a weighted output (TBC if this is needed)
-
-## Output from the script
-
-`$ ls: global_deltas.csv  local_deltas.csv  pred_global_performances.csv  pred_local_performances.csv`
-
-## Comparison with reference performance evaulation results
-
-The script automatically compares the reported performance metrics with the calculated metrics generated here.
-
-Discrepancies are reported at command line.
