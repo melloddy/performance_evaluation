@@ -36,7 +36,7 @@ assert float(pd.__version__[:4]) >=0.25, "Pandas version must be >=0.25"
 y_pred_single_path = Path(args.y_pred_single)
 y_pred_multi_path = Path(args.y_pred_multi)
 
-assert all([pfile in ['pred','npy'] for pfile in [y_pred_single_path.stem, y_pred_multi_path.stem]]), "All prediction files need to be pred or .npy"
+assert all([pfile in ['pred','.npy'] for pfile in [y_pred_single_path.suffix, y_pred_multi_path.stem]]), "All prediction files need to be pred or .npy"
 
 # decide if on-premise predictions or federated output based on file input
 if y_pred_single_path.stem == "pred":
