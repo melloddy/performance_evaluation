@@ -15,7 +15,7 @@ parser.add_argument("--y_pred_single", help="Yhat prediction output from single-
 parser.add_argument("--y_pred_multi", help="Yhat prediction output from multi-pharma run (./Multi-pharma-run/substra/medias/subtuple/<pharma_hash>/pred/pred) or (<multi pharma dir>/y_hat.npy)", type=str, required=True)
 parser.add_argument("--folding", help="LSH Folding file (npy) (i.e. from files_4_ml/)", type=str, default="folding.npy")
 parser.add_argument("--task_weights", help="CSV file with columns task_id and weight (i.e.  files_4_ml/T9_red.csv)", type=str, default=None)
-parser.add_argument("--single_performance_report", help="JSON file with global reported single-pharma performance (i.e. ./Single-pharma-run/substra/medias/subtuple/<pharma_hash>/pred/perf.json)", type=str, default=None, required=True)
+parser.add_argument("--single_performance_report", help="JSON file with global reported single-pharma performance (i.e. ./Single-pharma-run/substra/medias/subtuple/<pharma_hash>/pred/perf.json)", type=str, default=None, required=False)
 parser.add_argument("--multi_performance_report", help="JSON file with global reported multi-pharma performance (i.e. ./Multi-pharma-run/substra/medias/subtuple/<pharma_hash>/pred/perf.json)", type=str, default=None, required=True)
 parser.add_argument("--filename", help="Filename for results from this output", type=str, default=None)
 parser.add_argument("--verbose", help="Verbosity level: 1 = Full; 0 = no output", type=int, default=1, choices=[0, 1])
@@ -36,13 +36,12 @@ assert float(pd.__version__[:4]) >=0.25, "Pandas version must be >=0.25"
 y_pred_single_path = Path(args.y_pred_single)
 y_pred_multi_path = Path(args.y_pred_multi)
 
-assert y_pred_single_path.stem == y_pred_multi_path.stem, "Prediction files need to be of same type (pred or .npy)" #do they though?
 assert all([pfile in ['pred','npy'] for pfile in [y_pred_single_path.stem, y_pred_multi_path.stem]]), "All prediction files need to be pred or .npy"
 
 # decide if on-premise predictions or federated output based on file input
 if y_pred_single_path.stem == "pred":
    pred = True
-elif y_pred_single_path.stem == 'npy':
+elif y_pred_single_path.suffix == '.npy':
    pred = False
 single_tasks = pd.read_csv(args.task_map_single)
 multi_tasks = pd.read_csv(args.task_map_multi)
@@ -340,7 +339,7 @@ def per_run_performance(y_pred_arg, performance_report, single_multi, tasks_tabl
    tp_sum = tp[cols55].sum()
    vennabers_mean  = np.average(vennabers[cols55],weights=tw_weights)
    
-   if pred:
+   if pred and performance_report:
       global_pre_calculated_performance = global_perf_from_json(performance_report)
       #only assert pre-calculated performance if not weight averaging for compatability
       if not args.task_weights:
@@ -398,10 +397,10 @@ if pred:
    single_yhat, single_partner_results = per_run_performance(args.y_pred_single,args.single_performance_report, "single", single_tasks)
    multi_yhat, multi_partner_results = per_run_performance(args.y_pred_multi,args.multi_performance_report, "multi", multi_tasks)
    pred_mode_allclose_check(single_yhat,multi_yhat)
-#if not pred, then output is single-partner and requires 'mask_y_hat'
+#if not pred, then output is on-premise and requires 'mask_y_hat'
 else:
    vprint(f"Calculating '{args.y_pred_single}' and '{args.y_pred_multi}' performance for 'npy' on-premise files (with masking)")
-   masked_single_data, masked_multi_data=mask_y_hat(args.y_true_all, args.y_pred_single, args.y_pred_multi)
+   masked_single_data, masked_multi_data=mask_y_hat(args.y_true_all, args.y_pred_single, args.y_pred_multi, single_tasks, multi_tasks)
    single_partner_results = per_run_performance(masked_single_data,args.multi_performance_report, "single", single_tasks)
    multi_partner_results = per_run_performance(masked_multi_data,args.multi_performance_report, "multi", multi_tasks)
 
