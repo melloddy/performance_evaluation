@@ -4,7 +4,8 @@ import pandas as pd
 import numpy as np
 import torch
 import sklearn.metrics
-import json 
+import json
+import ast
 import scipy.sparse as sparse
 from  pathlib import Path
 from VennABERS import get_VA_margin_median_cross
@@ -40,7 +41,7 @@ task_map = pd.read_csv(args.task_map)
 if args.filename is not None:
    name = args.filename
 else:
-   name = f"derisk_{os.path.basename(args.y_true_all)}_{args.y_pred_onpremise.split('/')[0]}_{args.y_pred_substra_path.split('/')[0]}_{os.path.basename(args.folding)}"
+   name = f"derisk_{os.path.basename(args.y_true_all)}_{args.y_pred_onpremise.split('/')[0]}_{y_pred_substra_path.split('/')[0]}_{os.path.basename(args.folding)}"
 vprint(f"Run name is '{name}'.")
 assert not os.path.exists(name), f"{name} already exists... exiting"
 os.makedirs(name)
@@ -81,11 +82,10 @@ def substra_global_perf_from_json(performance_report):
 def onpremise_global_perf_from_json(performance_report):
    with open(performance_report, "r") as fi:
       json_data = json.load(fi)
-      
-      #load in the data
-      
+      reported_performance = ast.literal_eval(json_data['results_agg']['va'])['auc_pr']
    assert 0.0 <= reported_performance <= 1.0, "reported performance does not range between 0.0-1.0"
    return reported_performance
+
 
 
 ## write performance reports for global aggregation
@@ -216,6 +216,8 @@ def calculate_deltas(onpremise_results, substra_results):
          fn1 = name + '/deltas_per-task_performances_derisk.csv'
          tdf.to_csv(fn1)
          vprint(f"Wrote per-task delta report to: {fn1}")
+         if not (tdf==0).all().all():
+            vprint(f"ERROR! (Phase 2 de-risk output check): per-task deltas are not zeros (tol:1e-05)")
          
          # aggregate on assay_type level
          fn2 = name + '/deltas_per-assay_performances_derisk.csv'
