@@ -35,17 +35,8 @@ assert float(pd.__version__[:4]) >=0.25, "Pandas version must be >=0.25"
 y_pred_single_path = Path(args.y_pred_single)
 y_pred_multi_path = Path(args.y_pred_multi)
 
-assert all([pfile in ['pred','.npy'] for pfile in [y_pred_single_path.suffix, y_pred_multi_path.stem]]), "All prediction files need to be pred or .npy"
+assert all([pfile in ['pred'] for pfile in [y_pred_single_path.stem, y_pred_multi_path.stem]]), "All prediction files need to be pred"
 
-# decide if on-premise predictions or federated output based on file input
-if y_pred_single_path.stem == "pred":
-   s_pred = True
-elif y_pred_single_path.suffix == '.npy':
-   s_pred = False
-if y_pred_single_path.stem == "pred":
-   m_pred = True
-elif y_pred_single_path.suffix == '.npy':
-   m_pred = False
 single_tasks = pd.read_csv(args.task_map_single)
 multi_tasks = pd.read_csv(args.task_map_multi)
 
@@ -131,149 +122,15 @@ def write_aggregated_report(args_name,local_performances, single_multi):
    vprint(f"Wrote {single_multi} per-assay report to: {fn2}")
    return
 
-## Convert the on-premise predictions into the sparse output expected for performance eval.
-def mask_y_hat(true_path, pred_path_single, pred_path_multi, single_task_input, multi_task_input):
-   """
-   in single pharma runs, the input file of predictions is not a pred, but Yhat file.
-   the Yhat file (pred_data) needs to be prepared to be used for performance evaluation
-   - only keep compounds from valdidation fold
-   - remove unneded tasks
-   - mask predictions (full matrix) to represent sparse matrix of true lables
-   In:
-      - true_path <string>: path to true labels matrix (sparsely populated)
-      - pred_path <string>: path to predicted labels matrix (densely populated)
-   Out:
-      - pred_data <pandas df>: df containing the predictions in same shape and mask as te true labels matrix
-   """
-   # ToDO: put data reading in different function 
-   # ToDO: test with weights
-   global folding
-   global s_pred
-   global m_pred
-   global fold_va
-   
-   # load the data
-   true_data = np.load(true_path, allow_pickle = True)
-   if s_pred: pred_data_single = np.load(pred_path_single, allow_pickle = True)
-   else: pred_data_single = np.load(pred_path_single, allow_pickle = True).item() 
-   if m_pred: pred_data_multi = np.load(pred_path_multi, allow_pickle = True)
-   else: pred_data_multi = np.load(pred_path_single, allow_pickle = True).item()    
-
-   true_data = true_data.tolist()   
-   true_data = true_data.tocsr()
-   
-   #debugging
-   vprint(true_data.shape)
-   vprint(pred_data_single.shape)   
-   vprint(pred_data_multi.shape)   
-      
-   # only keep validation fold
-   true_data = true_data[folding == fold_va] #only keeping validation fold
-   pred_data_single = pred_data_single[folding == fold_va] #only keeping validation fold
-   pred_data_multi = pred_data_multi[folding == fold_va] #only keeping validation fold
-
-   vprint(true_data.shape)
-   vprint(pred_data_single.shape)   
-   vprint(pred_data_multi.shape)   
-   
-   true_data = true_data.todense()
-
-   assert true_data.shape[1] != pred_data_single.shape[1], "True data should have different shape to SP data to mask"
-   
-   """ remove tasks 
-   
-   filter out tasks, that we did not predict on (the tasks from SP y hat), 
-   since the overall model predicts on all tasks it saw during training, 
-   not only the ones relevant for prediction.
-   """
-   
-   """ read data required
-
-   file: results/weight_table_T3_mapped.csv, for the single and the multi pharma data
-   contains mappings of the taks, so we can filter the tasks out for the MP y_hat file, since we ust not compare tasks that are not in SP y hat
-   """
-   SP_tasks_rel = single_task_input[["classification_task_id", "cont_classification_task_id"]] 
-   MP_tasks_rel = multi_task_input[["classification_task_id", "cont_classification_task_id"]] 
-
-   #create overall df
-   global_index = pd.DataFrame({"id": range(multi_task_input.shape[0] + 1)})
-
-   """
-   # we drop all MP row indices from SP and MP index table
-   # all remaining relative position-indices (not "id", nor the pandas index, but only position in the table) in SP are the ones we need to keep
-   """
-
-   # cont class id as first column
-   # extend by essay_type
-
-   # merge global index with task indices from MP and SP task table, which are subsets of the global index
-   MP_df = global_index.merge(MP_tasks_rel, left_on = "id", right_on = "classification_task_id", how='left')      
-   SP_df = global_index.merge(SP_tasks_rel, left_on = "id", right_on = "classification_task_id", how='left')
-
-   #get filled indices from MP and keep onlye thse in SP and MP 
-   keep_MPs = [not i for i in MP_df["cont_classification_task_id"].isnull()]
-
-   # drop taks missing in MP (to make them same shaped)
-   MP_df = MP_df[keep_MPs]
-   SP_df = SP_df[keep_MPs]
-
-   # get the final indices to be kept in y hat prediction matrix
-   # drop remaining
-   task_ids_keep = [not i for i in SP_df["cont_classification_task_id"].isnull()]
-   pred_data_single = pred_data_single[:, task_ids_keep]
-   pred_data_multi = pred_data_multi[:, task_ids_keep]
-
-   # debugging
-   vprint("SP Shape after task removal:" + str(pred_data_single.shape))
-   vprint("MP Shape after task removal:" + str(pred_data_multi.shape))
-
-
-   """ masking y hat
-
-   mask the pred matrix the same as true label matrix, 
-   i.e. set all values in pred zero, that are zero (not predicted) in true label matrix
-   """
-
-   for row in range(pred_data_single.shape[0]):
-      for col in range(pred_data_single.shape[1]):
-         if true_data[row, col]== 0:
-            pred_data[row, col] = 0
-
-   for row in range(pred_data_multi.shape[0]):
-      for col in range(pred_data_multi.shape[1]):
-         if true_data[row, col]== 0:
-            pred_data[row, col] = 0
-            
-   assert true_data.shape == pred_data_single.shape, f"True shape {true_data.shape} and SP Pred shape {pred_data.shape} need to be identical"
-   assert true_data.shape == pred_data_multi.shape, f"True shape {true_data.shape} and MP Pred shape {pred_data.shape} need to be identical"
-   
-   #phase 2 derisk output (by each pharma) check that the aggregated performance on the platform is
-   #numerically identical (difference < 1e-5) to the aggregated performance computed from the model on the pharma premises.
-   allclose = np.allclose(pred_data_single, pred_data_multi, rtol=1e-05, atol=1e-05)
-   if args.derisk and not allclose:
-         vprint(f"WARNING!! (Phase 2 de-risk output check [--derisk]): there is problem with {pred_path_single} and {pred_path_multi}. The yhat supplied by the substra platform are not close (tol:1e-05)")
-   #if not derisk and all are close then may be issue with on-premise outputs
-   if not args.derisk and allclose:
-         vprint(f"WARNING!! (Federated vs on comparison check): y-hats for {pred_path_single} and {pred_path_multi} appear to be too close (tol:1e-05)")
-
-
-
-   # debugging
-   vprint("out shape" + str(pred_data_single.shape) + str(pred_data_multi.shape))
-   return pred_data_single, pred_data_multi
-
 ## run performance code for single- or multi-pharma run +
 ## check the global_pre_calculated_performance with the reported performance json
-def per_run_performance(y_pred_arg, performance_report, single_multi, tasks_table, pred):
+def per_run_performance(y_pred_arg, performance_report, single_multi, tasks_table):
    global y_true
    global tw_df
    global args
    
-   if pred:
-      y_pred = torch.load(y_pred_arg)
-   else:
-      y_pred = sparse.csc_matrix(y_pred_arg)   
-   
+   y_pred = torch.load(y_pred_arg)
+
    ## checks to make sure y_true and y_pred match
    assert y_true.shape == y_pred.shape, f"{single_multi} y_true shape do not match y_pred ({y_true.shape} & {y_pred.shape})"
    assert y_true.nnz == y_pred.nnz, f"{single_multi} y_true number of nonzero values do not match y_pred"
@@ -345,17 +202,14 @@ def per_run_performance(y_pred_arg, performance_report, single_multi, tasks_tabl
    tp_sum = tp[cols55].sum()
    vennabers_mean  = np.average(vennabers[cols55],weights=tw_weights)
    
-   if pred and performance_report:
+   if performance_report:
       global_pre_calculated_performance = global_perf_from_json(performance_report)
       #only assert pre-calculated performance if not weight averaging for compatability
       if not args.task_weights:
          assert global_pre_calculated_performance == aucpr_mean, f"Reported performance in {performance_report} ({global_pre_calculated_performance}) does not match calculated performance for {y_pred_arg} ({aucpr_mean})"
          vprint(f"Check passed: Reported performance in {performance_report} ({global_pre_calculated_performance}) match the calculated performance for {y_pred_arg} ({aucpr_mean})")
    global_performance = write_global_report(y_pred_arg,[aucpr_mean,aucroc_mean,maxf1_mean,kappa_mean, tn_sum, fp_sum, fn_sum, tp_sum, vennabers_mean], single_multi)
-   #if pred then we need to return the yhats to check phase 2 derisk output (by each pharma)
-   y_pred.to_csv(y_pred_arg + '_mased.csv')
-   if pred: return y_pred,[local_performance,global_performance]
-   else: return [local_performance,global_performance]
+   return y_pred,[local_performance,global_performance]
 
 ## calculate the difference between the single- and multi-pharma outputs and write to a file
 def calculate_deltas(single_results, multi_results):
@@ -380,13 +234,8 @@ def calculate_deltas(single_results, multi_results):
          vprint(f"Wrote per-assay delta report to: {fn2}")
       else:
          allclose = np.allclose(single_results[idx], multi_results[idx], rtol=1e-05, atol=1e-05)
-         #phase 2 derisk output (by each pharma) check that the aggregated performance on the platform is
-         #numerically identical (difference < 1e-5) to the aggregated performance computed from the model on the pharma premises.
-         if args.derisk and not allclose:
-               vprint(f"WARNING!! (Phase 2 de-risk output check [--derisk]): there is a mistake in the aggregated metrics or in the performance reported by the substra platform (tol:1e-05)")
-         #if not derisk and all are close then may be issue with on-premise outputs
-         if not args.derisk and allclose:
-               vprint(f"WARNING!! (Federated vs on-premise comparison check): calculated global single- vs. multi-pharma deltas appear to be too close (tol:1e-05)")
+         if allclose:
+               vprint(f"WARNING! calculated single- vs. multi-pharma deltas appear to be too close (tol:1e-05)")
          (multi_results[idx]-single_results[idx]).to_csv(name + delta_comparison)
 
 ##function to call allclose check for pred files (masking means this is already done for npy files)
@@ -398,9 +247,9 @@ def allclose_check(single_yhat,multi_yhat):
 
 #if federated output then no need to mask
 vprint(f"Calculating '{args.y_pred_single}' and '{args.y_pred_multi}' performance")
-masked_single_data, masked_multi_data=mask_y_hat(args.y_true_all, args.y_pred_single, args.y_pred_multi, single_tasks, multi_tasks)
-single_partner_results = per_run_performance(masked_single_data,args.multi_performance_report, "single", single_tasks)
-multi_partner_results = per_run_performance(masked_multi_data,args.multi_performance_report, "multi", multi_tasks)
-
+single_yhat, single_partner_results=per_run_performance(args.y_pred_single,args.single_performance_report, "single", single_tasks)
+vprint(f"Calculating '{args.y_pred_multi}' performance.")
+multi_yhat, multi_partner_results=per_run_performance(args.y_pred_multi,args.multi_performance_report, "multi", multi_tasks)
 vprint(f"Calculating delta between '{args.y_pred_single}' & '{args.y_pred_multi}' performances.")
+allclose_check
 calculate_deltas(single_partner_results,multi_partner_results)

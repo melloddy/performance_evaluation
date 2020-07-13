@@ -13,10 +13,10 @@ from VennABERS import get_VA_margin_median_cross
 parser = argparse.ArgumentParser(description="Calculate Performance Metrics")
 parser.add_argument("--y_true_all", help="Activity file (npy) (i.e. from files_4_ml/)", type=str, default="T10_y.npy")
 parser.add_argument("--y_pred_onpremise", help="Yhat prediction output from onpremise run (<single pharma dir>/y_hat.npy)", type=str, required=True)
-parser.add_argument("--y_pred_substra", help="Pred prediction output from substra platform (./Multi-pharma-run/substra/medias/subtuple/<pharma_hash>/pred/pred)", type=str, required=True)
+parser.add_argument("--y_pred_substra", help="Pred prediction output from substra platform (./Single-pharma-run/substra/medias/subtuple/<pharma_hash>/pred/pred)", type=str, required=True)
 parser.add_argument("--folding", help="LSH Folding file (npy) (i.e. from files_4_ml/)", type=str, default="folding.npy")
-parser.add_argument("--onpremise_performance_report", help="JSON file with global reported single-pharma performance", type=str, default=None, required=False)
-parser.add_argument("--substra_performance_report", help="JSON file with global reported performance from substra platform (i.e. ./Multi-pharma-run/substra/medias/subtuple/<pharma_hash>/pred/perf.json)", type=str, default=None, required=True)
+parser.add_argument("--onpremise_performance_report", help="JSON file with global reported single-pharma performance", type=str, default=None, required=True)
+parser.add_argument("--substra_performance_report", help="JSON file with global reported performance from substra platform (i.e. ./Single-pharma-run/substra/medias/subtuple/<pharma_hash>/pred/perf.json)", type=str, default=None, required=True)
 parser.add_argument("--filename", help="Filename for results from this output", type=str, default=None)
 parser.add_argument("--verbose", help="Verbosity level: 1 = Full; 0 = no output", type=int, default=1, choices=[0, 1])
 parser.add_argument("--task_map", help="Taskmap from MELLODDY_tuner output of single run (results/weight_table_T3_mapped.csv)", required=True)
@@ -41,7 +41,7 @@ task_map = pd.read_csv(args.task_map)
 if args.filename is not None:
    name = args.filename
 else:
-   name = f"derisk_{os.path.basename(args.y_true_all)}_{args.y_pred_onpremise.split('/')[0]}_{y_pred_substra_path.split('/')[0]}_{os.path.basename(args.folding)}"
+   name = f"derisk_{os.path.basename(args.y_true_all)}_{args.y_pred_onpremise}_{y_pred_substra.split('/')[0]}_{os.path.basename(args.folding)}"
 vprint(f"Run name is '{name}'.")
 assert not os.path.exists(name), f"{name} already exists... exiting"
 os.makedirs(name)
@@ -82,6 +82,7 @@ def substra_global_perf_from_json(performance_report):
 def onpremise_global_perf_from_json(performance_report):
    with open(performance_report, "r") as fi:
       json_data = json.load(fi)
+      assert type(json_data['results_agg']['va']) == str, "Expected results_agg to be string"
       reported_performance = ast.literal_eval(json_data['results_agg']['va'])['auc_pr']
    assert 0.0 <= reported_performance <= 1.0, "reported performance does not range between 0.0-1.0"
    return reported_performance
@@ -119,18 +120,25 @@ def per_run_performance(y_pred_arg, performance_report, onpremise_or_substra, ta
    global y_true
    global tw_df
    global args
+   global fold_va
    
    if onpremise_or_substra == 'substra':
-      y_pred = torch.load(y_pred_arg)
       global_pre_calculated_performance = substra_global_perf_from_json(performance_report)
+      y_pred = torch.load(y_pred_arg)
    else:
-      y_pred = sparse.csc_matrix(y_pred_arg)   
       global_pre_calculated_performance = onpremise_global_perf_from_json(performance_report)
+      y_pred = np.load(y_pred_arg, allow_pickle = True).item()
+      y_pred = y_pred[folding == fold_va]
+
+   #debugging
+   vprint(y_pred.shape)
+   vprint(y_true.shape)   
+      
    ## checks to make sure y_true and y_pred match
-   assert y_true.shape == y_pred.shape, f"{onpremise_or_substra} y_true shape do not match y_pred ({y_true.shape} & {y_pred.shape})"
-   assert y_true.nnz == y_pred.nnz, f"{onpremise_or_substra} y_true number of nonzero values do not match y_pred"
-   assert (y_true.indptr == y_pred.indptr).all(), f"{onpremise_or_substra} y_true indptr do not match y_pred"
-   assert (y_true.indices == y_pred.indices).all(), f"{onpremise_or_substra} y_true indices do not match y_pred"
+   assert y_true.shape == y_pred.shape, f"y_true shape do not match {onpremise_or_substra} y_pred ({y_true.shape} & {y_pred.shape})"
+   assert y_true.nnz == y_pred.nnz, f"y_true number of nonzero values do not match {onpremise_or_substra} y_pred"
+   assert (y_true.indptr == y_pred.indptr).all(), f"y_true indptr do not match {onpremise_or_substra} y_pred"
+   assert (y_true.indices == y_pred.indices).all(), f"y_true indices do not match {onpremise_or_substra} y_pred"
    
    task_id = np.full(y_true.shape[1], "", dtype=np.dtype('U30'))
    assay_type = np.full(y_true.shape[1], "", dtype=np.dtype('U30'))
@@ -236,7 +244,6 @@ def pred_mode_allclose_check(onpremise_yhat,substra_yhat):
    allclose = np.allclose(onpremise_yhat.data, substra_yhat.data, rtol=1e-05, atol=1e-05)
    if not allclose:
       vprint(f"ERROR! (Phase 2 de-risk output check): there is problem in the substra platform, yhats not close (tol:1e-05)")
-
 
 vprint(f"Calculating '{args.y_pred_onpremise}' performance for '.npy' type (on-premise) input files")
 onpremise_yhat, onpremise_results = per_run_performance(args.y_pred_onpremise,args.onpremise_performance_report, "on-premise", task_map)
