@@ -15,7 +15,6 @@ parser.add_argument("--y_true_all", help="Activity file (npy) (i.e. from files_4
 parser.add_argument("--y_pred_onpremise", help="Yhat prediction output from onpremise run (<single pharma dir>/y_hat.npy)", type=str, required=True)
 parser.add_argument("--y_pred_substra", help="Pred prediction output from substra platform (./Single-pharma-run/substra/medias/subtuple/<pharma_hash>/pred/pred)", type=str, required=True)
 parser.add_argument("--folding", help="LSH Folding file (npy) (i.e. from files_4_ml/)", type=str, default="folding.npy")
-parser.add_argument("--onpremise_performance_report", help="JSON file with global reported single-pharma performance", type=str, default=None, required=True)
 parser.add_argument("--substra_performance_report", help="JSON file with global reported performance from substra platform (i.e. ./Single-pharma-run/substra/medias/subtuple/<pharma_hash>/pred/perf.json)", type=str, default=None, required=True)
 parser.add_argument("--filename", help="Filename for results from this output", type=str, default=None)
 parser.add_argument("--verbose", help="Verbosity level: 1 = Full; 0 = no output", type=int, default=1, choices=[0, 1])
@@ -43,15 +42,14 @@ if args.filename is not None:
 else:
    name = f"derisk_{os.path.basename(args.y_true_all)}_{args.y_pred_onpremise}_{y_pred_substra.split('/')[0]}_{os.path.basename(args.folding)}"
 vprint(f"Run name is '{name}'.")
-assert not os.path.exists(name), f"{name} already exists... exiting"
-os.makedirs(name)
+#assert not os.path.exists(name), f"{name} already exists... exiting"
+#os.makedirs(name)
 
 
 #load the folding/true data
-folding = np.load(args.folding)
 y_true_all = np.load(args.y_true_all, allow_pickle=True).item()
 y_true_all = y_true_all.tocsc()
-
+folding = np.load(args.folding, allow_pickle=True)
 
 ## filtering out validation fold
 fold_va = 1
@@ -78,17 +76,6 @@ def substra_global_perf_from_json(performance_report):
    assert 0.0 <= reported_performance <= 1.0, "reported performance does not range between 0.0-1.0"
    return reported_performance
 
-## Check performance reports for on-premise sparsechem outputs
-def onpremise_global_perf_from_json(performance_report):
-   with open(performance_report, "r") as fi:
-      json_data = json.load(fi)
-      assert type(json_data['results_agg']['va']) == str, "Expected results_agg to be string"
-      reported_performance = ast.literal_eval(json_data['results_agg']['va'])['auc_pr']
-   assert 0.0 <= reported_performance <= 1.0, "reported performance does not range between 0.0-1.0"
-   return reported_performance
-
-
-
 ## write performance reports for global aggregation
 def write_global_report(args_name,global_performances,onpremise_or_substra):
    global name
@@ -112,23 +99,153 @@ def write_aggregated_report(args_name,local_performances, onpremise_or_substra):
    df.to_csv(fn2)
    vprint(f"Wrote {onpremise_or_substra} per-assay report to: {fn2}")
    return
+   
+## Convert the on-premise predictions into the sparse output expected for performance eval.
+def mask_y_hat(true_path, onpremise_pred_path, substra_pred_path, task_map):
+   """
+   in single pharma runs, the input file of predictions is not a pred, but Yhat file.
+   the Yhat file (pred_data) needs to be prepared to be used for performance evaluation
+   - only keep compounds from valdidation fold
+   - remove unneded tasks
+   - mask predictions (full matrix) to represent sparse matrix of true lables
+   In:
+      - true_path <string>: path to true labels matrix (sparsely populated)
+      - pred_path <string>: path to predicted labels matrix (densely populated)
+   Out:
+      - pred_data <pandas df>: df containing the predictions in same shape and mask as te true labels matrix
+   """
+   # ToDO: put data reading in different function 
+   # ToDO: test with weights
+   global folding
+   global fold_va
+   global y_true
+   
+   single_task_input, multi_task_input = task_map, task_map
+   
+   # load the data
+   true_data = np.load(true_path, allow_pickle = True)
+   true_data = true_data.tolist()
+   true_data = true_data.tocsr()
+   
+   substra_y_pred = torch.load(substra_pred_path)
+   onpremise_pred = np.load(onpremise_pred_path, allow_pickle = True)
+   
+   #debugging
+   vprint(true_data.shape)
+   vprint(substra_y_pred.shape)   
+   vprint(onprmise_pred.shape)   
+      
+   # only keep validation fold
+   true_data = true_data[folding == fold_va] #only keeping validation fold
+   substra_y_pred = substra_y_pred[folding == fold_va] #only keeping validation fold
+   onpremise_pred = onpremise_pred[folding == fold_va]
+
+   vprint(true_data.shape)
+   vprint(substra_y_pred.shape)   
+   vprint(onpremise_pred.shape)   
+   
+   true_data = true_data.todense()
+
+   
+   """ remove tasks 
+   
+   filter out tasks, that we did not predict on (the tasks from SP y hat), 
+   since the overall model predicts on all tasks it saw during training, 
+   not only the ones relevant for prediction.
+   """
+   
+   """ read data required
+
+   file: results/weight_table_T3_mapped.csv, for the single and the multi pharma data
+   contains mappings of the taks, so we can filter the tasks out for the MP y_hat file, since we ust not compare tasks that are not in SP y hat
+   """
+   SP_tasks_rel = single_task_input[["classification_task_id", "cont_classification_task_id"]] 
+   MP_tasks_rel = multi_task_input[["classification_task_id", "cont_classification_task_id"]] 
+
+   #create overall df
+   global_index = pd.DataFrame({"id": range(multi_task_input.shape[0] + 1)})
+
+   """
+   # we drop all MP row indices from SP and MP index table
+   # all remaining relative position-indices (not "id", nor the pandas index, but only position in the table) in SP are the ones we need to keep
+   """
+
+   # cont class id as first column
+   # extend by essay_type
+
+   # merge global index with task indices from MP and SP task table, which are subsets of the global index
+   MP_df = global_index.merge(MP_tasks_rel, left_on = "id", right_on = "classification_task_id", how='left')      
+   SP_df = global_index.merge(SP_tasks_rel, left_on = "id", right_on = "classification_task_id", how='left')
+
+   #get filled indices from MP and keep onlye thse in SP and MP 
+   keep_MPs = [not i for i in MP_df["cont_classification_task_id"].isnull()]
+
+   # drop taks missing in MP (to make them same shaped)
+   MP_df = MP_df[keep_MPs]
+   SP_df = SP_df[keep_MPs]
+
+   # get the final indices to be kept in y hat prediction matrix
+   # drop remaining
+   task_ids_keep = [not i for i in SP_df["cont_classification_task_id"].isnull()]
+   substra_y_pred = substra_y_pred[:, task_ids_keep]
+   onpremise_pred = onpremise_pred[:, task_ids_keep]
+
+   # debugging
+   vprint("Substra Shape after task removal:" + str(substra_y_pred.shape))
+   vprint("Onpremise Shape after task removal:" + str(onpremise_pred.shape))
+
+
+   """ masking y hat
+
+   mask the pred matrix the same as true label matrix, 
+   i.e. set all values in pred zero, that are zero (not predicted) in true label matrix
+   """
+
+   for row in range(substra_y_pred.shape[0]):
+      for col in range(substra_y_pred.shape[1]):
+         if true_data[row, col]== 0:
+            pred_data[row, col] = 0
+
+   for row in range(onpremise_pred.shape[0]):
+      for col in range(onpremise_pred.shape[1]):
+         if true_data[row, col]== 0:
+            pred_data[row, col] = 0
+            
+   assert true_data.shape == onpremise_pred.shape, f"True shape {true_data.shape} and SP Pred shape {pred_data.shape} need to be identical"
+   assert true_data.shape == substra_y_pred.shape, f"True shape {true_data.shape} and MP Pred shape {pred_data.shape} need to be identical"
+   
+   #phase 2 derisk output (by each pharma) check that the aggregated performance on the platform is
+   #numerically identical (difference < 1e-5) to the aggregated performance computed from the model on the pharma premises.
+   allclose = np.allclose(pred_data_single, pred_data_multi, rtol=1e-05, atol=1e-05)
+   if args.derisk and not allclose:
+         vprint(f"WARNING!! (Phase 2 de-risk output check [--derisk]): there is problem with {pred_path_single} and {pred_path_multi}. The yhat supplied by the substra platform are not close (tol:1e-05)")
+   #if not derisk and all are close then may be issue with on-premise outputs
+   if not args.derisk and allclose:
+         vprint(f"WARNING!! (Federated vs on comparison check): y-hats for {pred_path_single} and {pred_path_multi} appear to be too close (tol:1e-05)")
+
+   # debugging
+   vprint("out shape" + str(pred_data_single.shape) + str(pred_data_multi.shape))
+   return substra_y_pred, onpremise_pred
 
 
 ## check the pre_calculated_performance with the reported performance json
 # 
-def per_run_performance(y_pred_arg, performance_report, onpremise_or_substra, tasks_table):
+def per_run_performance(y_pred_arg, performance_report, onpremise_or_substra, tasks_table, nnz=None):
    global y_true
    global tw_df
    global args
    global fold_va
+   global folding
    
    if onpremise_or_substra == 'substra':
       global_pre_calculated_performance = substra_global_perf_from_json(performance_report)
       y_pred = torch.load(y_pred_arg)
+      nnz = y_pred.nonzero()
+      y_pred = y_pred[nnz]
    else:
-      global_pre_calculated_performance = onpremise_global_perf_from_json(performance_report)
-      y_pred = np.load(y_pred_arg, allow_pickle = True).item()
+      y_pred = np.load(y_pred_arg, allow_pickle = True)
       y_pred = y_pred[folding == fold_va]
+      y_pred = y_pred[nnz]
 
    #debugging
    vprint(y_pred.shape)
@@ -137,8 +254,8 @@ def per_run_performance(y_pred_arg, performance_report, onpremise_or_substra, ta
    ## checks to make sure y_true and y_pred match
    assert y_true.shape == y_pred.shape, f"y_true shape do not match {onpremise_or_substra} y_pred ({y_true.shape} & {y_pred.shape})"
    assert y_true.nnz == y_pred.nnz, f"y_true number of nonzero values do not match {onpremise_or_substra} y_pred"
-   assert (y_true.indptr == y_pred.indptr).all(), f"y_true indptr do not match {onpremise_or_substra} y_pred"
-   assert (y_true.indices == y_pred.indices).all(), f"y_true indices do not match {onpremise_or_substra} y_pred"
+   #assert (y_true.indptr == y_pred.indptr).all(), f"y_true indptr do not match {onpremise_or_substra} y_pred"
+   #assert (y_true.indices == y_pred.indices).all(), f"y_true indices do not match {onpremise_or_substra} y_pred"
    
    task_id = np.full(y_true.shape[1], "", dtype=np.dtype('U30'))
    assay_type = np.full(y_true.shape[1], "", dtype=np.dtype('U30'))
@@ -203,11 +320,13 @@ def per_run_performance(y_pred_arg, performance_report, onpremise_or_substra, ta
    tp_sum = tp[cols55].sum()
    vennabers_mean  = np.average(vennabers[cols55],weights=tw_weights)
    
-   assert global_pre_calculated_performance == aucpr_mean, f"Reported performance in {performance_report} ({global_pre_calculated_performance}) does not match calculated performance for {y_pred_arg} ({aucpr_mean})"
-   vprint(f"Check passed: Reported performance in {performance_report} ({global_pre_calculated_performance}) match the calculated performance for {y_pred_arg} ({aucpr_mean})")
+   if onpremise_or_substra == 'substra':
+      assert global_pre_calculated_performance == aucpr_mean, f"Reported performance in {performance_report} ({global_pre_calculated_performance}) does not match calculated performance for {y_pred_arg} ({aucpr_mean})"
+      vprint(f"Check passed: Reported performance in {performance_report} ({global_pre_calculated_performance}) match the calculated performance for {y_pred_arg} ({aucpr_mean})")
    global_performance = write_global_report(y_pred_arg,[aucpr_mean,aucroc_mean,maxf1_mean,kappa_mean, tn_sum, fp_sum, fn_sum, tp_sum, vennabers_mean], onpremise_or_substra)
    
-   return y_pred,[local_performance,global_performance]
+   if onpremise_or_substra == 'substra': nnz, y_pred,[local_performance,global_performance]
+   else: return y_pred,[local_performance,global_performance]
 
 ## calculate the difference between the single- and multi-pharma outputs and write to a file
 def calculate_deltas(onpremise_results, substra_results):
@@ -245,11 +364,14 @@ def pred_mode_allclose_check(onpremise_yhat,substra_yhat):
    if not allclose:
       vprint(f"ERROR! (Phase 2 de-risk output check): there is problem in the substra platform, yhats not close (tol:1e-05)")
 
-vprint(f"Calculating '{args.y_pred_onpremise}' performance for '.npy' type (on-premise) input files")
-onpremise_yhat, onpremise_results = per_run_performance(args.y_pred_onpremise,args.onpremise_performance_report, "on-premise", task_map)
+
+substra_y_pred, onpremise_y_pred = mask_y_hat(args.y_true_all, y_pred_onpremise_path, y_pred_substra_path, task_input)
 
 vprint(f"Calculating '{args.y_pred_substra}' for 'pred' substra output files")
-substra_yhat, substra_results = per_run_performance(args.y_pred_substra,args.substra_performance_report, "substra", task_map)
+substra_nnz, substra_yhat, substra_results = per_run_performance(args.y_pred_substra,args.substra_performance_report, "substra", task_map)
+
+vprint(f"Calculating '{args.y_pred_onpremise}' performance for '.npy' type (on-premise) input files")
+onpremise_yhat, onpremise_results = per_run_performance(args.y_pred_onpremise, None, "on-premise", task_map, nnz=substra_nnz)
 
 vprint(f"Checking np.allclose for between for '{args.y_pred_onpremise}' and '{args.y_pred_substra}' yhats")
 pred_mode_allclose_check(onpremise_yhat,substra_yhat)
