@@ -728,7 +728,7 @@ def delta_to_baseline(top_baseline, list_top_perfs, n_cv=5):
     baseline_valid = quorum_filter(top_baseline_scores, n_cv=n_cv)
     
     for top_perf in list_top_perfs:
-    
+        
         top_perf_scores = top_perf.drop([x for x in top_perf.columns if x not in col2keep],axis=1)
         model_name = top_perf['model_name'].iloc[0]
     
@@ -823,6 +823,7 @@ def compute_boxplots(perf_deltas, labels, category_column, score_type=['roc_auc_
     boxes = []
     scored_labels = []
     fig, ax = plt.subplots(figsize=(20,5))
+    
     for cat in labels:
         cat_df = perf_deltas.loc[perf_deltas[category_column]==cat]
         
@@ -873,7 +874,7 @@ def reconstruct_boxplot_colored(boxplot_specs, n_partner, n_bins, figsize=(10,10
     color_list = list(itertools.chain.from_iterable(itertools.repeat(x, n_bins) for x in sns.color_palette("husl", n_partner)))
     colors = itertools.cycle(color_list)
     
-    fig, ax = plt.subplots( num_scores, 1, figsize=figsize)
+    fig, ax = plt.subplots( num_scores, 1, figsize=figsize, sharex=True)
     for i, score in enumerate(score_type): 
         boxes= []
         score_df = boxplot_specs.loc[boxplot_specs['score_type']==score].drop('score_type',axis=1)
@@ -887,6 +888,8 @@ def reconstruct_boxplot_colored(boxplot_specs, n_partner, n_bins, figsize=(10,10
         # fill with colors
         for patch, color in zip(bplot['boxes'], colors):
             patch.set_facecolor(color)
+    
+    plt.xticks(rotation=90)
     plt.show()
     return colors
 
