@@ -36,14 +36,14 @@ assert y_pred_onpremise_path.suffix == '.npy', "On-premise prediction file needs
 assert y_pred_substra_path.stem == 'pred', "Substra prediction file needs to be 'pred'"
 task_map = pd.read_csv(args.task_map)
 
-#if args.filename is not None:
-#   name = args.filename
-#else:
-#   name = f"derisk_{os.path.basename(args.y_true_all)}_{args.y_pred_onpremise}_{y_pred_substra.split('/')[0]}_{os.path.basename(args.folding)}"
+if args.filename is not None:
+   name = args.filename
+else:
+   name = f"derisk_{os.path.basename(args.y_true_all)}_{args.y_pred_onpremise}_{y_pred_substra.split('/')[0]}_{os.path.basename(args.folding)}"
 name = 'test_derisk'
 vprint(f"Run name is '{name}'.")
-#assert not os.path.exists(name), f"{name} already exists... exiting"
-#os.makedirs(name)
+assert not os.path.exists(name), f"{name} already exists... exiting"
+os.makedirs(name)
 
 
 #load the folding/true data
