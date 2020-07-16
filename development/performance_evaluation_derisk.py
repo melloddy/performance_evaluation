@@ -39,8 +39,8 @@ task_map = pd.read_csv(args.task_map)
 if args.filename is not None:
    name = args.filename
 else:
-name = f"derisk_{os.path.basename(args.y_true_all)}_{args.y_pred_onpremise}_{args.y_pred_substra.split('/')[0]}_{os.path.basename(args.folding)}"
-vprint(f"Run name is '{name}'.")
+   name = f"derisk_{os.path.basename(args.y_true_all)}_{args.y_pred_onpremise}_{args.y_pred_substra.split('/')[0]}_{os.path.basename(args.folding)}"
+   vprint(f"Run name is '{name}'.")
 assert not os.path.exists(name), f"{name} already exists... exiting"
 os.makedirs(name)
 
@@ -199,7 +199,7 @@ def per_run_performance(y_pred, performance_report, onpremise_or_substra, tasks_
    vennabers_mean  = np.average(vennabers[cols55],weights=tw_weights)
 
    if onpremise_or_substra == 'substra':
-      assert global_pre_calculated_performance == aucpr_mean, f"Reported performance in {performance_report} ({global_pre_calculated_performance}) does not match calculated performance for {onpremise_or_substra} ({aucpr_mean})"
+      assert np.allclose([global_pre_calculated_performance],[aucpr_mean], rtol=1e-05, atol=1e-05), f"Reported performance in {performance_report} ({global_pre_calculated_performance}) does not match calculated performance for {onpremise_or_substra} ({aucpr_mean})"
       vprint(f"Check passed: Reported performance in {performance_report} ({global_pre_calculated_performance}) match the calculated performance for {onpremise_or_substra} ({aucpr_mean})")
    global_performance = write_global_report([aucpr_mean,aucroc_mean,maxf1_mean,kappa_mean, tn_sum, fp_sum, fn_sum, tp_sum, vennabers_mean], onpremise_or_substra)
    return [local_performance,global_performance]
