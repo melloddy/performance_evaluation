@@ -75,8 +75,8 @@ def substra_global_perf_from_json(performance_report):
 ## write performance reports for global aggregation
 def write_global_report(global_performances,onpremise_or_substra):
    global name
-   if args.use_venn_abers: cols = ['aucpr_mean','aucroc_mean','maxf1_mean', 'kappa_mean', 'tn', 'fp', 'fn', 'tp', 'vennabers_mean']
-   else: cols = ['aucpr_mean','aucroc_mean','maxf1_mean', 'kappa_mean', 'tn', 'fp', 'fn', 'tp']
+   cols = ['aucpr_mean','aucroc_mean','maxf1_mean', 'kappa_mean', 'tn', 'fp', 'fn', 'tp']
+   if args.use_venn_abers: cols += ['vennabers_mean']
    perf_df = pd.DataFrame([global_performances],columns=cols)
    fn = name + '/' + onpremise_or_substra + "_global_performances_derisk.csv"
    perf_df.to_csv(fn)
@@ -174,13 +174,12 @@ def per_run_performance(y_pred, performance_report, onpremise_or_substra, tasks_
       kappa[col]  = sklearn.metrics.cohen_kappa_score(y_true_col, y_classes)
       tn[col], fp[col], fn[col], tp[col] = sklearn.metrics.confusion_matrix(y_true = y_true_col, y_pred = y_classes).ravel()
       ##per-task performance:
+      cols = ['task id', 'assay type', 'aucpr','aucroc','maxf1','kappa','tn','fp','fn','tp']
       if args.use_venn_abers:
          vennabers[col] = get_VA_margin_median_cross(pts)
-         cols = ['task id', 'assay type', 'aucpr','aucroc','maxf1','kappa','tn','fp','fn','tp', 'vennabers']
          local_performance=pd.DataFrame(np.array([task_id[cols55],assay_type[cols55],aucpr[cols55],aucroc[cols55],maxf1[cols55],\
-            kappa[cols55],tn[cols55],fp[cols55],fn[cols55],tp[cols55], vennabers[cols55]]).T, columns=cols)
+            kappa[cols55],tn[cols55],fp[cols55],fn[cols55],tp[cols55], vennabers[cols55]]).T, columns=cols+['vennabers'])
       else:
-         cols = ['task id', 'assay type', 'aucpr','aucroc','maxf1','kappa','tn','fp','fn','tp']
          local_performance=pd.DataFrame(np.array([task_id[cols55],assay_type[cols55],aucpr[cols55],aucroc[cols55],maxf1[cols55],\
             kappa[cols55],tn[cols55],fp[cols55],fn[cols55],tp[cols55]]).T, columns=cols)
 
@@ -244,15 +243,17 @@ def calculate_deltas(onpremise_results, substra_results):
          (substra_results[idx]-onpremise_results[idx]).to_csv(name + delta_comparison)
 
 ##function to call allclose check for yhats
-def allclose_check(yhat1,yhat2):
-   allclose = np.allclose(yhat1.data, yhat2.data, rtol=1e-05, atol=1e-05)
+def yhat_allclose_check(yhat1,yhat2):
+   nnz1 = yhat1.nonzero()
+   nnz2 = yhat2.nonzero()
+   allclose = np.allclose(yhat1[nnz1], yhat2[nnz2], rtol=1e-05, atol=1e-05)
    if not allclose:
       vprint(f"ERROR! (Phase 2 de-risk output check): there is problem in the substra platform, yhats not close (tol:1e-05)")
 
 vprint(f"Masking if necessary")
 onprmise_yhat, substra_yhat = mask_y_hat(y_pred_onpremise_path,y_pred_substra_path)
 vprint(f"Checking np.allclose for between for '{args.y_pred_onpremise}' and '{args.y_pred_substra}' yhats")
-allclose_check(onprmise_yhat,substra_yhat)
+yhat_allclose_check(onprmise_yhat,substra_yhat)
 
 vprint(f"Calculating '{args.y_pred_onpremise}' performance for '.npy' type (on-premise) input files")
 onpremise_results = per_run_performance(onprmise_yhat,None, "on-premise", task_map)
