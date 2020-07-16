@@ -40,7 +40,6 @@ if args.filename is not None:
    name = args.filename
 else:
    name = f"derisk_{os.path.basename(args.y_true_all)}_{args.y_pred_onpremise}_{y_pred_substra.split('/')[0]}_{os.path.basename(args.folding)}"
-name = 'test_derisk'
 vprint(f"Run name is '{name}'.")
 assert not os.path.exists(name), f"{name} already exists... exiting"
 os.makedirs(name)
