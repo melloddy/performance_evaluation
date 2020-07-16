@@ -95,42 +95,39 @@ python performance_evaluation_pred_files.py --y_true_all pharma_partners/pharma_
 
 ```
 python performance_evaluation_derisk.py -h
-usage: performance_evaluation_derisk.py [-h] [--y_true_all Y_TRUE_ALL]
-          --y_pred_onpremise Y_PRED_ONPREMISE
-          --y_pred_substra Y_PRED_SUBSTRA
-          [--folding FOLDING]
-          --onpremise_performance_report
-          ONPREMISE_PERFORMANCE_REPORT
-          --substra_performance_report
-          SUBSTRA_PERFORMANCE_REPORT
-          [--filename FILENAME]
-          [--verbose {0,1}] --task_map TASK_MAP
+usage: performance_evaluation_derisk.py [-h] --y_true_all Y_TRUE_ALL
+                                        --y_pred_onpremise Y_PRED_ONPREMISE
+                                        --y_pred_substra Y_PRED_SUBSTRA
+                                        --folding FOLDING
+                                        --substra_performance_report
+                                        SUBSTRA_PERFORMANCE_REPORT --task_map
+                                        TASK_MAP [--filename FILENAME]
+                                        [--use_venn_abers] [--verbose {0,1}]
 
 Calculate Performance Metrics
 
 optional arguments:
-  -h, --help      show this help message and exit
+  -h, --help            show this help message and exit
   --y_true_all Y_TRUE_ALL
-      Activity file (npy) (i.e. from files_4_ml/)
+                        Activity file (npy) (i.e. from files_4_ml/)
   --y_pred_onpremise Y_PRED_ONPREMISE
-      Yhat prediction output from onpremise run (<single
-      pharma dir>/y_hat.npy)
+                        Yhat prediction output from onpremise run (<single
+                        pharma dir>/y_hat.npy)
   --y_pred_substra Y_PRED_SUBSTRA
-      Pred prediction output from substra platform
-      (./Single-pharma-
-      run/substra/medias/subtuple/<pharma_hash>/pred/pred)
+                        Pred prediction output from substra platform
+                        (./Single-pharma-
+                        run/substra/medias/subtuple/<pharma_hash>/pred/pred)
   --folding FOLDING     LSH Folding file (npy) (i.e. from files_4_ml/)
-  --onpremise_performance_report ONPREMISE_PERFORMANCE_REPORT
-      JSON file with global reported single-pharma
-      performance
   --substra_performance_report SUBSTRA_PERFORMANCE_REPORT
-      JSON file with global reported performance from
-      substra platform (i.e. ./Single-pharma-run/substra/med
-      ias/subtuple/<pharma_hash>/pred/perf.json)
+                        JSON file with global reported performance from
+                        substra platform (i.e. ./Single-pharma-run/substra/med
+                        ias/subtuple/<pharma_hash>/pred/perf.json)
+  --task_map TASK_MAP   Taskmap from MELLODDY_tuner output of single run (i.e.
+                        from results/weight_table_T3_mapped.csv)
   --filename FILENAME   Filename for results from this output
-  --verbose {0,1} Verbosity level: 1 = Full; 0 = no output
-  --task_map TASK_MAP   Taskmap from MELLODDY_tuner output of single run
-      (results/weight_table_T3_mapped.csv)
+  --use_venn_abers      Toggle to turn on Venn-ABERs code
+  --verbose {0,1}       Verbosity level: 1 = Full; 0 = no output
+
 
 ```
 
@@ -160,3 +157,8 @@ ERROR! (Phase 2 de-risk output check): Globel aggregation metric check shows the
 
 ```
 
+in addition to the assertion check already performed for the reported perf.json auc_pr performance by substra and the calculated auc_pr from the substra output, which would be output as:
+
+```
+AssertionError: Reported performance in <substra-path>/pred/perf.json (<reported AUC PR>) does not match calculated performance for substra (<calculated AUC PR>)
+```

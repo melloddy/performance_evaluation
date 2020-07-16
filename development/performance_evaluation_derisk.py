@@ -8,7 +8,6 @@ import json
 import ast
 import scipy.sparse as sparse
 from  pathlib import Path
-from VennABERS import get_VA_margin_median_cross
 
 parser = argparse.ArgumentParser(description="Calculate Performance Metrics")
 parser.add_argument("--y_true_all", help="Activity file (npy) (i.e. from files_4_ml/)", type=str, required=True)
@@ -18,6 +17,7 @@ parser.add_argument("--folding", help="LSH Folding file (npy) (i.e. from files_4
 parser.add_argument("--substra_performance_report", help="JSON file with global reported performance from substra platform (i.e. ./Single-pharma-run/substra/medias/subtuple/<pharma_hash>/pred/perf.json)", type=str, required=True)
 parser.add_argument("--task_map", help="Taskmap from MELLODDY_tuner output of single run (i.e. from results/weight_table_T3_mapped.csv)", required=True)
 parser.add_argument("--filename", help="Filename for results from this output", type=str, default=None)
+parser.add_argument("--use_venn_abers", help="Toggle to turn on Venn-ABERs code", action='store_true', default=False)
 parser.add_argument("--verbose", help="Verbosity level: 1 = Full; 0 = no output", type=int, default=1, choices=[0, 1])
 
 args = parser.parse_args()
@@ -28,7 +28,6 @@ def vprint(s=""):
       print(s)
 vprint(args)
 
-assert float(pd.__version__[:4]) >=0.25, "Pandas version must be >=0.25"
 
 y_pred_onpremise_path = Path(args.y_pred_onpremise)
 y_pred_substra_path = Path(args.y_pred_substra)
@@ -76,8 +75,9 @@ def substra_global_perf_from_json(performance_report):
 ## write performance reports for global aggregation
 def write_global_report(global_performances,onpremise_or_substra):
    global name
-   perf_df = pd.DataFrame([global_performances],columns=\
-      ['aucpr_mean','aucroc_mean','maxf1_mean', 'kappa_mean', 'tn', 'fp', 'fn', 'tp', 'vennabers_mean'])
+   if args.use_venn_abers: cols = ['aucpr_mean','aucroc_mean','maxf1_mean', 'kappa_mean', 'tn', 'fp', 'fn', 'tp', 'vennabers_mean']
+   else: cols = ['aucpr_mean','aucroc_mean','maxf1_mean', 'kappa_mean', 'tn', 'fp', 'fn', 'tp']
+   perf_df = pd.DataFrame([global_performances],columns=cols)
    fn = name + '/' + onpremise_or_substra + "_global_performances_derisk.csv"
    perf_df.to_csv(fn)
    vprint(f"Wrote {onpremise_or_substra} global performance report to: {fn}")
@@ -123,6 +123,7 @@ def per_run_performance(y_pred, performance_report, onpremise_or_substra, tasks_
    global tw_df
    global args
    global fold_va
+   if args.use_venn_abers: from VennABERS import get_VA_margin_median_cross
 
    if onpremise_or_substra == 'substra':
       global_pre_calculated_performance = substra_global_perf_from_json(performance_report)
@@ -145,7 +146,7 @@ def per_run_performance(y_pred, performance_report, onpremise_or_substra, tasks_
    fp     = np.full(y_true.shape[1], np.nan)
    fn     = np.full(y_true.shape[1], np.nan)
    tp     = np.full(y_true.shape[1], np.nan)
-   vennabers = np.full(y_true.shape[1], np.nan)
+   if args.use_venn_abers: vennabers = np.full(y_true.shape[1], np.nan)
 
    num_pos = (y_true == +1).sum(0)
    num_neg = (y_true == -1).sum(0)
@@ -172,17 +173,23 @@ def per_run_performance(y_pred, performance_report, onpremise_or_substra, tasks_
       maxf1[col]  = find_max_f1(precision, recall)
       kappa[col]  = sklearn.metrics.cohen_kappa_score(y_true_col, y_classes)
       tn[col], fp[col], fn[col], tp[col] = sklearn.metrics.confusion_matrix(y_true = y_true_col, y_pred = y_classes).ravel()
-      vennabers[col] = get_VA_margin_median_cross(pts)
+      ##per-task performance:
+      if args.use_venn_abers:
+         vennabers[col] = get_VA_margin_median_cross(pts)
+         cols = ['task id', 'assay type', 'aucpr','aucroc','maxf1','kappa','tn','fp','fn','tp', 'vennabers']
+         local_performance=pd.DataFrame(np.array([task_id[cols55],assay_type[cols55],aucpr[cols55],aucroc[cols55],maxf1[cols55],\
+            kappa[cols55],tn[cols55],fp[cols55],fn[cols55],tp[cols55], vennabers[cols55]]).T, columns=cols)
+      else:
+         cols = ['task id', 'assay type', 'aucpr','aucroc','maxf1','kappa','tn','fp','fn','tp']
+         local_performance=pd.DataFrame(np.array([task_id[cols55],assay_type[cols55],aucpr[cols55],aucroc[cols55],maxf1[cols55],\
+            kappa[cols55],tn[cols55],fp[cols55],fn[cols55],tp[cols55]]).T, columns=cols)
 
-   ##local performance:
-   local_performance=pd.DataFrame(np.array([task_id[cols55],assay_type[cols55],aucpr[cols55],aucroc[cols55],maxf1[cols55],\
-                  kappa[cols55],tn[cols55],fp[cols55],fn[cols55],tp[cols55], vennabers[cols55]]).T,\
-                  columns=['task id', 'assay type', 'aucpr','aucroc','maxf1','kappa','tn','fp','fn','tp', 'vennabers'])
 
    ##correct the datatypes for numeric columns
    vprint(local_performance)
    for c in local_performance.iloc[:,2:].columns:
       local_performance.loc[:,c] = local_performance.loc[:,c].astype(float)
+   ##write per-task & per-assay_type performance:
    write_aggregated_report(local_performance, onpremise_or_substra)
 
    ##global aggregation:
@@ -196,12 +203,14 @@ def per_run_performance(y_pred, performance_report, onpremise_or_substra, tasks_
    fp_sum = fp[cols55].sum()
    fn_sum = fn[cols55].sum()
    tp_sum = tp[cols55].sum()
-   vennabers_mean  = np.average(vennabers[cols55],weights=tw_weights)
 
    if onpremise_or_substra == 'substra':
       assert np.allclose([global_pre_calculated_performance],[aucpr_mean], rtol=1e-05, atol=1e-05), f"Reported performance in {performance_report} ({global_pre_calculated_performance}) does not match calculated performance for {onpremise_or_substra} ({aucpr_mean})"
       vprint(f"Check passed: Reported performance in {performance_report} ({global_pre_calculated_performance}) match the calculated performance for {onpremise_or_substra} ({aucpr_mean})")
-   global_performance = write_global_report([aucpr_mean,aucroc_mean,maxf1_mean,kappa_mean, tn_sum, fp_sum, fn_sum, tp_sum, vennabers_mean], onpremise_or_substra)
+   if args.use_venn_abers:
+      vennabers_mean  = np.average(vennabers[cols55],weights=tw_weights)
+      global_performance = write_global_report([aucpr_mean,aucroc_mean,maxf1_mean,kappa_mean, tn_sum, fp_sum, fn_sum, tp_sum, vennabers_mean], onpremise_or_substra)
+   else: global_performance = write_global_report([aucpr_mean,aucroc_mean,maxf1_mean,kappa_mean, tn_sum, fp_sum, fn_sum, tp_sum], onpremise_or_substra)
    return [local_performance,global_performance]
 
 ## calculate the difference between the single- and multi-pharma outputs and write to a file
