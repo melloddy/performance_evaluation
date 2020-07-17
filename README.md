@@ -85,7 +85,7 @@ python performance_evaluation_pred_files.py --y_true_all pharma_partners/pharma_
 
 1. Download the splitted ChEMBL data from here: https://az.app.box.com/file/665317784561
 2. For this example we will use pharma 1 since the yhat output/reported performances will match the substra 'pred' file
-3. Download the testnet production run output from here: https://az.app.box.com/folder/115825709947
+3. Download the testnet production run output from here: https://az.app.box.com/folder/115827624644
 4. Train on-premise model (e.g. for pharma 1 ```python <sparsechem-sparse-predict>/examples/chembl/train.py --x pharma_partners/pharma_x_partner_1.npy --y pharma_partners/pharma_y_partner_1.npy --task_weights pharma_partners/weights_1   --folding pharma_partners/folding_partner_1.npy   --fold_va 0   --batch_ratio    0.02   --hidden_sizes   400   --last_dropout   0.2   --middle_dropout 0.2   --weight_decay   0.0   --epochs   20   --lr  1e-3  --lr_steps 10 --lr_alpha  0.3 --filename chembl_1```)
 6. Create on-premise y-hat predictions with same sparseness as the input (e.g. for pharma 1 ```python <sparsechem-sparse-predict>/examples/chembl/predict.py     --x pharma_partners/pharma_x_partner_1.npy --y pharma_partners/pharma_y_partner_1.npy     --outfile y_hat1.npy     --conf ../../sparsechem/models/chembl_1.json     --model ../../sparsechem/models/chembl_1.pt     --dev cpu --folding pharma_partners/folding_partner_1.npy  --predict_fold 1```) 
 7. Provide the script with the sparse prediction y_hat1.npy from step 6. and the "pred" & ""perf.json" from the Single-pharma substra output i.e. two headings shown below...
