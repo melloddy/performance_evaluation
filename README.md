@@ -8,7 +8,7 @@ Performance evaluation scripts from the Single- and Multi-pharma outputs
 2. Local Conda installation (e.g. miniconda)
 3. Git installation
 4. melloddy_tuner environment from WP1 code: https://git.infra.melloddy.eu/wp1/data_prep
-5. sparsechem installation from WP2 code: https://git.infra.melloddy.eu/wp2/sparsechem
+5. sparsechem version 0.6.1: https://git.infra.melloddy.eu/wp2/sparsechem/-/tree/v0.6.1 (with sparse-predict functionality) installation from WP2 code: https://git.infra.melloddy.eu/wp2/sparsechem
 
 ## Example Setup (substra evalulation for single- multi-partner evaluation)
 
@@ -86,8 +86,7 @@ python performance_evaluation_pred_files.py --y_true_all pharma_partners/pharma_
 1. Download the splitted ChEMBL data from here: https://az.app.box.com/folder/115772041696
 2. For this example we will use pharma 1 since the yhat output/reported performances will match the substra 'pred' file
 3. Download the testnet production run output from here: https://app.box.com/folder/117114150538
-4. Install the sparse-prediction branch of sparsechem (https://git.infra.melloddy.eu/wp2/sparsechem/-/tree/sparse-predict)
-5. Train on-premise model (e.g. for pharma 1 ```python <sparsechem-sparse-predict>/examples/chembl/train.py --x pharma_partners/pharma_x_partner_1.npy --y pharma_partners/pharma_y_partner_1.npy --task_weights pharma_partners/weights_1   --folding pharma_partners/folding_partner_1.npy   --fold_va 0   --batch_ratio    0.02   --hidden_sizes   400   --last_dropout   0.2   --middle_dropout 0.2   --weight_decay   0.0   --epochs   20   --lr  1e-3  --lr_steps 10 --lr_alpha  0.3 --filename chembl_1```)
+4. Train on-premise model (e.g. for pharma 1 ```python <sparsechem-sparse-predict>/examples/chembl/train.py --x pharma_partners/pharma_x_partner_1.npy --y pharma_partners/pharma_y_partner_1.npy --task_weights pharma_partners/weights_1   --folding pharma_partners/folding_partner_1.npy   --fold_va 0   --batch_ratio    0.02   --hidden_sizes   400   --last_dropout   0.2   --middle_dropout 0.2   --weight_decay   0.0   --epochs   20   --lr  1e-3  --lr_steps 10 --lr_alpha  0.3 --filename chembl_1```)
 6. Create on-premise y-hat predictions with same sparseness as the input (e.g. for pharma 1 ```python <sparsechem-sparse-predict>/examples/chembl/predict.py     --x pharma_partners/pharma_x_partner_1.npy --y pharma_partners/pharma_y_partner_1.npy     --outfile y_hat1.npy     --conf ../../sparsechem/models/chembl_1.json     --model ../../sparsechem/models/chembl_1.pt     --dev cpu --folding pharma_partners/folding_partner_1.npy  --predict_fold 1```) 
 7. Provide the script with the sparse prediction y_hat1.npy from step 6. and the "pred" & ""perf.json" from the Single-pharma substra output i.e. two headings shown below...
 
