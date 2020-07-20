@@ -10,13 +10,15 @@ Performance evaluation scripts from the Single- and Multi-pharma outputs
 4. melloddy_tuner environment from WP1 code: https://git.infra.melloddy.eu/wp1/data_prep
 5. sparsechem version 0.6.1: https://git.infra.melloddy.eu/wp2/sparsechem/-/tree/v0.6.1 (with sparse-predict functionality) installation from WP2 code: https://git.infra.melloddy.eu/wp2/sparsechem
 
+Alternatively you can install the combined enrionment in environment_melloddy_combined.yml
 
 ## Example Setup (de-risk analysis)
 
 1. Download the substra output
-2. Use the model located in your Single_pharma_run/medias/subtuple/<pharma-hash>/export/single_model.pth to create on-premise y-hat predictions for the in-house dataset
-3. Locate the Sinlge-pharma "pred" & "perf.json" from the Single_pharma_run/medias/subtuple/<pharma-hash>/pred/ folder
-4. Provide the script with the y-hat sparse prediction (on-premise) from step 2, the pred, perf.json and task_mapping file
+2. Use the model located in your Single_pharma_run/medias/subtuple/<pharma-hash>/export/single_model.pth to create on-premise *sparse* y-hat predictions for the in-house dataset
+e.g. python sparsechem/examples/chembl/predict.py --x x.npy --y y.npy --outfile onpremise_y_hat.npy --folding folding.npy --conf <export_folder_>/conf.json --model <export_folder_>/single_model_.pth --predict_fold 1
+3. Locate the Sinlge-pharma "pred" & "perf.json" from the Single_pharma_run/medias/subtuple/<pharma-hash>/pred/ folder 
+4. Provide the script with the y-hat sparse prediction (onpremise_y_hat.npy) from step 2, the pred, perf.json and task_mapping file
 
 ## CLI for performance_evaluation_derisk.py (substra evalulation for single- multi-partner evaluation)
 
