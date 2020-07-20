@@ -5,8 +5,8 @@ import numpy as np
 import torch
 import sklearn.metrics
 import json
-import ast
 import scipy.sparse as sparse
+from scipy.stats import spearmanr
 from  pathlib import Path
 
 parser = argparse.ArgumentParser(description="Calculate Performance Metrics")
@@ -79,21 +79,26 @@ def write_global_report(global_performances,onpremise_or_substra):
    if args.use_venn_abers: cols += ['vennabers_mean']
    perf_df = pd.DataFrame([global_performances],columns=cols)
    fn = name + '/' + onpremise_or_substra + "_global_performances_derisk.csv"
-   perf_df.to_csv(fn)
+   perf_df.to_csv(fn, index=None)
    vprint(f"Wrote {onpremise_or_substra} global performance report to: {fn}")
    return perf_df
 
 ## write performance reports per-task & per-task_assay
 def write_aggregated_report(local_performances, onpremise_or_substra):
+   global name
+   global task_map
    vprint(f"{onpremise_or_substra} performances shape: " + str(local_performances.shape))
    # write per-task report
+   df = local_performances[:]
+   df['classification_task_id'] = df['classification_task_id'].astype('int64')
+   df = df.merge(task_map, right_on=["classification_task_id","assay_type"], left_on=["classification_task_id","assay_type"], how="left")
    fn1 = name + '/' + onpremise_or_substra + "_per-task_performances_derisk.csv"
+   df.to_csv(fn1, index=False)
    vprint(f"Wrote {onpremise_or_substra} per-task report to: {fn1}")
-   local_performances.to_csv(fn1)
-   # write per-assay type, ignore task id
-   df = local_performances.loc[:,'assay type':].groupby('assay type').mean()
+   # write per-assay_type, ignore task id
+   df2 = local_performances.loc[:,'assay_type':].groupby('assay_type').mean()
    fn2 = name + '/' + onpremise_or_substra + "_per-assay_performances_derisk.csv"
-   df.to_csv(fn2)
+   df2.to_csv(fn2, index=False)
    vprint(f"Wrote {onpremise_or_substra} per-assay report to: {fn2}")
    return
 
@@ -174,7 +179,7 @@ def per_run_performance(y_pred, performance_report, onpremise_or_substra, tasks_
       kappa[col]  = sklearn.metrics.cohen_kappa_score(y_true_col, y_classes)
       tn[col], fp[col], fn[col], tp[col] = sklearn.metrics.confusion_matrix(y_true = y_true_col, y_pred = y_classes).ravel()
       ##per-task performance:
-      cols = ['task id', 'assay type', 'aucpr','aucroc','maxf1','kappa','tn','fp','fn','tp']
+      cols = ['classification_task_id', 'assay_type', 'aucpr','aucroc','maxf1','kappa','tn','fp','fn','tp']
       if args.use_venn_abers:
          vennabers[col] = get_VA_margin_median_cross(pts)
          local_performance=pd.DataFrame(np.array([task_id[cols55],assay_type[cols55],aucpr[cols55],aucroc[cols55],maxf1[cols55],\
@@ -204,8 +209,8 @@ def per_run_performance(y_pred, performance_report, onpremise_or_substra, tasks_
    tp_sum = tp[cols55].sum()
 
    if onpremise_or_substra == 'substra':
-      assert np.allclose([global_pre_calculated_performance],[aucpr_mean], rtol=1e-05, atol=1e-05), f"Reported performance in {performance_report} ({global_pre_calculated_performance}) does not match calculated performance for {onpremise_or_substra} ({aucpr_mean})"
-      vprint(f"Check passed: Reported performance in {performance_report} ({global_pre_calculated_performance}) match the calculated performance for {onpremise_or_substra} ({aucpr_mean})")
+      assert np.allclose([global_pre_calculated_performance],[aucpr_mean], rtol=1e-05, atol=1e-05), f"Reported performance in {performance_report} ({global_pre_calculated_performance}) not close to calculated performance for {onpremise_or_substra} ({aucpr_mean}) (tol:1e-05)"
+      vprint(f"Check passed: Reported performance in {performance_report} ({global_pre_calculated_performance}) close to the calculated performance for {onpremise_or_substra} ({aucpr_mean}) (tol:1e-05)")
    if args.use_venn_abers:
       vennabers_mean  = np.average(vennabers[cols55],weights=tw_weights)
       global_performance = write_global_report([aucpr_mean,aucroc_mean,maxf1_mean,kappa_mean, tn_sum, fp_sum, fn_sum, tp_sum, vennabers_mean], onpremise_or_substra)
@@ -214,6 +219,8 @@ def per_run_performance(y_pred, performance_report, onpremise_or_substra, tasks_
 
 ## calculate the difference between the single- and multi-pharma outputs and write to a file
 def calculate_deltas(onpremise_results, substra_results):
+   global name
+   global task_map
    for idx, delta_comparison in enumerate(['locals','/deltas_global_performances_derisk.csv']):
 
       assert onpremise_results[idx].shape[0] == substra_results[idx].shape[0], "the number of tasks are not equal between the single- and multi-pharma runs"
@@ -221,32 +228,37 @@ def calculate_deltas(onpremise_results, substra_results):
 
       # add assay aggregation if local
       if(delta_comparison == 'locals'):
-         at = substra_results[idx]["assay type"]
+         cti = substra_results[idx]["classification_task_id"]
+         at = substra_results[idx]["assay_type"]
          delta = (substra_results[idx].loc[:, "aucpr":]-onpremise_results[idx].loc[:, "aucpr":])
-         tdf = pd.concat([at, delta], axis = 1)
+         tdf = pd.concat([cti, at, delta], axis = 1)
+         if not np.allclose(tdf['aucpr'],[0]*len(tdf['aucpr']), rtol=1e-05, atol=1e-05):
+            vprint(f"WARNING! (Phase 2 de-risk output check): calculated per-task deltas are not all close to zero (tol:1e-05)")
          fn1 = name + '/deltas_per-task_performances_derisk.csv'
-         tdf.to_csv(fn1)
+         pertask = tdf[:]
+         pertask['classification_task_id'] = pertask['classification_task_id'].astype('int64')
+         pertask = pertask.merge(task_map, right_on=["classification_task_id","assay_type"], left_on=["classification_task_id","assay_type"], how="left")
+         pertask.to_csv(fn1, index= False)
          vprint(f"Wrote per-task delta report to: {fn1}")
-         if not (tdf==0).all().all():
-            vprint(f"ERROR! (Phase 2 de-risk output check): calculated per-task deltas are not zeros (tol:1e-05)")
 
          # aggregate on assay_type level
          fn2 = name + '/deltas_per-assay_performances_derisk.csv'
-         tdf.groupby("assay type").mean().to_csv(fn2)
+         tdf.groupby("assay_type").mean().to_csv(fn2)
          vprint(f"Wrote per-assay delta report to: {fn2}")
       else:
          allclose = np.allclose(onpremise_results[idx], substra_results[idx], rtol=1e-05, atol=1e-05)
          #phase 2 derisk output (by each pharma) check that the aggregated performance on the platform is
          #numerically identical (difference < 1e-5) to the aggregated performance computed from the model on the pharma premises.
          if not allclose:
-               vprint(f"ERROR! (Phase 2 de-risk output check): Globel aggregation metric check shows there is a mistake in the aggregated metrics or in the performance reported by the substra platform (tol:1e-05)")
-         (substra_results[idx]-onpremise_results[idx]).to_csv(name + delta_comparison)
+               vprint(f"WARNING! (Phase 2 de-risk output check): global aggregation metric check shows descrepancy in the aggregated metrics or in the performance reported by the substra platform (tol:1e-05)")
+         (substra_results[idx]-onpremise_results[idx]).to_csv(name + delta_comparison, index=False)
 
 ##function to call allclose check for yhats
 def yhat_allclose_check(yhat1,yhat2):
    nnz1 = yhat1.nonzero()
    nnz2 = yhat2.nonzero()
    allclose = np.allclose(yhat1[nnz1], yhat2[nnz2], rtol=1e-05, atol=1e-05)
+   vprint(f"Spearmanr rank correlation coefficient of the {args.y_pred_onpremise}' and '{args.y_pred_substra} yhats = {spearmanr(yhat1[nnz1],yhat2[nnz2],axis=1)}")
    if not allclose:
       vprint(f"ERROR! (Phase 2 de-risk output check): there is problem in the substra platform, yhats not close (tol:1e-05)")
 
