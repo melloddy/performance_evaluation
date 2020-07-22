@@ -10,7 +10,7 @@ Performance evaluation scripts from the Single- and Multi-pharma outputs
 4. melloddy_tuner environment from WP1 code: https://git.infra.melloddy.eu/wp1/data_prep
 5. sparsechem version 0.6.1: https://git.infra.melloddy.eu/wp2/sparsechem/-/tree/v0.6.1 (with sparse-predict functionality) installation from WP2 code: https://git.infra.melloddy.eu/wp2/sparsechem
 
-Alternatively you can install the combined enrionment in environment_melloddy_combined.yml
+Alternatively you can install the combined enrionment in environment_melloddy_combined.yml using `conda env create -f development/environment_melloddy_combined.yml`
 
 ## Example Setup (de-risk analysis)
 
