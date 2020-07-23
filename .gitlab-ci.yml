@@ -5,3 +5,4 @@ build:
     - apt-get install -y build-essential
     - conda env create -f development/environment_melloddy_combined.yml
     - source activate melloddy_combined
+    - python development/performance_evaluation_pred_files.py -h

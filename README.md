@@ -95,13 +95,53 @@ in addition to the assertion check already performed for the reported perf.json 
 AssertionError: Reported performance in <substra-path>/pred/perf.json (<reported AUC PR>) does not match calculated performance for substra (<calculated AUC PR>)
 ```
 
+## Minimum Working Example
+
+This is an example with a single archive with all input files required already prepared. All files were taken for a single pharma partner from the phase 2 run on public chembl data. This example archive is just to get you started on the evaluation and should be used as minimum working example to test the performance evaluation script on your infrastructure. Once you get this to work, replace all input files with your relevant input files with your private data/models. 
+
+[Download the example archive from box](https://app.box.com/file/694962399922) and extract it into the data folder. 
+
+To run the sample single/multi partner evaluation run: 
+```bash
+
+python performance_evaluation_pred_files.py \
+    --y_pred_single data/example/single/pred/pred \
+    --y_pred_multi data/example/multi/pred/pred \
+    --folding data/example/files_4_ml/folding.npy \
+    --task_weights data/example/files_4_ml/weights.csv \
+    --single_performance_report data/example/single/pred/perf.json \
+    --multi_performance_report data/example/multi/pred/perf.json \
+    --filename out \
+    --task_map_single data/example/files_4_ml/weight_table_T3_mapped.csv \
+    --task_map_multi data/example/files_4_ml/weight_table_T3_mapped.csv \
+    --y_true data/example/files_4_ml/pharma_y.npy 
+```
+
+This will write all relevant output files into the out folder. 
+NB: if the out folder already exists (from a previous failed run for instance) then the script will stop gracefully in order not to overwrite previous results.
 
 
 ## Example Setup (substra evalulation for single- multi-partner evaluation)
 
-1. Download the splitted ChEMBL data from here: https://az.app.box.com/file/665317784561
-2. Identify your pharma partner ID from here: https://az.app.box.com/file/665327503987 and use *_partner_<your_company_ID>.npy from Step 1 for inputs for the y, folding and weights
-3. Download the testnet production run output from here: https://az.app.box.com/folder/115772041696 for your corresponding partner ID
+These steps allow you to analyze the predictions obtained during the first collective and single runs on the Chembl input data used by everyone. 
+
+
+0. Download the data_prepped CHEMBL data from here: https://app.ent.box.com/folder/112482560989: 
+
+    contains task map files
+
+1. Download the ChEMBL input data from here: https://app.box.com/file/665317784561
+
+    contains input files for machine learning for Chembl data (split by pharma partners)
+
+2. Identify your pharma partner ID from here: https://app.box.com/file/665327503987
+    
+    use *_partner_<your_company_ID>.npy from Step 1 for inputs for the y, folding and weights
+
+3. Download the testnet production run output from here: https://app.box.com/folder/115772041696
+
+    Download your corresponding partner ID (single and multiple pharma runs) and extract it, it contains predictions and performance statistics.
+
 4. Provide the script with the file names of the prediction "pred" and "perf.json" from the Single- and Multi- pharma files from step 3
 
 ## CLI of performance_evaluation_pred_files.py (for substra evalulation for single- multi-partner evaluation)
