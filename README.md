@@ -1,14 +1,17 @@
 # Performance Evaluation Script for the IMI Project MELLODDY
 
-Performance evaluation scripts from the Single- and Multi-pharma outputs
+Performance evaluation scripts from the Single- and Multi-pharma outputs.
+These evaluation scripts allow us to verify whether predictions performed using a model generated (referred to as single-pharma model hereafter) during a federated run can be reproduced when executed locally (prediction step) within the pharma partner's IT infrastructure. 
+Second the evaluation assesses whether the predictions from the federated model improve over predictions from the single-pharma model.
 
 ## Requirements
+On your local IT infrastructure you'd need 
 
 1. Python 3.6 or higher
 2. Local Conda installation (e.g. miniconda)
 3. Git installation
 4. melloddy_tuner environment from WP1 code: https://git.infra.melloddy.eu/wp1/data_prep
-5. sparsechem version 0.6.1: https://git.infra.melloddy.eu/wp2/sparsechem/-/tree/v0.6.1 (with sparse-predict functionality) installation from WP2 code: https://git.infra.melloddy.eu/wp2/sparsechem
+5. [sparsechem version 0.6.1](https://git.infra.melloddy.eu/wp2/sparsechem/-/tree/v0.6.1): (with sparse-predict functionality) installation from WP2 code: https://git.infra.melloddy.eu/wp2/sparsechem in order to produce the predictions on your own infrastructure using the single-partner model
 
 Alternatively you can install the combined enrionment in environment_melloddy_combined.yml using `conda env create -f development/environment_melloddy_combined.yml`
 
