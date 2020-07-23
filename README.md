@@ -11,19 +11,24 @@ On your local IT infrastructure you'd need
 2. Local Conda installation (e.g. miniconda)
 3. Git installation
 4. melloddy_tuner environment from WP1 code: https://git.infra.melloddy.eu/wp1/data_prep
-5. [sparsechem version 0.6.1](https://git.infra.melloddy.eu/wp2/sparsechem/-/tree/v0.6.1): (with sparse-predict functionality) installation from WP2 code: https://git.infra.melloddy.eu/wp2/sparsechem in order to produce the predictions on your own infrastructure using the single-partner model
+5. sparsechem version 0.6.1: https://git.infra.melloddy.eu/wp2/sparsechem/-/tree/v0.6.1 (with sparse-predict functionality) installation from WP2 code. This is required to generate *sparse* on-premise predictions (not required to run the performance_evaluation[_derisk/pred].py code)
+
 
 Alternatively you can install the combined enrionment in environment_melloddy_combined.yml using `conda env create -f development/environment_melloddy_combined.yml`
 
-## Example Setup (de-risk analysis)
+# Example 1: De-risk analysis (on-premise vs. single-partner substra output evaluation)
+
+## Setup
 
 1. Download the substra output
-2. Use the model located in your Single_pharma_run/medias/subtuple/<pharma-hash>/export/single_model.pth to create on-premise *sparse* y-hat predictions for the in-house dataset
-e.g. python sparsechem/examples/chembl/predict.py --x x.npy --y y.npy --outfile onpremise_y_hat.npy --folding folding.npy --conf <export_folder_>/conf.json --model <export_folder_>/single_model_.pth --predict_fold 1
-3. Locate the Sinlge-pharma "pred" & "perf.json" from the Single_pharma_run/medias/subtuple/<pharma-hash>/pred/ folder 
+2. Use the model located in your Single_pharma_run/medias/subtuple/{pharma-hash}/export/single_model.pth to create on-premise *sparse* y-hat predictions for the in-house dataset. E.g.:
+
+```python sparsechem/examples/chembl/predict.py --x x.npy --y y.npy --outfile onpremise_y_hat.npy --folding folding.npy --conf {pharma-hash}/export/hyperparameters.json --model {pharma-hash}/export/single_model_.pth --predict_fold 1```
+
+3. Locate the Sinlge-pharma "pred" & "perf.json" from the Single_pharma_run/medias/subtuple/{pharma-hash}/pred/ folder 
 4. Provide the script with the y-hat sparse prediction (onpremise_y_hat.npy) from step 2, the pred, perf.json and task_mapping file
 
-## CLI for performance_evaluation_derisk.py (substra evalulation for single- multi-partner evaluation)
+## Analysis script (performance_evaluation_derisk.py)
 
 ```
 python performance_evaluation_derisk.py -h
@@ -63,7 +68,7 @@ optional arguments:
 
 ```
 
-## Example input (for substra evalulation for single- multi-partner evaluation)
+## Running the de-risk code
 ```
 python performance_evaluation_derisk.py --y_true_all pharma_partners/pharma_y_partner_1.npy --y_pred_substra Single_pharma_run-1/medias/subtuple/c4f1c9b9d44fea66f9b856d346a0bb9aa5727e587185e87daca170f239a70029/pred/pred --folding pharma_partners/folding_partner_1.npy --substra_performance_report Single_pharma_run-1/medias/subtuple/c4f1c9b9d44fea66f9b856d346a0bb9aa5727e587185e87daca170f239a70029/pred/perf.json --filename derisk_test --task_map pharma_partners/weight_table_T3_mapped.csv --y_pred_onpremise y_hat1.npy
 ```
@@ -119,32 +124,19 @@ python performance_evaluation_pred_files.py \
 
 This will write all relevant output files into the out folder. 
 NB: if the out folder already exists (from a previous failed run for instance) then the script will stop gracefully in order not to overwrite previous results.
+-----
+
+# Example 2: Pred file analysis (Single-pharma pred vs. Multi-pharma pred file analysis)
+
+## Pred file evaluation Setup
+
+1. Download the substra output
+2. Locate the Sinlge-pharma "pred" & "perf.json" from the Single_pharma_run/medias/subtuple/{pharma-hash}/pred/ folder 
+3. Locate the Multi-pharma "pred" & "perf.json" from the Multi_pharma_run/medias/subtuple/{pharma-hash}/pred/ folder 
+4. Provide the script with the single- and multi-pharma pred files from step 2/3, the perf.json and task_mapping file
 
 
-## Example Setup (substra evalulation for single- multi-partner evaluation)
-
-These steps allow you to analyze the predictions obtained during the first collective and single runs on the Chembl input data used by everyone. 
-
-
-0. Download the data_prepped CHEMBL data from here: https://app.ent.box.com/folder/112482560989: 
-
-    contains task map files
-
-1. Download the ChEMBL input data from here: https://app.box.com/file/665317784561
-
-    contains input files for machine learning for Chembl data (split by pharma partners)
-
-2. Identify your pharma partner ID from here: https://app.box.com/file/665327503987
-    
-    use *_partner_<your_company_ID>.npy from Step 1 for inputs for the y, folding and weights
-
-3. Download the testnet production run output from here: https://app.box.com/folder/115772041696
-
-    Download your corresponding partner ID (single and multiple pharma runs) and extract it, it contains predictions and performance statistics.
-
-4. Provide the script with the file names of the prediction "pred" and "perf.json" from the Single- and Multi- pharma files from step 3
-
-## CLI of performance_evaluation_pred_files.py (for substra evalulation for single- multi-partner evaluation)
+## Pred analysis script (performance_evaluation_pred_files.py)
 
 ```
 python performance_evaluation_pred_files.py -h
@@ -200,7 +192,7 @@ optional arguments:
 
 ```
 
-## Example input for (substra evalulation for single- multi-partner evaluation)
+## Running the pred analysis code
 ```
 python performance_evaluation_pred_files.py --y_true_all pharma_partners/pharma_y_partner_1.npy --y_pred_multi Multi_pharma_run-1/medias/subtuple/374d81d50d0df484bfa40708f270225780aa36dd15a366eb0691e89496653212/pred/pred --y_pred_single Single_pharma_run-1/medias/subtuple/c4f1c9b9d44fea66f9b856d346a0bb9aa5727e587185e87daca170f239a70029/pred/pred --single_performance_report Single_pharma_run-1/medias/subtuple/c4f1c9b9d44fea66f9b856d346a0bb9aa5727e587185e87daca170f239a70029/pred/perf.json --multi_performance_report Multi_pharma_run-1/medias/subtuple/374d81d50d0df484bfa40708f270225780aa36dd15a366eb0691e89496653212/pred/perf.json --filename pred_compare --task_map_single pharma_partners/weight_table_T3_mapped.csv --task_map_multi pharma_partners/weight_table_T3_mapped.csv --folding pharma_partners/folding_partner_1.npy 
 ```
