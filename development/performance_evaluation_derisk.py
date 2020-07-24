@@ -22,10 +22,15 @@ parser.add_argument("--verbose", help="Verbosity level: 1 = Full; 0 = no output"
 
 args = parser.parse_args()
 
-def vprint(s=""):
+def vprint(s="",derisk_check=False):
    if args.verbose:
       print()
-      print(s)
+      if derisk_check:
+         print('======================================================')
+         print(s)
+         print('======================================================')
+      else: print(s)
+
 vprint(args)
 
 
@@ -209,8 +214,10 @@ def per_run_performance(y_pred, performance_report, onpremise_or_substra, tasks_
    tp_sum = tp[cols55].sum()
 
    if onpremise_or_substra == 'substra':
-      assert np.allclose([global_pre_calculated_performance],[aucpr_mean], rtol=1e-05, atol=1e-05), f"Reported performance in {performance_report} ({global_pre_calculated_performance}) not close to calculated performance for {onpremise_or_substra} ({aucpr_mean}) (tol:1e-05)"
-      vprint(f"Check passed: Reported performance in {performance_report} ({global_pre_calculated_performance}) close to the calculated performance for {onpremise_or_substra} ({aucpr_mean}) (tol:1e-05)")
+      if not np.allclose([global_pre_calculated_performance],[aucpr_mean], rtol=1e-05, atol=1e-05):
+         vprint(f"(Phase 2 de-risk check #2): WARNING! Reported performance in {performance_report} ({global_pre_calculated_performance}) not close to calculated performance for {onpremise_or_substra} ({aucpr_mean}) (tol:1e-05)",derisk_check=True)
+      else:
+         vprint(f"(Phase 2 de-risk check #2): Check passed! Reported performance in {performance_report} ({global_pre_calculated_performance}) close to the calculated performance for {onpremise_or_substra} ({aucpr_mean}) (tol:1e-05)",derisk_check=True)
    if args.use_venn_abers:
       vennabers_mean  = np.average(vennabers[cols55],weights=tw_weights)
       global_performance = write_global_report([aucpr_mean,aucroc_mean,maxf1_mean,kappa_mean, tn_sum, fp_sum, fn_sum, tp_sum, vennabers_mean], onpremise_or_substra)
@@ -233,7 +240,9 @@ def calculate_deltas(onpremise_results, substra_results):
          delta = (substra_results[idx].loc[:, "aucpr":]-onpremise_results[idx].loc[:, "aucpr":])
          tdf = pd.concat([cti, at, delta], axis = 1)
          if not np.allclose(tdf['aucpr'],[0]*len(tdf['aucpr']), rtol=1e-05, atol=1e-05):
-            vprint(f"WARNING! (Phase 2 de-risk output check): calculated per-task deltas are not all close to zero (tol:1e-05)")
+            vprint(f"(Phase 2 de-risk output check #3): WARNING! Calculated per-task deltas are not all close to zero (tol:1e-05)",derisk_check=True)
+         else:
+            vprint(f"(Phase 2 de-risk output check #3): Check passed! Calculated per-task deltas close to zero (tol:1e-05)",derisk_check=True)
          fn1 = name + '/deltas_per-task_performances_derisk.csv'
          pertask = tdf[:]
          pertask['classification_task_id'] = pertask['classification_task_id'].astype('int64')
@@ -250,7 +259,9 @@ def calculate_deltas(onpremise_results, substra_results):
          #phase 2 derisk output (by each pharma) check that the aggregated performance on the platform is
          #numerically identical (difference < 1e-5) to the aggregated performance computed from the model on the pharma premises.
          if not allclose:
-               vprint(f"WARNING! (Phase 2 de-risk output check): global aggregation metric check shows descrepancy in the aggregated metrics or in the performance reported by the substra platform (tol:1e-05)")
+               vprint(f"(Phase 2 de-risk output check #4): WARNING! Global aggregation metric check shows descrepancy in the aggregated metrics or in the performance reported by the substra platform (tol:1e-05)",derisk_check=True)
+         else:
+               vprint(f"(Phase 2 de-risk output check #4): Check passed! Global aggregation metric check aggregated metrics similar to performance reported by the substra platform (tol:1e-05)",derisk_check=True)
          (substra_results[idx]-onpremise_results[idx]).to_csv(name + delta_comparison, index=False)
 
 ##function to call allclose check for yhats
@@ -260,7 +271,9 @@ def yhat_allclose_check(yhat1,yhat2):
    allclose = np.allclose(yhat1[nnz1], yhat2[nnz2], rtol=1e-05, atol=1e-05)
    vprint(f"Spearmanr rank correlation coefficient of the {args.y_pred_onpremise}' and '{args.y_pred_substra} yhats = {spearmanr(yhat1[nnz1],yhat2[nnz2],axis=1)}")
    if not allclose:
-      vprint(f"ERROR! (Phase 2 de-risk output check): there is problem in the substra platform, yhats not close (tol:1e-05)")
+      vprint(f"(Phase 2 de-risk output check #1): ERROR! yhats not close between on-premise (generated from the substra model) .npy and substra 'pred' file (tol:1e-05)",derisk_check=True)
+   else:
+      vprint(f"(Phase 2 de-risk output check #1): Check passed! yhats close between on-premise (generated from the substra model) .npy and substra 'pred' file (tol:1e-05)",derisk_check=True)
 
 vprint(f"Masking if necessary")
 onprmise_yhat, substra_yhat = mask_y_hat(y_pred_onpremise_path,y_pred_substra_path)

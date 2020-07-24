@@ -86,19 +86,24 @@ deltas_per-assay_performances_derisk.csv
 deltas_global_performances_derisk.csv
 ```
 
-Any problem in the substra output (derisk errors) will be reported like this:
+Any problem in the substra output (4 derisk errors/warnings) will be reported like this:
 ```
-ERROR! (Phase 2 de-risk output check): there is problem in the substra platform, yhats not close (tol:1e-05)
-WARNING! (Phase 2 de-risk output check): calculated per-task deltas are not zeros (tol:1e-05)
-WARNING! (Phase 2 de-risk output check): Global aggregation metric check shows there is a mistake in the aggregated metrics or in the performance reported by the substra platform (tol:1e-05)
+(Phase 2 de-risk output check #1): ERROR! yhats not close between on-premise (generated from the substra model) .npy and substra 'pred' file (tol:1e-05)
+(Phase 2 de-risk check #2): WARNING! Reported performance in {performance_report} ({global_pre_calculated_performance}) not close to calculated performance for {substra} ({aucpr_mean}) (tol:1e-05)
+(Phase 2 de-risk output check #3): WARNING! Calculated per-task deltas are not all close to zero (tol:1e-05)
+(Phase 2 de-risk output check #4): WARNING! Global aggregation metric check shows descrepancy in the aggregated metrics or in the performance reported by the substra platform (tol:1e-05)
 
 ```
 
-in addition to the assertion check already performed for the reported perf.json auc_pr performance by substra and the calculated auc_pr from the substra output, which would be output as:
+De-risk checks that pass the criteria are reported like this:
 
 ```
-AssertionError: Reported performance in <substra-path>/pred/perf.json (<reported AUC PR>) does not match calculated performance for substra (<calculated AUC PR>)
+(Phase 2 de-risk output check #1): Check passed! yhats close between on-premise (generated from the substra model) .npy and substra 'pred' file (tol:1e-05)
+(Phase 2 de-risk check #2): Check passed! Reported performance in {performance_report} ({global_pre_calculated_performance}) close to the calculated performance for {substra} ({aucpr_mean}) (tol:1e-05)
+(Phase 2 de-risk output check #3): Check passed! Calculated per-task deltas close to zero (tol:1e-05)
+(Phase 2 de-risk output check #4): Check passed! Global aggregation metric check aggregated metrics similar to performance reported by the substra platform (tol:1e-05)
 ```
+
 
 ## Minimum Working Example
 
