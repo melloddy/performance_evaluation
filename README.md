@@ -1,8 +1,11 @@
 # Performance Evaluation Script for the IMI Project MELLODDY
 
-Performance evaluation scripts from the Single- and Multi-pharma outputs
+Performance evaluation scripts from the Single- and Multi-pharma outputs.
+These evaluation scripts allow us to verify whether predictions performed using a model generated (referred to as single-pharma model hereafter) during a federated run can be reproduced when executed locally (prediction step) within the pharma partner's IT infrastructure. 
+Second the evaluation assesses whether the predictions from the federated model improve over predictions from the single-pharma model.
 
 ## Requirements
+On your local IT infrastructure you'd need 
 
 1. Python 3.6 or higher
 2. Local Conda installation (e.g. miniconda)
@@ -97,6 +100,30 @@ in addition to the assertion check already performed for the reported perf.json 
 AssertionError: Reported performance in <substra-path>/pred/perf.json (<reported AUC PR>) does not match calculated performance for substra (<calculated AUC PR>)
 ```
 
+## Minimum Working Example
+
+This is an example with a single archive with all input files required already prepared. All files were taken for a single pharma partner from the phase 2 run on public chembl data. This example archive is just to get you started on the evaluation and should be used as minimum working example to test the performance evaluation script on your infrastructure. Once you get this to work, replace all input files with your relevant input files with your private data/models. 
+
+[Download the example archive from box](https://app.box.com/file/694962399922) and extract it into the data folder. 
+
+To run the sample single/multi partner evaluation run: 
+```bash
+
+python performance_evaluation_pred_files.py \
+    --y_pred_single data/example/single/pred/pred \
+    --y_pred_multi data/example/multi/pred/pred \
+    --folding data/example/files_4_ml/folding.npy \
+    --task_weights data/example/files_4_ml/weights.csv \
+    --single_performance_report data/example/single/pred/perf.json \
+    --multi_performance_report data/example/multi/pred/perf.json \
+    --filename out \
+    --task_map_single data/example/files_4_ml/weight_table_T3_mapped.csv \
+    --task_map_multi data/example/files_4_ml/weight_table_T3_mapped.csv \
+    --y_true data/example/files_4_ml/pharma_y.npy 
+```
+
+This will write all relevant output files into the out folder. 
+NB: if the out folder already exists (from a previous failed run for instance) then the script will stop gracefully in order not to overwrite previous results.
 -----
 
 # Example 2: Pred file analysis (Single-pharma pred vs. Multi-pharma pred file analysis)
