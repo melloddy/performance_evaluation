@@ -25,7 +25,7 @@ Alternatively you can install the combined enrionment in environment_melloddy_co
 
 ```python sparsechem/examples/chembl/predict.py --x x.npy --y y.npy --outfile onpremise_y_hat.npy --folding folding.npy --conf {pharma-hash}/export/hyperparameters.json --model {pharma-hash}/export/single_model_.pth --predict_fold 1```
 
-3. Locate the Sinlge-pharma "pred" & "perf.json" from the Single_pharma_run/medias/subtuple/{pharma-hash}/pred/ folder 
+3. Locate the Single-pharma "pred" & "perf.json" from the Single_pharma_run/medias/subtuple/{pharma-hash}/pred/ folder 
 4. Provide the script with the y-hat sparse prediction (onpremise_y_hat.npy) from step 2, the pred, perf.json and task_mapping file
 
 ## Analysis script (performance_evaluation_derisk.py)
@@ -104,31 +104,6 @@ De-risk checks that pass the criteria are reported like this:
 (Phase 2 de-risk output check #4): Check passed! Global aggregation metric check aggregated metrics similar to performance reported by the substra platform (tol:1e-05)
 ```
 
-
-## Minimum Working Example
-
-This is an example with a single archive with all input files required already prepared. All files were taken for a single pharma partner from the phase 2 run on public chembl data. This example archive is just to get you started on the evaluation and should be used as minimum working example to test the performance evaluation script on your infrastructure. Once you get this to work, replace all input files with your relevant input files with your private data/models. 
-
-[Download the example archive from box](https://app.box.com/file/694962399922) and extract it into the data folder. 
-
-To run the sample single/multi partner evaluation run: 
-```bash
-
-python performance_evaluation_pred_files.py \
-    --y_pred_single data/example/single/pred/pred \
-    --y_pred_multi data/example/multi/pred/pred \
-    --folding data/example/files_4_ml/folding.npy \
-    --task_weights data/example/files_4_ml/weights.csv \
-    --single_performance_report data/example/single/pred/perf.json \
-    --multi_performance_report data/example/multi/pred/perf.json \
-    --filename out \
-    --task_map_single data/example/files_4_ml/weight_table_T3_mapped.csv \
-    --task_map_multi data/example/files_4_ml/weight_table_T3_mapped.csv \
-    --y_true data/example/files_4_ml/pharma_y.npy 
-```
-
-This will write all relevant output files into the out folder. 
-NB: if the out folder already exists (from a previous failed run for instance) then the script will stop gracefully in order not to overwrite previous results.
 -----
 
 # Example 2: Pred file analysis (Single-pharma pred vs. Multi-pharma pred file analysis)
@@ -142,6 +117,8 @@ NB: if the out folder already exists (from a previous failed run for instance) t
 
 
 ## Pred analysis script (performance_evaluation_pred_files.py)
+
+This script evaluates whether there is an improvement in predictive performance between a single pharma run vs a global federated run. 
 
 ```
 python performance_evaluation_pred_files.py -h
@@ -194,13 +171,36 @@ optional arguments:
   --task_map_multi TASK_MAP_MULTI
       Taskmap from MELLODDY_tuner output of single run
       (results/weight_table_T3_mapped.csv)
-
 ```
+
+
+### Minimum Working Example
+
+This is an example with a single archive with all input files required already prepared. All files were taken for a single pharma partner from the phase 2 run on public chembl data. This example archive is just to get you started on the evaluation and should be used as minimum working example to test the performance evaluation script on your infrastructure. Once you get this to work, replace all input files with your relevant input files with your private data/models. 
+
+[Download the example archive from box](https://app.box.com/file/694962399922) and extract it into the `data` folder. 
+
+To run the sample single/multi partner evaluation run: 
+```bash
+
+python performance_evaluation_pred_files.py \
+    --y_pred_single data/example/single/pred/pred \
+    --y_pred_multi data/example/multi/pred/pred \
+    --folding data/example/files_4_ml/folding.npy \
+    --task_weights data/example/files_4_ml/weights.csv \
+    --single_performance_report data/example/single/pred/perf.json \
+    --multi_performance_report data/example/multi/pred/perf.json \
+    --filename out \
+    --task_map_single data/example/files_4_ml/weight_table_T3_mapped.csv \
+    --task_map_multi data/example/files_4_ml/weight_table_T3_mapped.csv \
+    --y_true data/example/files_4_ml/pharma_y.npy 
+```
+
+This will write all relevant output files into the out folder. 
+NB: if the out folder already exists (from a previous failed run for instance) then the script will stop gracefully in order not to overwrite previous results.
+
 
 ## Running the pred analysis code
 ```
 python performance_evaluation_pred_files.py --y_true_all pharma_partners/pharma_y_partner_1.npy --y_pred_multi Multi_pharma_run-1/medias/subtuple/374d81d50d0df484bfa40708f270225780aa36dd15a366eb0691e89496653212/pred/pred --y_pred_single Single_pharma_run-1/medias/subtuple/c4f1c9b9d44fea66f9b856d346a0bb9aa5727e587185e87daca170f239a70029/pred/pred --single_performance_report Single_pharma_run-1/medias/subtuple/c4f1c9b9d44fea66f9b856d346a0bb9aa5727e587185e87daca170f239a70029/pred/perf.json --multi_performance_report Multi_pharma_run-1/medias/subtuple/374d81d50d0df484bfa40708f270225780aa36dd15a366eb0691e89496653212/pred/perf.json --filename pred_compare --task_map_single pharma_partners/weight_table_T3_mapped.csv --task_map_multi pharma_partners/weight_table_T3_mapped.csv --folding pharma_partners/folding_partner_1.npy 
 ```
-
-
-
