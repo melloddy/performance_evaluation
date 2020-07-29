@@ -26,9 +26,9 @@ def vprint(s="",derisk_check=False):
    if args.verbose:
       print()
       if derisk_check:
-         print('======================================================')
+         print('====================================================================================================================================')
          print(s)
-         print('======================================================')
+         print('====================================================================================================================================')
       else: print(s)
 
 vprint(args)
@@ -57,9 +57,10 @@ y_true_all = y_true_all.tocsc()
 ## filtering out validation fold
 fold_va = 1
 y_true = y_true_all[folding == fold_va]
+y_true_all = None #clear all ytrue to save memory
 
 ## default weights are set to 1.0 for the derisking (required)
-tw_df = np.ones(y_true.shape[1], dtype=np.float32)
+tw_df = np.ones(y_true.shape[1], dtype=np.uint8)
 
 def find_max_f1(precision, recall):
    F1   = np.zeros(len(precision))
@@ -95,7 +96,7 @@ def write_aggregated_report(local_performances, onpremise_or_substra):
    vprint(f"{onpremise_or_substra} performances shape: " + str(local_performances.shape))
    # write per-task report
    df = local_performances[:]
-   df['classification_task_id'] = df['classification_task_id'].astype('int64')
+   df['classification_task_id'] = df['classification_task_id'].astype('int32')
    df = df.merge(task_map, right_on=["classification_task_id","assay_type"], left_on=["classification_task_id","assay_type"], how="left")
    fn1 = name + '/' + onpremise_or_substra + "_per-task_performances_derisk.csv"
    df.to_csv(fn1, index=False)
@@ -113,15 +114,15 @@ def mask_y_hat(onpremise_path, substra_path):
     global y_true
     
     # load the data
-    onpremise_yhat = np.load(onpremise_path, allow_pickle=True).item().tocsr()
-    substra_yhat = torch.load(substra_path)
+    onpremise_yhat = np.load(onpremise_path, allow_pickle=True).item().tocsr().astype('float32')
+    substra_yhat = torch.load(substra_path).astype('float32')
             
     # only keep validation fold
     onpremise_yhat = onpremise_yhat[folding == fold_va]
-    try:substra_yhat = substra_yhat[folding == fold_va]
+    try: substra_yhat = substra_yhat[folding == fold_va]
     except IndexError: pass
     
-    true_data = y_true.todense()
+    true_data = y_true.astype(np.uint8).todense()
     assert true_data.shape == onpremise_yhat.shape, f"True shape {true_data.shape} and Pred shape {onpremise_yhat.shape} need to be identical"
     assert true_data.shape == substra_yhat.shape, f"True shape {true_data.shape} and Pred shape {substra_yhat.shape} need to be identical"
 
@@ -132,7 +133,6 @@ def per_run_performance(y_pred, performance_report, onpremise_or_substra, tasks_
    global y_true
    global tw_df
    global args
-   global fold_va
    if args.use_venn_abers: from VennABERS import get_VA_margin_median_cross
 
    if onpremise_or_substra == 'substra':
@@ -166,8 +166,9 @@ def per_run_performance(y_pred, performance_report, onpremise_or_substra, tasks_
    for col in range(y_true.shape[1]):
       y_true_col = y_true.data[y_true.indptr[col] : y_true.indptr[col+1]] == 1
       y_pred_col = y_pred.data[y_pred.indptr[col] : y_pred.indptr[col+1]]
+      y_true_col, y_pred_col = y_true_col.astype(np.uint8), y_pred_col.astype('float32')
 
-      pts = np.vstack((y_pred_col, y_true_col)).T # points for Venn-ABERS
+      if args.use_venn_abers: pts = np.vstack((y_pred_col, y_true_col)).T # points for Venn-ABERS
 
       if y_true_col.shape[0] <= 1:
          ## not enough data for current column, skipping
@@ -176,7 +177,7 @@ def per_run_performance(y_pred, performance_report, onpremise_or_substra, tasks_
          continue
       task_id[col] = tasks_table["classification_task_id"][tasks_table["cont_classification_task_id"]==col].iloc[0]
       assay_type[col] = tasks_table["assay_type"][tasks_table["cont_classification_task_id"]==col].iloc[0]
-      y_classes   = np.where(y_pred_col > 0.5, 1, 0)
+      y_classes   = np.where(y_pred_col > 0.5, 1, 0).astype(np.uint8)
       precision, recall, thresholds = sklearn.metrics.precision_recall_curve(y_true = y_true_col, probas_pred = y_pred_col)
       aucpr[col]  = sklearn.metrics.auc(x = recall, y = precision)
       aucroc[col] = sklearn.metrics.roc_auc_score(y_true  = y_true_col, y_score = y_pred_col)
@@ -185,7 +186,7 @@ def per_run_performance(y_pred, performance_report, onpremise_or_substra, tasks_
       tn[col], fp[col], fn[col], tp[col] = sklearn.metrics.confusion_matrix(y_true = y_true_col, y_pred = y_classes).ravel()
       ##per-task performance:
       cols = ['classification_task_id', 'assay_type', 'aucpr','aucroc','maxf1','kappa','tn','fp','fn','tp']
-      if args.use_venn_abers:
+      if args.use_venn_abers: 
          vennabers[col] = get_VA_margin_median_cross(pts)
          local_performance=pd.DataFrame(np.array([task_id[cols55],assay_type[cols55],aucpr[cols55],aucroc[cols55],maxf1[cols55],\
             kappa[cols55],tn[cols55],fp[cols55],fn[cols55],tp[cols55], vennabers[cols55]]).T, columns=cols+['vennabers'])
@@ -197,7 +198,7 @@ def per_run_performance(y_pred, performance_report, onpremise_or_substra, tasks_
    ##correct the datatypes for numeric columns
    vprint(local_performance)
    for c in local_performance.iloc[:,2:].columns:
-      local_performance.loc[:,c] = local_performance.loc[:,c].astype(float)
+      local_performance.loc[:,c] = local_performance.loc[:,c].astype('float32')
    ##write per-task & per-assay_type performance:
    write_aggregated_report(local_performance, onpremise_or_substra)
 
@@ -228,11 +229,10 @@ def per_run_performance(y_pred, performance_report, onpremise_or_substra, tasks_
 def calculate_deltas(onpremise_results, substra_results):
    global name
    global task_map
+
    for idx, delta_comparison in enumerate(['locals','/deltas_global_performances_derisk.csv']):
-
-      assert onpremise_results[idx].shape[0] == substra_results[idx].shape[0], "the number of tasks are not equal between the single- and multi-pharma runs"
-      assert onpremise_results[idx].shape[1] == substra_results[idx].shape[1], "the number of reported metrics are not equal between the single- and multi-pharma runs"
-
+      assert onpremise_results[idx].shape[0] == substra_results[idx].shape[0], "the number of tasks are not equal between the on-premise and substra outputs for {delta_comparison}"
+      assert onpremise_results[idx].shape[1] == substra_results[idx].shape[1], "the number of reported metrics are not equal between the on-premise and reported substra outputs for {delta_comparison}"
       # add assay aggregation if local
       if(delta_comparison == 'locals'):
          cti = substra_results[idx]["classification_task_id"]
@@ -245,7 +245,7 @@ def calculate_deltas(onpremise_results, substra_results):
             vprint(f"(Phase 2 de-risk output check #3): Check passed! Calculated per-task deltas close to zero (tol:1e-05)",derisk_check=True)
          fn1 = name + '/deltas_per-task_performances_derisk.csv'
          pertask = tdf[:]
-         pertask['classification_task_id'] = pertask['classification_task_id'].astype('int64')
+         pertask['classification_task_id'] = pertask['classification_task_id'].astype(np.uint8)
          pertask = pertask.merge(task_map, right_on=["classification_task_id","assay_type"], left_on=["classification_task_id","assay_type"], how="left")
          pertask.to_csv(fn1, index= False)
          vprint(f"Wrote per-task delta report to: {fn1}")
@@ -255,13 +255,14 @@ def calculate_deltas(onpremise_results, substra_results):
          tdf.groupby("assay_type").mean().to_csv(fn2)
          vprint(f"Wrote per-assay delta report to: {fn2}")
       else:
-         allclose = np.allclose(onpremise_results[idx], substra_results[idx], rtol=1e-05, atol=1e-05)
+         print(onpremise_results[idx])
+         allclose = np.allclose(onpremise_results[idx]['aucpr_mean'], substra_results[idx]['aucpr_mean'], rtol=1e-05, atol=1e-05)
          #phase 2 derisk output (by each pharma) check that the aggregated performance on the platform is
          #numerically identical (difference < 1e-5) to the aggregated performance computed from the model on the pharma premises.
          if not allclose:
-               vprint(f"(Phase 2 de-risk output check #4): WARNING! Global aggregation metric check shows descrepancy in the aggregated metrics or in the performance reported by the substra platform (tol:1e-05)",derisk_check=True)
+               vprint(f"(Phase 2 de-risk output check #4): WARNING! Calculated global aggregation performance for on-premise {onpremise_results[idx]['aucpr_mean'].values} and substra {substra_results[idx]['aucpr_mean'].values} are not close (tol:1e-05)",derisk_check=True)
          else:
-               vprint(f"(Phase 2 de-risk output check #4): Check passed! Global aggregation metric check aggregated metrics similar to performance reported by the substra platform (tol:1e-05)",derisk_check=True)
+               vprint(f"(Phase 2 de-risk output check #4): Check passed! Calculated global aggregation performance for on-premise {onpremise_results[idx]['aucpr_mean'].values} and substra {substra_results[idx]['aucpr_mean'].values} are not close (tol:1e-05)",derisk_check=True)
          (substra_results[idx]-onpremise_results[idx]).to_csv(name + delta_comparison, index=False)
 
 ##function to call allclose check for yhats
@@ -277,14 +278,18 @@ def yhat_allclose_check(yhat1,yhat2):
 
 vprint(f"Masking if necessary")
 onprmise_yhat, substra_yhat = mask_y_hat(y_pred_onpremise_path,y_pred_substra_path)
+folding, fold_va = None, None #clear folding - no longer needed
 vprint(f"Checking np.allclose for between for '{args.y_pred_onpremise}' and '{args.y_pred_substra}' yhats")
 yhat_allclose_check(onprmise_yhat,substra_yhat)
 
 vprint(f"Calculating '{args.y_pred_onpremise}' performance for '.npy' type (on-premise) input files")
 onpremise_results = per_run_performance(onprmise_yhat,None, "on-premise", task_map)
+onprmise_yhat = None #clear yhat from memory - no longer needed
 
 vprint(f"Calculating '{args.y_pred_substra}' for 'pred' substra output files")
 substra_results = per_run_performance(substra_yhat,args.substra_performance_report, "substra", task_map)
+substra_yhat=None #clear yhat from memory - no longer needed
+y_true, tw_df = None, None #clear ytrue and weights since both per_run_performance finished - no longer needed
 
 vprint(f"Calculating delta between '{args.y_pred_onpremise}' and '{args.y_pred_substra}' performances.")
 calculate_deltas(onpremise_results,substra_results)
