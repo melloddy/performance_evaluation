@@ -262,7 +262,7 @@ def calculate_deltas(onpremise_results, substra_results):
          if not allclose:
                vprint(f"(Phase 2 de-risk output check #4): WARNING! Calculated global aggregation performance for on-premise {onpremise_results[idx]['aucpr_mean'].values} and substra {substra_results[idx]['aucpr_mean'].values} are not close (tol:1e-05)",derisk_check=True)
          else:
-               vprint(f"(Phase 2 de-risk output check #4): Check passed! Calculated global aggregation performance for on-premise {onpremise_results[idx]['aucpr_mean'].values} and substra {substra_results[idx]['aucpr_mean'].values} are not close (tol:1e-05)",derisk_check=True)
+               vprint(f"(Phase 2 de-risk output check #4): Check passed! Calculated global aggregation performance for on-premise {onpremise_results[idx]['aucpr_mean'].values} and substra {substra_results[idx]['aucpr_mean'].values} are close (tol:1e-05)",derisk_check=True)
          (substra_results[idx]-onpremise_results[idx]).to_csv(name + delta_comparison, index=False)
 
 ##function to call allclose check for yhats

@@ -91,8 +91,7 @@ Any problem in the substra output (4 derisk errors/warnings) will be reported li
 (Phase 2 de-risk output check #1): ERROR! yhats not close between on-premise (generated from the substra model) .npy and substra 'pred' file (tol:1e-05)
 (Phase 2 de-risk check #2): WARNING! Reported performance in {performance_report} ({global_pre_calculated_performance}) not close to calculated performance for {substra} ({aucpr_mean}) (tol:1e-05)
 (Phase 2 de-risk output check #3): WARNING! Calculated per-task deltas are not all close to zero (tol:1e-05)
-(Phase 2 de-risk output check #4): WARNING! Global aggregation metric check shows descrepancy in the aggregated metrics or in the performance reported by the substra platform (tol:1e-05)
-
+(Phase 2 de-risk output check #4): WARNING! Calculated global aggregation performance for on-premise {onpremise_results[idx]['aucpr_mean'].values} and substra {substra_results[idx]['aucpr_mean'].values} are not close (tol:1e-05)
 ```
 
 De-risk checks that pass the criteria are reported like this:
@@ -101,7 +100,7 @@ De-risk checks that pass the criteria are reported like this:
 (Phase 2 de-risk output check #1): Check passed! yhats close between on-premise (generated from the substra model) .npy and substra 'pred' file (tol:1e-05)
 (Phase 2 de-risk check #2): Check passed! Reported performance in {performance_report} ({global_pre_calculated_performance}) close to the calculated performance for {substra} ({aucpr_mean}) (tol:1e-05)
 (Phase 2 de-risk output check #3): Check passed! Calculated per-task deltas close to zero (tol:1e-05)
-(Phase 2 de-risk output check #4): Check passed! Global aggregation metric check aggregated metrics similar to performance reported by the substra platform (tol:1e-05)
+(Phase 2 de-risk output check #4): Check passed! Calculated global aggregation performance for on-premise {onpremise_results[idx]['aucpr_mean'].values} and substra {substra_results[idx]['aucpr_mean'].values} are close (tol:1e-05)
 ```
 
 
