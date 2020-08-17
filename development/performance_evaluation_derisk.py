@@ -51,6 +51,7 @@ os.makedirs(name)
 
 #load the folding/true data
 folding = np.load(args.folding)
+vprint(f'Loading y_true: {args.y_true_all}') 
 y_true_all = np.load(args.y_true_all, allow_pickle=True).item()
 y_true_all = y_true_all.tocsc()
 
@@ -114,7 +115,9 @@ def mask_y_hat(onpremise_path, substra_path):
     global y_true
     
     # load the data
+    vprint(f'Loading onpremise (npy) predictions: {onpremise_path}') 
     onpremise_yhat = np.load(onpremise_path, allow_pickle=True).item().tocsr().astype('float32')
+    vprint(f'Loading substra (pred) output: {substra_path}') 
     substra_yhat = torch.load(substra_path).astype('float32')
             
     # only keep validation fold
@@ -245,7 +248,6 @@ def calculate_deltas(onpremise_results, substra_results):
             vprint(f"(Phase 2 de-risk output check #3): Check passed! Calculated per-task deltas close to zero (tol:1e-05)",derisk_check=True)
          fn1 = name + '/deltas_per-task_performances_derisk.csv'
          pertask = tdf[:]
-         pertask['classification_task_id'] = pertask['classification_task_id'].astype(np.uint8)
          pertask = pertask.merge(task_map, right_on=["classification_task_id","assay_type"], left_on=["classification_task_id","assay_type"], how="left")
          pertask.to_csv(fn1, index= False)
          vprint(f"Wrote per-task delta report to: {fn1}")
