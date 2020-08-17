@@ -248,6 +248,7 @@ def calculate_deltas(onpremise_results, substra_results):
             vprint(f"(Phase 2 de-risk output check #3): Check passed! Calculated per-task deltas close to zero (tol:1e-05)",derisk_check=True)
          fn1 = name + '/deltas_per-task_performances_derisk.csv'
          pertask = tdf[:]
+         pertask['classification_task_id'] = pertask['classification_task_id'].astype('int32')
          pertask = pertask.merge(task_map, right_on=["classification_task_id","assay_type"], left_on=["classification_task_id","assay_type"], how="left")
          pertask.to_csv(fn1, index= False)
          vprint(f"Wrote per-task delta report to: {fn1}")
