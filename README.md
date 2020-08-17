@@ -18,6 +18,29 @@ Alternatively you can install the combined enrionment in environment_melloddy_co
 
 # Example 1: De-risk analysis (on-premise vs. single-partner substra output evaluation)
 
+## Build onpremise model (with your local sparsechem)
+
+1. Train a model with sparsechem (v0.6.1) using the same input data as for the federated run (sparsechem/examples/chembl/train.py)
+2. Choose the hyperparameters from the federated system (weight_decay depends on your data size):
+```
+python sparsechem/examples/chembl/train.py  --x x.npy \
+                                            --y y.npy \
+                                            --folding folding.npy \
+                                            --task_weights weights.csv \
+                                            --hidden_sizes 3600 \
+                                            --middle_dropout 0.0 \
+                                            --last_dropout 0.2 \
+                                            --weight_decay": 1e-2 \
+                                            --last_non_linearity relu \
+                                            --non_linearity relu \
+                                            --input_transform binarize \
+                                            --lr 0.001 \
+                                            --lr_alpha 0.3 \
+                                            --lr_steps 10 \
+                                            --epochs 20 \
+                                            --fold_va 1
+```
+
 ## Setup
 
 1. Download the substra output
