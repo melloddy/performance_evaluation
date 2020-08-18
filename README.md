@@ -30,7 +30,7 @@ python sparsechem/examples/chembl/train.py  --x x.npy \
                                             --hidden_sizes 3600 \
                                             --middle_dropout 0.0 \
                                             --last_dropout 0.2 \
-                                            --weight_decay: 1e-2 \
+                                            --weight_decay 1e-2 \
                                             --last_non_linearity relu \
                                             --non_linearity relu \
                                             --input_transform binarize \
