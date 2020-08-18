@@ -19,8 +19,8 @@ Alternatively you can install the combined enrionment in environment_melloddy_co
 # Example 1: De-risk analysis (on-premise vs. single-partner substra output evaluation)
 
 ## Build onpremise model (with your local sparsechem)
-
-1. Train a model with sparsechem (v0.6.1) using the same input data as for the federated run (sparsechem/examples/chembl/train.py)
+0. Update sparsechem to v.0.6.2 and install it again.
+1. Train a model with sparsechem (v0.6.2) using the same input data as for the federated run (sparsechem/examples/chembl/train.py)
 2. Choose the hyperparameters from the federated system (weight_decay depends on your data size):
 ```
 python sparsechem/examples/chembl/train.py  --x x.npy \
@@ -30,7 +30,7 @@ python sparsechem/examples/chembl/train.py  --x x.npy \
                                             --hidden_sizes 3600 \
                                             --middle_dropout 0.0 \
                                             --last_dropout 0.2 \
-                                            --weight_decay": 1e-2 \
+                                            --weight_decay": 1e-5 \
                                             --last_non_linearity relu \
                                             --non_linearity relu \
                                             --input_transform binarize \
@@ -38,9 +38,24 @@ python sparsechem/examples/chembl/train.py  --x x.npy \
                                             --lr_alpha 0.3 \
                                             --lr_steps 10 \
                                             --epochs 20 \
-                                            --fold_va 1
+                                            --fold_va 1 \
+                                            --fold_te 0 \
+                                            --min_samples_auc 25 \
+                                            --normalization_loss 100_000
+```
+## Comparison of reported performances
+```
+import sparsechem as sc
+res = sc.load_results('models/perf-<sparsechem-output>.json')
+# collect individual tasks perf
+perf = res['results']['va']
+# 5/5 filter
+filtered_perf = perf.loc[(perf['num_pos']>=5 ) & (perf['num_neg']>=5)]
+# aggregate auc_pr
+mean_auc_pr = filtered_perf.auc_pr.mean()
 ```
 
+Please compare this `mean_auc_pr` with the reported performance at epoch 20 in the yearly_dashboad [Box](https://app.box.com/file/619214037978?s=t0voje8gqvxy8bm6vkkivs6js63u6udq)
 ## Setup
 
 1. Download the substra output
