@@ -41,7 +41,7 @@ python sparsechem/examples/chembl/train.py  --x x.npy \
                                             --fold_va 1 \
                                             --fold_te 0 \
                                             --min_samples_auc 25 \
-                                            --normalize_loss 100_000
+                                            --normalize_loss 100000
 ```
 ## Comparison of reported performances
 ```
