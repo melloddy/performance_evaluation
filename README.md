@@ -30,7 +30,7 @@ python sparsechem/examples/chembl/train.py  --x x.npy \
                                             --hidden_sizes 3600 \
                                             --middle_dropout 0.0 \
                                             --last_dropout 0.2 \
-                                            --weight_decay": 1e-5 \
+                                            --weight_decay: 1e-2 \
                                             --last_non_linearity relu \
                                             --non_linearity relu \
                                             --input_transform binarize \
@@ -41,7 +41,7 @@ python sparsechem/examples/chembl/train.py  --x x.npy \
                                             --fold_va 1 \
                                             --fold_te 0 \
                                             --min_samples_auc 25 \
-                                            --normalization_loss 100_000
+                                            --normalize_loss 100_000
 ```
 ## Comparison of reported performances
 ```
