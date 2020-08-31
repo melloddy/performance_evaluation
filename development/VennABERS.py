@@ -1,12 +1,15 @@
-"""
-
-@author: Paolo Toccaceli
-
-"""
+# Straight-forward implementation of IVAP algorithm described in:
+# Large-scale probabilistic prediction with and without validity guarantees, Vovk et al.
+# https://arxiv.org/pdf/1511.00213.pdf
+#
+# Paolo Toccaceli
+#
+# https://github.com/ptocca/VennABERS
+#
+# 2020-07-09: Fixed bug in p0 calculation
 
 import numpy as np
 from sklearn.model_selection import StratifiedKFold
-
 
 
 # Some elementary functions to speak the same language as the paper
@@ -14,11 +17,14 @@ from sklearn.model_selection import StratifiedKFold
 def push(x,stack):
     stack.append(x)
 
+    
 def pop(stack):
     return stack.pop()
 
+
 def top(stack):
     return stack[-1]
+
 
 def nextToTop(stack):
     return stack[-2]
@@ -30,6 +36,7 @@ def nonleftTurn(a,b,c):
     d2 = c-b
     return np.cross(d1,d2)<=0
 
+
 def nonrightTurn(a,b,c):   
     d1 = b-a
     d2 = c-b
@@ -40,6 +47,7 @@ def slope(a,b):
     ax,ay = a
     bx,by = b
     return (by-ay)/(bx-ax)
+
 
 def notBelow(t,p1,p2):
     p1x,p1y = p1
@@ -66,6 +74,7 @@ def algorithm1(P):
         push(P[i],S)
     return S
 
+
 def algorithm2(P,S):
     global kPrime
     
@@ -83,10 +92,9 @@ def algorithm2(P,S):
         push(P[i-1],Sprime)
     return F1
 
+
 def algorithm3(P):
     global kPrime
-    
-    P[kPrime+1] = P[kPrime]+np.array((1.0,0.0))
 
     S = []
     push(P[kPrime+1],S)
@@ -96,6 +104,7 @@ def algorithm3(P):
             pop(S)
         push(P[i],S)
     return S
+
 
 def algorithm4(P,S):
     global kPrime
@@ -112,7 +121,8 @@ def algorithm4(P,S):
         while len(Sprime)>1 and nonrightTurn(P[i],top(Sprime),nextToTop(Sprime)):
             pop(Sprime)
         push(P[i],Sprime)
-    return F0[1:]
+    return F0
+
 
 def prepareData(calibrPoints):
     global kPrime
@@ -137,25 +147,30 @@ def prepareData(calibrPoints):
     
     return yPrime,yCsd,xPrime,ptsUnique
 
-def computeF(xPrime,yCsd):    
+
+def computeF(xPrime,yCsd):
+    global kPrime
     P = {0:np.array((0,0))}
     P.update({i+1:np.array((k,v)) for i,(k,v) in enumerate(zip(xPrime,yCsd))})
     
     S = algorithm1(P)
     F1 = algorithm2(P,S)
     
-    # P = {}
-    # P.update({i+1:np.array((k,v)) for i,(k,v) in enumerate(zip(xPrime,yCsd))})    
+    P = {0:np.array((0,0))}
+    P.update({i+1:np.array((k,v)) for i,(k,v) in enumerate(zip(xPrime,yCsd))})    
+    P[kPrime+1] = P[kPrime] + np.array((1.0,0.0))    # The paper says (1,1)
     
     S = algorithm3(P)
     F0 = algorithm4(P,S)
     
     return F0,F1
 
+
 def getFVal(F0,F1,ptsUnique,testObjects):
-    pos0 = np.searchsorted(ptsUnique[1:],testObjects,side='right')
-    pos1 = np.searchsorted(ptsUnique[:-1],testObjects,side='left')+1
+    pos0 = np.searchsorted(ptsUnique,testObjects,side='left')
+    pos1 = np.searchsorted(ptsUnique[:-1],testObjects,side='right')+1
     return F0[pos0],F1[pos1]
+
 
 def ScoresToMultiProbs(calibrPoints,testObjects):
     # sort the points, transform into unique objects, with weights and updated values
@@ -169,36 +184,9 @@ def ScoresToMultiProbs(calibrPoints,testObjects):
                     
     return p0,p1
 
-def computeF1(yCsd,xPrime):
-    global kPrime
-    
-    P = {0:np.array((0,0))}
-    P.update({i+1:np.array((k,v)) for i,(k,v) in enumerate(zip(xPrime,yCsd))})
-    
-    S = algorithm1(P)
-    F1 = algorithm2(P,S)
-    
-    return F1
-
-def ScoresToMultiProbsV2(calibrPoints,testObjects):
-    # sort the points, transform into unique objects, with weights and updated values
-    yPrime,yCsd,xPrime,ptsUnique = prepareData(calibrPoints)
-   
-    # compute the F0 and F1 functions from the CSD
-    F1 = computeF1(yCsd,xPrime)
-    pos1 = np.searchsorted(ptsUnique[:-1],testObjects,side='left')+1
-    p1 = F1[pos1]
-    
-    yPrime,yCsd,xPrime,ptsUnique = prepareData((-x,1-y) for x,y in calibrPoints)    
-    F0 = 1 - computeF1(yCsd,xPrime)
-    pos0 = np.searchsorted(ptsUnique[:-1],testObjects,side='left')+1
-    p0 = F0[pos0]
-    
-    return p0,p1
-
 
 """ 
-Addded functions
+Added functions
 
 author: marc.frey@astrazeneca.com
 
@@ -220,37 +208,176 @@ def orderp0p1(p_0, p_1):
 
 def get_VA_margin_median(calibrPts, test_scores):
     p0,p1 = ScoresToMultiProbs(calibrPts, test_scores)
-    p0,p1 = orderp0p1(p0, p1)
+    # p0,p1 = orderp0p1(p0, p1)
     margin = [p1-p0]
     med = np.median(margin)
     return med
 
-def get_VA_margin_median_cross(pts):
-    
+def get_VA_margin_mean(calibrPts, test_scores):
+    p0,p1 = ScoresToMultiProbs(calibrPts, test_scores)
+    # p0,p1 = orderp0p1(p0, p1)
+    margin = [p1-p0]
+    med = np.mean(margin)
+    return med
+
+
+def get_VA_median(calibrPts, test_scores):
+    p0,p1 = ScoresToMultiProbs(calibrPts, test_scores)
+    # p0,p1 = orderp0p1(p0, p1)
+    # margin = [p1-p0]
+    p0_med = np.median(p0)
+    p1_med = np.median(p1)
+    return p0_med, p1_med
+
+def get_VA_mean(calibrPts, test_scores):
+    p0,p1 = ScoresToMultiProbs(calibrPts, test_scores)
+    # p0,p1 = orderp0p1(p0, p1)
+    # margin = [p1-p0]
+    p0_med = np.mean(p0)
+    p1_med = np.mean(p1)
+    return p0_med, p1_med
+
+def get_VA_margin_mean_cross(pts):
+    np.random.seed(1) 
     try:
     # exception handling in case number of class members is below n_splits
         skf = StratifiedKFold(n_splits = 3, shuffle = True, random_state = 10)
     
         split_medians  = []
+        split_medians_actives = []
+        split_medians_inactives =[]
         X = pts[:,0]
         y = pts[:,1]
-        # X = [i[0] for i in pts]
-        # y = [i[1] for i in pts]
+        
+
         for cal_index, test_index in skf.split(X, y):
             #print("TRAIN:", cal_index, "TEST:", test_index)
             X_cal, X_test = X[cal_index], X[test_index]
             y_cal, y_test = y[cal_index], y[test_index]
-        
+
             calibrPts = np.vstack((X_cal, y_cal)).T
             calibrPts = [tuple(i) for i in calibrPts]
             test_scores = y_test
             
-            split_medians.append(get_VA_margin_median(calibrPts, test_scores))
+            # for each split get mean of margin
+            split_medians.append(get_VA_margin_mean(calibrPts, test_scores))
+            split_medians_actives.append(get_VA_margin_mean(calibrPts, test_scores[y_test==True]))
+            split_medians_inactives.append(get_VA_margin_mean(calibrPts, test_scores[y_test==False]))
     except:
-        scores = pts[:,1]
-        pts = [tuple(i) for i in pts]
-        return(get_VA_margin_median(pts, scores))
-        
-    return np.mean(split_medians)
-        
+        return np.nan, np.nan, np.nan
     
+    return np.mean(split_medians), np.mean(split_medians_actives), np.mean(split_medians_inactives)
+
+def get_VA_margin_mean_cross_v2(pts, test):
+# def get_VA_margin_mean_cross_v2(pts):    
+    
+    # like "get_VA_margin_median_cross" but takes in dedicted test instead of stratifying on the training set only
+    
+    np.random.seed(1) 
+    try:
+    # exception handling in case number of class members is below n_splits
+        skf = StratifiedKFold(n_splits = 3, shuffle = True, random_state = 10)
+    
+        split_medians_p0  = []
+        split_medians_p1  = []
+        # split_medians_actives = []
+        # split_medians_inactives =[]
+        X = pts[:,0]
+        y = pts[:,1]
+        
+
+        for cal_index, test_index in skf.split(X, y):
+            #print("TRAIN:", cal_index, "TEST:", test_index)
+            X_cal, X_test = X[cal_index], X[test_index]
+            y_cal, y_test = y[cal_index], y[test_index]
+
+            calibrPts = np.vstack((X_cal, y_cal)).T
+            calibrPts = [tuple(i) for i in calibrPts]
+            test_scores = test
+            # test_scores = y_test
+            
+            p0, p1 = get_VA_mean(calibrPts, test_scores)
+            split_medians_p0.append(p0)
+            split_medians_p1.append(p1)
+            # split_medians_actives.append(get_VA_margin_median(calibrPts, test_scores[y_test==True]))
+            # split_medians_inactives.append(get_VA_margin_median(calibrPts, test_scores[y_test==False]))
+    except:
+        return np.nan, np.nan
+    
+    return np.mean(split_medians_p0), np.mean(split_medians_p1)  
+
+    
+def get_VA_margin_median_cross_v2(pts, test):
+    """
+    like "get_VA_margin_median_cross" but takes in dedicted test instead of stratifying on the training set only
+    """
+    np.random.seed(1) 
+    try:
+    # exception handling in case number of class members is below n_splits
+        skf = StratifiedKFold(n_splits = 3, shuffle = True, random_state = 10)
+    
+        split_medians_p0  = []
+        split_medians_p1  = []
+        # split_medians_actives = []
+        # split_medians_inactives =[]
+        X = pts[:,0]
+        y = pts[:,1]
+        
+
+        for cal_index, test_index in skf.split(X, y):
+            #print("TRAIN:", cal_index, "TEST:", test_index)
+            X_cal, X_test = X[cal_index], X[test_index]
+            y_cal, y_test = y[cal_index], y[test_index]
+
+            calibrPts = np.vstack((X_cal, y_cal)).T
+            calibrPts = [tuple(i) for i in calibrPts]
+            test_scores = test
+            
+            p0, p1 = get_VA_median(calibrPts, test_scores)
+            split_medians_p0.append(p0)
+            split_medians_p1.append(p1)
+            # split_medians_actives.append(get_VA_margin_median(calibrPts, test_scores[y_test==True]))
+            # split_medians_inactives.append(get_VA_margin_median(calibrPts, test_scores[y_test==False]))
+    except:
+        return np.nan, np.nan
+    
+    return np.mean(split_medians_p0), np.mean(split_medians_p1)    
+"""
+
+def get_VA_margin_mean_cross_v2(pts, test):
+    
+    # like "get_VA_margin_median_cross" but takes in dedicted test instead of stratifying on the training set only
+    
+    np.random.seed(1) 
+    try:
+    # exception handling in case number of class members is below n_splits
+        skf = StratifiedKFold(n_splits = 3, shuffle = True, random_state = 10)
+    
+        split_medians_p0  = []
+        split_medians_p1  = []
+        # split_medians_actives = []
+        # split_medians_inactives =[]
+        X = pts[:,0]
+        y = pts[:,1]
+        
+
+        for cal_index, test_index in skf.split(X, y):
+            #print("TRAIN:", cal_index, "TEST:", test_index)
+            X_cal, X_test = X[cal_index], X[test_index]
+            y_cal, y_test = y[cal_index], y[test_index]
+
+            calibrPts = np.vstack((X_cal, y_cal)).T
+            calibrPts = [tuple(i) for i in calibrPts]
+            test_scores = test
+            
+            p0, p1 = get_VA_median(calibrPts, test_scores)
+            split_medians_p0.append(p0)
+            split_medians_p1.append(p1)
+            # split_medians_actives.append(get_VA_margin_median(calibrPts, test_scores[y_test==True]))
+            # split_medians_inactives.append(get_VA_margin_median(calibrPts, test_scores[y_test==False]))
+    except:
+        return np.nan, np.nan
+    
+    return np.mean(split_medians_p0), np.mean(split_medians_p1) 
+
+"""
