@@ -68,7 +68,7 @@ def perf_from_json(
         files = [os.path.join(model_dir_or_file,f) for f in os.listdir(model_dir_or_file) if os.path.isfile(os.path.join(model_dir_or_file,f))]
     elif os.path.isfile(os.path.join(model_dir_or_file)):     
         files = [model_dir_or_file]
-
+    
     for f in tqdm(files):
         if not f.endswith(".json"):# or not os.path.basename(f).startswith("sc_"):
             if verbose: print(f"{f} is not a sparsechem json, hence skipped.")
@@ -884,7 +884,7 @@ def reconstruct_boxplot_colored(boxplot_specs, n_partner, n_bins, figsize=(10,10
 
         bplot = ax[i].bxp(boxes, showmeans=True, showfliers=True,  patch_artist=True)
         ax[i].set_title(score)
-            
+        #ax[i].set_ylim(-0.1, 0.1)
         # fill with colors
         for patch, color in zip(bplot['boxes'], colors):
             patch.set_facecolor(color)
