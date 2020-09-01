@@ -25,7 +25,7 @@ parser.add_argument("--v_fold", help="distances_multi.csv path", type=int, requi
 args = parser.parse_args()
 
 true    = pd.DataFrame(np.load(args.true, allow_pickle=True).tolist().todense())
-pred    = pd.DataFrame(np.load(args.pred))
+pred    = pd.DataFrame(np.load(args.pred, allow_pickle=True))
 pred    = pred.mask(true == 0, 0) 
 folding = pd.DataFrame(np.load(args.folding))
                         
