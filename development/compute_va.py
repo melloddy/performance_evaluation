@@ -65,7 +65,6 @@ for task in valid_tasks:
     
     # store in list 
     [dat.append([task, descr_id[idx], predPts[idx], predLab[idx], p0[idx], p1[idx]]) for idx, val in enumerate(p0)]
-    break    
 
 
 df = pd.DataFrame(dat, columns=['cont_classification_task_id', 'cont_descriptor_vector_id', 'yhat', 'label', 'p0', 'p1'])
