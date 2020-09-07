@@ -165,7 +165,8 @@ On-premise predictions using the substra models (.npy file analysis)
 
 ## Pred analysis script (performance_evaluation.py)
 
-This script calculates performances and evaluates whether there is an improvement (delta) in predictive performance between a single pharma run vs a global federated run. 
+This script calculates performances and evaluates whether there is an improvement (delta) in predictive performance between a single-pharma vs. a multi-pharma run. 
+Input files can be any combination of 'pred' or 'npy' input files.
 
 ```
 python performance_evaluation.py -h

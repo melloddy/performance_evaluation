@@ -264,13 +264,6 @@ if __name__ == '__main__':
 	start = time.time()
 	args = init_arg_parser()
 	vprint('\n=== WP3 Performance evaluation script for npy and pred files ===\n')
-	try:
-		from memory_profiler import memory_usage
-		mem_usage = memory_usage(main(args))
-		vprint('Memory usage (in chunks of .1 seconds): %s' % mem_usage)
-		vprint('Maximum memory usage: %s' % max(mem_usage))
-	except ModuleNotFoundError:
-		vprint('Not monitoring memory usage (no import for "memory_profiler" module)\n')
-		main(args)
+	main(args)
 	end = time.time()
 	vprint(f'Performance evaluation took {end - start:.08} seconds.')
