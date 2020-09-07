@@ -143,71 +143,53 @@ De-risk checks that pass the criteria are reported like this:
 
 -----
 
-# Example 2: Pred file analysis (Single-pharma pred vs. Multi-pharma pred file analysis)
+# Example 2: Single-pharma vs. Multi-pharma performance analysis
 
-## Pred file evaluation Setup
+## 'Pred' or '.npy' file evaluation Setup
 
+### Option 1:
+Using the substra file outputs ('pred' file analysis)
 1. Download the substra output
 2. Locate the Sinlge-pharma "pred" & "perf.json" from the Single_pharma_run/medias/subtuple/{pharma-hash}/pred/ folder 
 3. Locate the Multi-pharma "pred" & "perf.json" from the Multi_pharma_run/medias/subtuple/{pharma-hash}/pred/ folder 
 4. Provide the script with the single- and multi-pharma pred files from step 2/3, the perf.json and task_mapping file
 
+### Option 2:
+On-premise predictions using the substra models (.npy file analysis)
+1. Download the substra output
+2. Use the substra model located in your {single_pharma_run}/medias/subtuple/{pharma-hash}/export/single_model.pth to create on-premise *sparse* y-hat predictions for the in-house dataset. E.g.:
+```python sparsechem/examples/chembl/predict.py --x x.npy --y y.npy --outfile onpremise_sp_y_hat.npy --folding folding.npy --conf {pharma-hash}/export/hyperparameters.json --model {pharma-hash}/export/single_model_.pth --predict_fold 1```
+3. Use the substra model located in your {multi_pharma_run}/medias/subtuple/{pharma-hash}/export/model.pth to create on-premise *sparse* y-hat predictions for the in-house dataset. E.g.:
+```python sparsechem/examples/chembl/predict.py --x x.npy --y y.npy --outfile onpremise_mp_y_hat.npy --folding folding.npy --conf {pharma-hash}/export/hyperparameters.json --model {pharma-hash}/export/model.pth --predict_fold 1```
+4. Provide the script with the single- and multi-pharma '.npy' files from step 2 and the other base files
 
-## Pred analysis script (performance_evaluation_pred_files.py)
+## Pred analysis script (performance_evaluation.py)
 
-This script evaluates whether there is an improvement in predictive performance between a single pharma run vs a global federated run. 
+This script calculates performances and evaluates whether there is an improvement (delta) in predictive performance between a single pharma run vs a global federated run. 
 
 ```
-python performance_evaluation_pred_files.py -h
-usage: performance_evaluation_pred_files.py [-h] [--y_true_all Y_TRUE_ALL]
-        --y_pred_single Y_PRED_SINGLE
-        --y_pred_multi Y_PRED_MULTI
-        [--folding FOLDING]
-        [--task_weights TASK_WEIGHTS]
-        [--single_performance_report SINGLE_PERFORMANCE_REPORT]
-        --multi_performance_report
-        MULTI_PERFORMANCE_REPORT
-        [--filename FILENAME]
-        [--verbose {0,1}]
-        [--task_map_single TASK_MAP_SINGLE]
-        [--task_map_multi TASK_MAP_MULTI]
+python performance_evaluation.py -h
+usage: performance_evaluation.py [-h] --y_true_all Y_TRUE_ALL --task_map TASK_MAP --folding FOLDING
+            [--task_weights TASK_WEIGHTS] [--filename FILENAME]
+            [--use_venn_abers] [--verbose {0,1}] --f1 F1 --f2 F2
 
 Calculate Performance Metrics
 
 optional arguments:
-  -h, --help      show this help message and exit
+  -h, --help            show this help message and exit
   --y_true_all Y_TRUE_ALL
-      Activity file (npy) (i.e. from files_4_ml/)
-  --y_pred_single Y_PRED_SINGLE
-      Yhat prediction output from single-pharma run
-      (./Single-pharma-
-      run/substra/medias/subtuple/<pharma_hash>/pred/pred)
-      or (<single pharma dir>/y_hat.npy)
-  --y_pred_multi Y_PRED_MULTI
-      Yhat prediction output from multi-pharma run (./Multi-
-      pharma-
-      run/substra/medias/subtuple/<pharma_hash>/pred/pred)
-      or (<multi pharma dir>/y_hat.npy)
+                        Activity file (npy) (i.e. from files_4_ml/)
+  --task_map TASK_MAP   Taskmap from MELLODDY_tuner output of single run (i.e.
+                        from results/weight_table_T3_mapped.csv)
   --folding FOLDING     LSH Folding file (npy) (i.e. from files_4_ml/)
   --task_weights TASK_WEIGHTS
-      CSV file with columns task_id and weight (i.e.
-      files_4_ml/T9_red.csv)
-  --single_performance_report SINGLE_PERFORMANCE_REPORT
-      JSON file with global reported single-pharma
-      performance (i.e. ./Single-pharma-run/substra/medias/s
-      ubtuple/<pharma_hash>/pred/perf.json)
-  --multi_performance_report MULTI_PERFORMANCE_REPORT
-      JSON file with global reported multi-pharma
-      performance (i.e. ./Multi-pharma-run/substra/medias/su
-      btuple/<pharma_hash>/pred/perf.json)
+                        (Optional) CSV file with columns task_id and weight
+                        (i.e. files_4_ml/T9_red.csv)
   --filename FILENAME   Filename for results from this output
-  --verbose {0,1} Verbosity level: 1 = Full; 0 = no output
-  --task_map_single TASK_MAP_SINGLE
-      Taskmap from MELLODDY_tuner output of single run
-      (results/weight_table_T3_mapped.csv)
-  --task_map_multi TASK_MAP_MULTI
-      Taskmap from MELLODDY_tuner output of single run
-      (results/weight_table_T3_mapped.csv)
+  --use_venn_abers      Toggle to turn on Venn-ABERs code
+  --verbose {0,1}       Verbosity level: 1 = Full; 0 = no output
+  --f1 F1               Output from the first run (e.g. single-partner results) to compare (pred or .npy)
+  --f2 F2               Output from the second run (e.g. multi-partner results) to compare (pred or .npy)
 ```
 
 
@@ -220,24 +202,15 @@ This is an example with a single archive with all input files required already p
 To run the sample single/multi partner evaluation run: 
 ```bash
 
-python performance_evaluation_pred_files.py \
-    --y_pred_single data/example/single/pred/pred \
-    --y_pred_multi data/example/multi/pred/pred \
+python performance_evaluation.py \
+    --f1 data/example/single/pred/pred \
+    --f2 data/example/multi/pred/pred \
     --folding data/example/files_4_ml/folding.npy \
     --task_weights data/example/files_4_ml/weights.csv \
-    --single_performance_report data/example/single/pred/perf.json \
-    --multi_performance_report data/example/multi/pred/perf.json \
     --filename out \
-    --task_map_single data/example/files_4_ml/weight_table_T3_mapped.csv \
-    --task_map_multi data/example/files_4_ml/weight_table_T3_mapped.csv \
-    --y_true data/example/files_4_ml/pharma_y.npy 
+    --task_map data/example/files_4_ml/weight_table_T3_mapped.csv \
+    --y_true_all data/example/files_4_ml/pharma_y.npy 
 ```
 
 This will write all relevant output files into the out folder. 
 NB: if the out folder already exists (from a previous failed run for instance) then the script will stop gracefully in order not to overwrite previous results.
-
-
-## Running the pred analysis code
-```
-python performance_evaluation_pred_files.py --y_true_all pharma_partners/pharma_y_partner_1.npy --y_pred_multi Multi_pharma_run-1/medias/subtuple/374d81d50d0df484bfa40708f270225780aa36dd15a366eb0691e89496653212/pred/pred --y_pred_single Single_pharma_run-1/medias/subtuple/c4f1c9b9d44fea66f9b856d346a0bb9aa5727e587185e87daca170f239a70029/pred/pred --single_performance_report Single_pharma_run-1/medias/subtuple/c4f1c9b9d44fea66f9b856d346a0bb9aa5727e587185e87daca170f239a70029/pred/perf.json --multi_performance_report Multi_pharma_run-1/medias/subtuple/374d81d50d0df484bfa40708f270225780aa36dd15a366eb0691e89496653212/pred/perf.json --filename pred_compare --task_map_single pharma_partners/weight_table_T3_mapped.csv --task_map_multi pharma_partners/weight_table_T3_mapped.csv --folding pharma_partners/folding_partner_1.npy 
-```
