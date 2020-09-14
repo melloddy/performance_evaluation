@@ -15,7 +15,7 @@ def init_arg_parser():
 	parser.add_argument("--y_true_all", help="Activity file (npy) (i.e. from files_4_ml/)", type=str, required=True)
 	parser.add_argument("--task_map", help="Taskmap from MELLODDY_tuner output of single run (i.e. from results/weight_table_T3_mapped.csv)", required=True)
 	parser.add_argument("--folding", help="LSH Folding file (npy) (i.e. from files_4_ml/)", type=str, required=True)
-	parser.add_argument("--task_weights", help="(Optional) CSV file with columns task_id and weight (i.e.  files_4_ml/T9_red.csv)", type=str, default=None)
+	parser.add_argument("--task_weights", help="(Optional: for weighted global aggregation) CSV file with columns task_id and weight (i.e.  files_4_ml/T9_red.csv)", type=str, default=None)
 	parser.add_argument("--filename", help="Filename for results from this output", type=str, default=None)
 	parser.add_argument("--use_venn_abers", help="Toggle to turn on Venn-ABERs code", action='store_true', default=False)
 	parser.add_argument("--verbose", help="Verbosity level: 1 = Full; 0 = no output", type=int, default=1, choices=[0, 1])
@@ -57,7 +57,7 @@ def write_aggregated_report(local_performances, fname, name, task_map):
 	# write per-assay_type, ignore task id
 	df2 = local_performances.loc[:,'assay_type':].groupby('assay_type').mean()
 	fn2 = name + '/' + fname + "_per-assay_performances.csv"
-	df2.to_csv(fn2, index=False)
+	df2.to_csv(fn2)
 	vprint(f"Wrote {fname} per-assay report to: {fn2}")
 	return
 
@@ -153,7 +153,8 @@ def per_run_performance(y_pred, pred_or_npy, tasks_table, y_true, tw_df, task_ma
 	write_aggregated_report(local_performance, flabel, name, task_map)
 
 	##global aggregation:
-	tw_weights=tw_df[cols55]
+	tw_df.set_index('task_id',inplace=True)
+	tw_weights = tw_df.iloc[task_id[cols55]].values
 	aucpr_mean  = np.average(aucpr[cols55],weights=tw_weights)
 	aucroc_mean = np.average(aucroc[cols55],weights=tw_weights)
 	logloss_mean = np.average(logloss[cols55],weights=tw_weights)

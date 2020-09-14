@@ -161,7 +161,7 @@ On-premise predictions using the substra models (.npy file analysis)
 ```python sparsechem/examples/chembl/predict.py --x x.npy --y y.npy --outfile onpremise_sp_y_hat.npy --folding folding.npy --conf {pharma-hash}/export/hyperparameters.json --model {pharma-hash}/export/single_model_.pth --predict_fold 1```
 3. Use the substra model located in your {multi_pharma_run}/medias/subtuple/{pharma-hash}/export/model.pth to create on-premise *sparse* y-hat predictions for the in-house dataset. E.g.:
 ```python sparsechem/examples/chembl/predict.py --x x.npy --y y.npy --outfile onpremise_mp_y_hat.npy --folding folding.npy --conf {pharma-hash}/export/hyperparameters.json --model {pharma-hash}/export/model.pth --predict_fold 1```
-4. Provide the script with the single- and multi-pharma '.npy' files from step 2 and the other base files
+4. Provide the script with the single- and multi-pharma '.npy' files from step 2/3 and the other base files
 
 ## Pred analysis script (performance_evaluation.py)
 
