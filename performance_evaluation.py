@@ -153,8 +153,8 @@ def per_run_performance(y_pred, pred_or_npy, tasks_table, y_true, tw_df, task_ma
 	write_aggregated_report(local_performance, flabel, name, task_map)
 
 	##global aggregation:
-	tw_df.set_index('task_id',inplace=True)
-	tw_weights = tw_df.iloc[task_id[cols55]].values
+	if args.task_weights: tw_weights=tw_df['weight'].values[cols55]
+	else: tw_weights=tw_df[cols55]
 	aucpr_mean  = np.average(aucpr[cols55],weights=tw_weights)
 	aucroc_mean = np.average(aucroc[cols55],weights=tw_weights)
 	logloss_mean = np.average(logloss[cols55],weights=tw_weights)
