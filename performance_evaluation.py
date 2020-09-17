@@ -37,7 +37,7 @@ def find_max_f1(precision, recall):
 
 ## write performance reports for global aggregation
 def write_global_report(global_performances, fname, name):	
-	cols = ['aucpr_mean','aucroc_mean','logloss_mean','maxf1_mean', 'kappa_mean', 'tn', 'fp', 'fn', 'tp']
+	cols = ['aucpr_mean','aucroc_mean','logloss_mean','maxf1_mean', 'brier_mean', 'kappa_mean', 'tn', 'fp', 'fn', 'tp']
 	if args.use_venn_abers: cols += ['vennabers_mean']
 	perf_df = pd.DataFrame([global_performances],columns=cols)
 	fn = name + '/' + fname + "_global_performances.csv"
@@ -102,6 +102,7 @@ def per_run_performance(y_pred, pred_or_npy, tasks_table, y_true, tw_df, task_ma
 	logloss = np.full(y_true.shape[1], np.nan)
 	aucroc  = np.full(y_true.shape[1], np.nan)
 	maxf1	= np.full(y_true.shape[1], np.nan)
+	brier	= np.full(y_true.shape[1], np.nan)
 	kappa	= np.full(y_true.shape[1], np.nan)
 	tn	 = np.full(y_true.shape[1], np.nan)
 	fp	 = np.full(y_true.shape[1], np.nan)
@@ -134,17 +135,18 @@ def per_run_performance(y_pred, pred_or_npy, tasks_table, y_true, tw_df, task_ma
 		logloss[col]  = sklearn.metrics.log_loss(y_true=y_true_col.astype("float64"), y_pred=y_pred_col.astype("float64"))
 		aucroc[col] = sklearn.metrics.roc_auc_score(y_true=y_true_col, y_score=y_pred_col)
 		maxf1[col]  = find_max_f1(precision, recall)
+		brier[col] = sklearn.metrics.brier_score_loss(y_true=y_true_col, y_prob=y_pred_col)
 		kappa[col]  = sklearn.metrics.cohen_kappa_score(y_true_col, y_classes)
 		tn[col], fp[col], fn[col], tp[col] = sklearn.metrics.confusion_matrix(y_true = y_true_col, y_pred = y_classes).ravel()
 		##per-task performance:
-		cols = ['classification_task_id', 'assay_type', 'aucpr','aucroc','logloss','maxf1','kappa','tn','fp','fn','tp']
+		cols = ['classification_task_id', 'assay_type', 'aucpr','aucroc','logloss','maxf1','brier','kappa','tn','fp','fn','tp']
 		if args.use_venn_abers: 
 			vennabers[col] = get_VA_margin_median_cross(pts)
 			local_performance=pd.DataFrame(np.array([task_id[cols55],assay_type[cols55],aucpr[cols55],aucroc[cols55],logloss[cols55],maxf1[cols55],\
-				kappa[cols55],tn[cols55],fp[cols55],fn[cols55],tp[cols55], vennabers[cols55]]).T, columns=cols+['vennabers'])
+				brier[cols55],kappa[cols55],tn[cols55],fp[cols55],fn[cols55],tp[cols55], vennabers[cols55]]).T, columns=cols+['vennabers'])
 		else:
 			local_performance=pd.DataFrame(np.array([task_id[cols55],assay_type[cols55],aucpr[cols55],aucroc[cols55],logloss[cols55],maxf1[cols55],\
-				kappa[cols55],tn[cols55],fp[cols55],fn[cols55],tp[cols55]]).T, columns=cols)
+				brier[cols55],kappa[cols55],tn[cols55],fp[cols55],fn[cols55],tp[cols55]]).T, columns=cols)
 
 	##correct the datatypes for numeric columns
 	for c in local_performance.iloc[:,2:].columns:
@@ -159,6 +161,7 @@ def per_run_performance(y_pred, pred_or_npy, tasks_table, y_true, tw_df, task_ma
 	aucroc_mean = np.average(aucroc[cols55],weights=tw_weights)
 	logloss_mean = np.average(logloss[cols55],weights=tw_weights)
 	maxf1_mean  = np.average(maxf1[cols55],weights=tw_weights)
+	brier_mean  = np.average(brier[cols55],weights=tw_weights)
 	kappa_mean  = np.average(kappa[cols55],weights=tw_weights)
 	tn_sum = tn[cols55].sum()
 	fp_sum = fp[cols55].sum()
@@ -167,8 +170,8 @@ def per_run_performance(y_pred, pred_or_npy, tasks_table, y_true, tw_df, task_ma
 
 	if args.use_venn_abers:
 		vennabers_mean  = np.average(vennabers[cols55],weights=tw_weights)
-		global_performance = write_global_report([aucpr_mean,aucroc_mean,logloss_mean,maxf1_mean,kappa_mean, tn_sum, fp_sum, fn_sum, tp_sum, vennabers_mean], flabel, name)
-	else: global_performance = write_global_report([aucpr_mean,aucroc_mean,logloss_mean,maxf1_mean,kappa_mean, tn_sum, fp_sum, fn_sum, tp_sum], flabel, name)
+		global_performance = write_global_report([aucpr_mean,aucroc_mean,logloss_mean,maxf1_mean,brier_mean,kappa_mean, tn_sum, fp_sum, fn_sum, tp_sum, vennabers_mean], flabel, name)
+	else: global_performance = write_global_report([aucpr_mean,aucroc_mean,logloss_mean,maxf1_mean,brier_mean,kappa_mean, tn_sum, fp_sum, fn_sum, tp_sum], flabel, name)
 	return [local_performance,global_performance]
 
 ## calculate the difference between the single- and multi-pharma outputs and write to a file
