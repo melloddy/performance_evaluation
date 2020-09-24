@@ -21,7 +21,11 @@ def init_arg_parser():
 	parser.add_argument("--verbose", help="Verbosity level: 1 = Full; 0 = no output", type=int, default=1, choices=[0, 1])
 	parser.add_argument("--f1", help="Output from the first run to compare (pred or .npy)", type=str, required=True)
 	parser.add_argument("--f2", help="Output from the second run to compare (pred or .npy)", type=str, required=True)
+	parser.add_argument("--aggr_binning_scheme_perf", help="(Comma separated) Shared aggregated binning scheme for f1/f2 performances", type=str, default='0.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0',required=False)
+	parser.add_argument("--aggr_binning_scheme_perf_delta", help="(Comma separated) Shared aggregated binning scheme for delta performances", type=str, default='-0.4,-0.3,-0.2,-0.1,0.0,0.1,0.2,0.3,0.4',required=False)
 	args = parser.parse_args()
+	args.aggr_binning_scheme_perf=list(map(np.float,args.aggr_binning_scheme_perf.split(',')))
+	args.aggr_binning_scheme_perf_delta=list(map(np.float,args.aggr_binning_scheme_perf_delta.split(',')))
 	return args
 
 def vprint(s=""):
@@ -34,6 +38,44 @@ def find_max_f1(precision, recall):
 	mask = precision > 0
 	F1[mask] = 2 * (precision[mask] * recall[mask]) / (precision[mask] + recall[mask])
 	return F1.max()
+
+#cut function for binning scheme
+def cut(x, bins, lower_infinite=True, upper_infinite=True, **kwargs):        
+    num_labels      = len(bins) - 1
+    include_lowest  = kwargs.get("include_lowest", False)
+    right           = kwargs.get("right", True)
+    bins_final = bins.copy()
+    if upper_infinite:
+        bins_final.insert(len(bins),float("inf"))
+        num_labels += 1
+    if lower_infinite:
+        bins_final.insert(0,float("-inf"))
+        num_labels += 1
+    symbol_lower  = "<=" if include_lowest and right else "<"
+    left_bracket  = "(" if right else "["
+    right_bracket = "]" if right else ")"
+    symbol_upper  = ">" if right else ">="
+    labels=[]
+    
+    def make_label(i, lb=left_bracket, rb=right_bracket):
+        return "{0}{1}-{2}{3}".format(lb, bins_final[i], bins_final[i+1], rb)
+        
+    for i in range(0,num_labels):
+        new_label = None
+        if i == 0:
+            if lower_infinite:
+                new_label = "{0} {1}".format(symbol_lower, bins_final[i+1])
+            elif include_lowest:
+                new_label = make_label(i, lb="[")
+            else:
+                new_label = make_label(i)
+        elif upper_infinite and i == (num_labels - 1):
+            new_label = "{0} {1}".format(symbol_upper, bins_final[i])
+        else:
+            new_label = make_label(i)
+        labels.append(new_label)
+    return pd.cut(x, bins_final, labels=labels, **kwargs)
+
 
 ## write performance reports for global aggregation
 def write_global_report(global_performances, fname, name):	
@@ -50,15 +92,39 @@ def write_aggregated_report(local_performances, fname, name, task_map):
 	# write per-task report
 	df = local_performances[:]
 	df['classification_task_id'] = df['classification_task_id'].astype('int32')
+	for metric in df.loc[:, "aucpr":"kappa"].columns:
+		df[f'{metric}_percent'] = cut(df[metric].astype('float32'), \
+		args.aggr_binning_scheme_perf,include_lowest=True,right=True,lower_infinite=False, upper_infinite=False)
 	df = df.merge(task_map, right_on=["classification_task_id","assay_type"], left_on=["classification_task_id","assay_type"], how="left")
 	fn1 = name + '/' + fname + "_per-task_performances.csv"
 	df.to_csv(fn1, index=False)
 	vprint(f"Wrote {fname} per-task report to: {fn1}")
-	# write per-assay_type, ignore task id
+	
+	#write binned per-task performances
+	agg_concat=[]
+	for metric_bin in df.loc[:, "aucpr_percent":"kappa_percent"].columns:
+		agg_perf=(df.groupby(metric_bin)['classification_task_id'].agg('count')/len(df)).reset_index().rename(columns={'classification_task_id': f'bin_{metric_bin}'})
+		agg_concat.append(agg_perf.set_index(metric_bin))
+	fnagg = name + '/' + fname + "_binned_per-task_performances.csv"
+	pd.concat(agg_concat,axis=1).astype(np.float32).reset_index().rename(columns={'index': 'perf_bin'}).to_csv(fnagg,index=False)
+	vprint(f"Wrote {fname} binned performance aggregated per-task report to: {fnagg}")
+	
+	#write performance aggregated performances by assay_type
 	df2 = local_performances.loc[:,'assay_type':].groupby('assay_type').mean()
 	fn2 = name + '/' + fname + "_per-assay_performances.csv"
 	df2.to_csv(fn2)
 	vprint(f"Wrote {fname} per-assay report to: {fn2}")
+
+	#write binned per-task perf performances by assay_type 
+	agg_concat2=[]
+	for metric_bin in df.loc[:, "aucpr_percent":"kappa_percent"].columns:
+		agg_perf2=(df.groupby(['assay_type',metric_bin])['classification_task_id'].agg('count')).reset_index().rename(columns={'classification_task_id': f'count_{metric_bin}'})
+		agg_perf2[f'bin_{metric_bin}']=agg_perf2.apply(lambda x : x[f'count_{metric_bin}'] / (df.assay_type==x['assay_type']).sum() ,axis=1).astype('float32')
+		agg_perf2.drop(f'count_{metric_bin}',axis=1,inplace=True)
+		agg_concat2.append(agg_perf2.set_index(['assay_type',metric_bin]))
+	fnagg2 = name + '/' + fname + "_binned_per-assay_performances.csv"
+	pd.concat(agg_concat2,axis=1).astype(np.float32).reset_index().rename(columns={'level_0':'assay_type','level_1':'perf_bin',}).to_csv(fnagg2,index=False)
+	vprint(f"Wrote {fname} binned performance aggregated per-assay report to: {fnagg}")
 	return
 
 #load either pred or npy yhats and mask if needed, for an input filename
@@ -98,6 +164,7 @@ def per_run_performance(y_pred, pred_or_npy, tasks_table, y_true, tw_df, task_ma
 
 	task_id = np.full(y_true.shape[1], "", dtype=np.dtype('U30'))
 	assay_type = np.full(y_true.shape[1], "", dtype=np.dtype('U30'))
+	task_size	= np.full(y_true.shape[1], np.nan)
 	aucpr	= np.full(y_true.shape[1], np.nan)
 	logloss = np.full(y_true.shape[1], np.nan)
 	aucroc  = np.full(y_true.shape[1], np.nan)
@@ -113,21 +180,19 @@ def per_run_performance(y_pred, pred_or_npy, tasks_table, y_true, tw_df, task_ma
 	num_pos = (y_true == +1).sum(0)
 	num_neg = (y_true == -1).sum(0)
 	cols55  = np.array((num_pos >= 5) & (num_neg >= 5)).flatten()
-
 	for col in range(y_true.shape[1]):
 		y_true_col = y_true.data[y_true.indptr[col] : y_true.indptr[col+1]] == 1
 		y_pred_col = y_pred.data[y_pred.indptr[col] : y_pred.indptr[col+1]]
 		y_true_col, y_pred_col = y_true_col.astype(np.uint8), y_pred_col.astype('float32')
 
+		#check y_true_col
+		if y_true_col.shape[0] <= 1: continue
+		if (y_true_col[0] == y_true_col).all(): continue
+		
 		if args.use_venn_abers: pts = np.vstack((y_pred_col, y_true_col)).T # points for Venn-ABERS
-
-		if y_true_col.shape[0] <= 1:
-			## not enough data for current column, skipping
-			continue
-		if (y_true_col[0] == y_true_col).all():
-			continue
 		task_id[col] = tasks_table["classification_task_id"][tasks_table["cont_classification_task_id"]==col].iloc[0]
 		assay_type[col] = tasks_table["assay_type"][tasks_table["cont_classification_task_id"]==col].iloc[0]
+		task_size[col] = len(y_true_col)
 		y_classes	= np.where(y_pred_col > 0.5, 1, 0).astype(np.uint8)
 		precision, recall, thresholds = sklearn.metrics.precision_recall_curve(y_true = y_true_col, probas_pred = y_pred_col)
 		aucpr[col]  = sklearn.metrics.auc(x = recall, y = precision)
@@ -139,15 +204,14 @@ def per_run_performance(y_pred, pred_or_npy, tasks_table, y_true, tw_df, task_ma
 		kappa[col]  = sklearn.metrics.cohen_kappa_score(y_true_col, y_classes)
 		tn[col], fp[col], fn[col], tp[col] = sklearn.metrics.confusion_matrix(y_true = y_true_col, y_pred = y_classes).ravel()
 		##per-task performance:
-		cols = ['classification_task_id', 'assay_type', 'aucpr','aucroc','logloss','maxf1','brier','kappa','tn','fp','fn','tp']
+		cols = ['classification_task_id', 'assay_type', 'task_size', 'aucpr','aucroc','logloss','maxf1','brier','kappa','tn','fp','fn','tp']
 		if args.use_venn_abers: 
 			vennabers[col] = get_VA_margin_median_cross(pts)
-			local_performance=pd.DataFrame(np.array([task_id[cols55],assay_type[cols55],aucpr[cols55],aucroc[cols55],logloss[cols55],maxf1[cols55],\
+			local_performance=pd.DataFrame(np.array([task_id[cols55],assay_type[cols55],task_size[cols55],aucpr[cols55],aucroc[cols55],logloss[cols55],maxf1[cols55],\
 				brier[cols55],kappa[cols55],tn[cols55],fp[cols55],fn[cols55],tp[cols55], vennabers[cols55]]).T, columns=cols+['vennabers'])
 		else:
-			local_performance=pd.DataFrame(np.array([task_id[cols55],assay_type[cols55],aucpr[cols55],aucroc[cols55],logloss[cols55],maxf1[cols55],\
+			local_performance=pd.DataFrame(np.array([task_id[cols55],assay_type[cols55],task_size[cols55],aucpr[cols55],aucroc[cols55],logloss[cols55],maxf1[cols55],\
 				brier[cols55],kappa[cols55],tn[cols55],fp[cols55],fn[cols55],tp[cols55]]).T, columns=cols)
-
 	##correct the datatypes for numeric columns
 	for c in local_performance.iloc[:,2:].columns:
 		local_performance.loc[:,c] = local_performance.loc[:,c].astype('float32')
@@ -188,14 +252,40 @@ def calculate_deltas(f1_results, f2_results, name, task_map):
 			fn1 = name + '/deltas_per-task_performances.csv'
 			pertask = tdf[:]
 			pertask['classification_task_id'] = pertask['classification_task_id'].astype('int32')
+			#add per-task perf aggregated performance delta bins to output
+			for metric in pertask.loc[:, "aucpr":"kappa"].columns:
+				pertask[f'{metric}_percent'] = cut(pertask[metric].astype('float32'), \
+				args.aggr_binning_scheme_perf_delta,include_lowest=True,right=True)
 			pertask = pertask.merge(task_map, right_on=["classification_task_id","assay_type"], left_on=["classification_task_id","assay_type"], how="left")
+			#write per-task perf aggregated performance delta
 			pertask.to_csv(fn1, index= False)
 			vprint(f"Wrote per-task delta report to: {fn1}")
+			
+			#write binned per-task aggregated performance deltas
+			agg_deltas=[]
+			for metric_bin in pertask.loc[:, "aucpr_percent":"kappa_percent"].columns:
+				agg_perf=(pertask.groupby(metric_bin)['classification_task_id'].agg('count')/len(pertask)).reset_index().rename(columns={'classification_task_id': f'bin_{metric_bin}'})
+				agg_deltas.append(agg_perf.set_index(metric_bin))
+			fnagg = name + "/deltas_binned_per-task_performances.csv"
+			pd.concat(agg_deltas,axis=1).astype(np.float32).reset_index().rename(columns={'index': 'perf_bin'}).to_csv(fnagg,index=False)
+			vprint(f"Wrote binned performance per-task delta report to: {fnagg}")
 
 			# aggregate on assay_type level
 			fn2 = name + '/deltas_per-assay_performances.csv'
 			tdf.groupby("assay_type").mean().to_csv(fn2)
 			vprint(f"Wrote per-assay delta report to: {fn2}")
+
+			#write binned per-assay aggregated performance deltas
+			agg_deltas2=[]
+			for metric_bin in pertask.loc[:, "aucpr_percent":"kappa_percent"].columns:
+				#pertask[metric_bin]=pertask[metric_bin].astype("|S6")
+				agg_perf2=(pertask.groupby(['assay_type',metric_bin])['classification_task_id'].agg('count')).reset_index().rename(columns={'classification_task_id': f'count_{metric_bin}'})
+				agg_perf2[f'bin_{metric_bin}']=agg_perf2.apply(lambda x : x[f'count_{metric_bin}'] / (pertask.assay_type==x['assay_type']).sum() ,axis=1).astype('float32')
+				agg_perf2.drop(f'count_{metric_bin}',axis=1,inplace=True)
+				agg_deltas2.append(agg_perf2.set_index(['assay_type',metric_bin]))
+			fnagg2 = name + "/deltas_binned_per-assay_performances.csv"
+			pd.concat(agg_deltas2,axis=1).astype(np.float32).reset_index().rename(columns={'level_0':'assay_type','level_1':'perf_bin',}).to_csv(fnagg2,index=False)
+			vprint(f"Wrote binned performance per-assay delta report to: {fnagg}")
 		else:
 			(f2_results[idx]-f1_results[idx]).to_csv(name + delta_comparison, index=False)
 
@@ -220,10 +310,12 @@ def main(args):
 
 	#load the folding/true data
 	folding = np.load(args.folding)
-	vprint(f'Loading y_true: {args.y_true_all}') 
-	y_true_all = np.load(args.y_true_all, allow_pickle=True).item()
+	vprint(f'Loading y_true: {args.y_true_all}')
+	try: y_true_all = np.load(args.y_true_all, allow_pickle=True).item()
+	except AttributeError: 
+		from scipy.io import mmread 
+		y_true_all = mmread(args.y_true_all)
 	y_true_all = y_true_all.tocsc()
-
 	## filtering out validation fold
 	fold_va = 1
 	y_true = y_true_all[folding == fold_va]

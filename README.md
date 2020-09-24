@@ -166,13 +166,17 @@ On-premise predictions using the substra models (.npy file analysis)
 ## Pred analysis script (performance_evaluation.py)
 
 This script calculates performances and evaluates whether there is an improvement (delta) in predictive performance between a single-pharma vs. a multi-pharma run. 
-Input files can be any combination of 'pred' or 'npy' input files.
+Input files can be any combination of 'pred' or 'npy' input files. The script can also accept mtx files for specific use cases.
 
 ```
 python performance_evaluation.py -h
-usage: performance_evaluation.py [-h] --y_true_all Y_TRUE_ALL --task_map TASK_MAP --folding FOLDING
-            [--task_weights TASK_WEIGHTS] [--filename FILENAME]
-            [--use_venn_abers] [--verbose {0,1}] --f1 F1 --f2 F2
+usage: performance_evaluation.py [-h] --y_true_all Y_TRUE_ALL --task_map
+                                  TASK_MAP --folding FOLDING
+                                  [--task_weights TASK_WEIGHTS]
+                                  [--filename FILENAME] [--use_venn_abers]
+                                  [--verbose {0,1}] --f1 F1 --f2 F2
+                                  [--aggr_binning_scheme_perf AGGR_BINNING_SCHEME_PERF]
+                                  [--aggr_binning_scheme_perf_delta AGGR_BINNING_SCHEME_PERF_DELTA]
 
 Calculate Performance Metrics
 
@@ -184,15 +188,38 @@ optional arguments:
                         from results/weight_table_T3_mapped.csv)
   --folding FOLDING     LSH Folding file (npy) (i.e. from files_4_ml/)
   --task_weights TASK_WEIGHTS
-                        (Optional) CSV file with columns task_id and weight
-                        (i.e. files_4_ml/T9_red.csv)
+                        (Optional: for weighted global aggregation) CSV file
+                        with columns task_id and weight (i.e.
+                        files_4_ml/T9_red.csv)
   --filename FILENAME   Filename for results from this output
   --use_venn_abers      Toggle to turn on Venn-ABERs code
   --verbose {0,1}       Verbosity level: 1 = Full; 0 = no output
-  --f1 F1               Output from the first run (e.g. single-partner results) to compare (pred or .npy)
-  --f2 F2               Output from the second run (e.g. multi-partner results) to compare (pred or .npy)
+  --f1 F1               Output from the first run to compare (pred or .npy)
+  --f2 F2               Output from the second run to compare (pred or .npy)
+  --aggr_binning_scheme_perf AGGR_BINNING_SCHEME_PERF
+                        (Comma separated) Shared aggregated binning scheme for
+                        f1/f2 performances
+  --aggr_binning_scheme_perf_delta AGGR_BINNING_SCHEME_PERF_DELTA
+                        (Comma separated) Shared aggregated binning scheme for
+                        delta performances
 ```
 
+The output should look something like:
+```
+run_params.json                                 #args namespace of parameters used for perf evaluation
+f[1/2]_per-task_performances.csv                #file 1/2 perf reported per task
+f[1/2]_per-assay_performances.csv               #file 1/2 perf reported per task
+f[1/2]_global_performances.csv                  #file 1/2 global perf
+deltas_per-task_performances.csv                #per-task perf delta between file 1/2
+deltas_per-assay_performances.csv               #per-assay aggregated delta perf between file 1/2
+f[1/2]_binned_per-task_performances.csv **      #file 1/2 tasks split by perf bins with proportion of tasks in each bin
+f[1/2]_binned_per-assay_performances.csv **     #file 1/2 output split by perf bins and aggregated by assay_types with proportion of assay_type tasks in each bin
+deltas_binned_per-task_performances.csv **      #per-task binned perf delta between file 1/2
+deltas_binned_per-assay_performances.csv **     #delta between 1/2 perf split by perf bins and aggregated by assay_types with proportion of assay_type tasks in each bin
+deltas_global_performances.csv **               #global delta of file 1/2 perf
+
+**=for the WP3 per-pharma performance YR1 report
+```
 
 ### Minimum Working Example
 
