@@ -1,24 +1,32 @@
-"""
-
-@author: Paolo Toccaceli
-
-"""
+# Straight-forward implementation of IVAP algorithm described in:
+# Large-scale probabilistic prediction with and without validity guarantees, Vovk et al.
+# https://arxiv.org/pdf/1511.00213.pdf
+#
+# Paolo Toccaceli
+#
+# https://github.com/ptocca/VennABERS
+#
+# 2020-07-09: Fixed bug in p0 calculation
 
 import numpy as np
 from sklearn.model_selection import StratifiedKFold
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 
+
 # Some elementary functions to speak the same language as the paper
 # (at some point we'll just replace the occurrence of the calls with the function body itself)
 def push(x,stack):
     stack.append(x)
 
+    
 def pop(stack):
     return stack.pop()
 
+
 def top(stack):
     return stack[-1]
+
 
 def nextToTop(stack):
     return stack[-2]
@@ -30,6 +38,7 @@ def nonleftTurn(a,b,c):
     d2 = c-b
     return np.cross(d1,d2)<=0
 
+
 def nonrightTurn(a,b,c):   
     d1 = b-a
     d2 = c-b
@@ -40,6 +49,7 @@ def slope(a,b):
     ax,ay = a
     bx,by = b
     return (by-ay)/(bx-ax)
+
 
 def notBelow(t,p1,p2):
     p1x,p1y = p1
@@ -66,6 +76,7 @@ def algorithm1(P):
         push(P[i],S)
     return S
 
+
 def algorithm2(P,S):
     global kPrime
     
@@ -83,10 +94,9 @@ def algorithm2(P,S):
         push(P[i-1],Sprime)
     return F1
 
+
 def algorithm3(P):
     global kPrime
-    
-    P[kPrime+1] = P[kPrime]+np.array((1.0,0.0))
 
     S = []
     push(P[kPrime+1],S)
@@ -96,6 +106,7 @@ def algorithm3(P):
             pop(S)
         push(P[i],S)
     return S
+
 
 def algorithm4(P,S):
     global kPrime
@@ -112,7 +123,8 @@ def algorithm4(P,S):
         while len(Sprime)>1 and nonrightTurn(P[i],top(Sprime),nextToTop(Sprime)):
             pop(Sprime)
         push(P[i],Sprime)
-    return F0[1:]
+    return F0
+
 
 def prepareData(calibrPoints):
     global kPrime
@@ -137,25 +149,30 @@ def prepareData(calibrPoints):
     
     return yPrime,yCsd,xPrime,ptsUnique
 
-def computeF(xPrime,yCsd):    
+
+def computeF(xPrime,yCsd):
+    global kPrime
     P = {0:np.array((0,0))}
     P.update({i+1:np.array((k,v)) for i,(k,v) in enumerate(zip(xPrime,yCsd))})
     
     S = algorithm1(P)
     F1 = algorithm2(P,S)
     
-    # P = {}
-    # P.update({i+1:np.array((k,v)) for i,(k,v) in enumerate(zip(xPrime,yCsd))})    
+    P = {0:np.array((0,0))}
+    P.update({i+1:np.array((k,v)) for i,(k,v) in enumerate(zip(xPrime,yCsd))})    
+    P[kPrime+1] = P[kPrime] + np.array((1.0,0.0))    # The paper says (1,1)
     
     S = algorithm3(P)
     F0 = algorithm4(P,S)
     
     return F0,F1
 
+
 def getFVal(F0,F1,ptsUnique,testObjects):
-    pos0 = np.searchsorted(ptsUnique[1:],testObjects,side='right')
-    pos1 = np.searchsorted(ptsUnique[:-1],testObjects,side='left')+1
+    pos0 = np.searchsorted(ptsUnique,testObjects,side='left')
+    pos1 = np.searchsorted(ptsUnique[:-1],testObjects,side='right')+1
     return F0[pos0],F1[pos1]
+
 
 def ScoresToMultiProbs(calibrPoints,testObjects):
     # sort the points, transform into unique objects, with weights and updated values
@@ -169,86 +186,49 @@ def ScoresToMultiProbs(calibrPoints,testObjects):
                     
     return p0,p1
 
-def computeF1(yCsd,xPrime):
-    global kPrime
-    
-    P = {0:np.array((0,0))}
-    P.update({i+1:np.array((k,v)) for i,(k,v) in enumerate(zip(xPrime,yCsd))})
-    
-    S = algorithm1(P)
-    F1 = algorithm2(P,S)
-    
-    return F1
-
-def ScoresToMultiProbsV2(calibrPoints,testObjects):
-    # sort the points, transform into unique objects, with weights and updated values
-    yPrime,yCsd,xPrime,ptsUnique = prepareData(calibrPoints)
-   
-    # compute the F0 and F1 functions from the CSD
-    F1 = computeF1(yCsd,xPrime)
-    pos1 = np.searchsorted(ptsUnique[:-1],testObjects,side='left')+1
-    p1 = F1[pos1]
-    
-    yPrime,yCsd,xPrime,ptsUnique = prepareData((-x,1-y) for x,y in calibrPoints)    
-    F0 = 1 - computeF1(yCsd,xPrime)
-    pos0 = np.searchsorted(ptsUnique[:-1],testObjects,side='left')+1
-    p0 = F0[pos0]
-    
-    return p0,p1
-
 
 """ 
-Addded functions
-
-author: marc.frey@astrazeneca.com
-
+Additional functions below
+author: lewis.mervin1@astrazeneca.com
 """
-def orderp0p1(p_0, p_1):
-    """
-    :param list double p_0:  lower probability bound yielded from Venn-ABERS (ScoresToMultiProbs)
-    :param list double p_1:  upper probability bound yielded from Venn-ABERS (ScoresToMultiProbs)
-    :return tuple (p0, p1):  sorted tuple of p0 p1 values, where p0<p1
-    """
-    p0p1 = np.vstack((p_0,p_1)).T
-    for id, val in enumerate(p0p1):
-        if val[0]>val[1]:
-            p0p1[id] = [val[1], val[0]]
 
-    p0 = p0p1[:,0]
-    p1 = p0p1[:,1]
-    return(p0, p1)
-
-def get_VA_margin_median(calibrPts, test_scores):
-    p0,p1 = ScoresToMultiProbs(calibrPts, test_scores)
-    p0,p1 = orderp0p1(p0, p1)
-    margin = [p1-p0]
-    med = np.median(margin)
-    return med
-
-def get_VA_margin_median_cross(pts):
-    
-    try:
-    # exception handling in case number of class members is below n_splits
-        skf = StratifiedKFold(n_splits = 3, shuffle = True, random_state = 10)
-    
-        split_medians  = []
-        X = pts[:,0]
-        y = pts[:,1]
-        # X = [i[0] for i in pts]
-        # y = [i[1] for i in pts]
-        for cal_index, test_index in skf.split(X, y):
-            #print("TRAIN:", cal_index, "TEST:", test_index)
-            X_cal, X_test = X[cal_index], X[test_index]
-            y_cal, y_test = y[cal_index], y[test_index]
-        
-            calibrPts = np.vstack((X_cal, y_cal)).T
-            calibrPts = [tuple(i) for i in calibrPts]
-            test_scores = y_test
-            
-            split_medians.append(get_VA_margin_median(calibrPts, test_scores))
-    except:
-    	return np.nan
-        
-    return np.mean(split_medians)
-        
-    
+# inefficient but clear implementation
+def get_VA_margin_cross(pts):
+	margins = np.full(pts.shape[0], np.nan)
+	p0s = np.full(pts.shape[0], np.nan)
+	p1s = np.full(pts.shape[0], np.nan)
+	skf = StratifiedKFold(n_splits=3, shuffle=True, random_state=10)
+	yhat = pts[:,0]
+	ytrue = pts[:,1]
+	for cal_index, test_index in skf.split(yhat, ytrue):
+		yhat_cal, yhat_test = yhat[cal_index], yhat[test_index]
+		y_cal = ytrue[cal_index]
+		calibrPts = np.vstack((yhat_cal, y_cal)).T
+		calibrPts = [tuple(i) for i in calibrPts]
+		p0,p1 = ScoresToMultiProbs(calibrPts, yhat_test)
+		margin = p1-p0
+		margins[test_index]=margin
+		p0s[test_index]=p0.reshape((-1,))
+		p1s[test_index]=p1.reshape((-1,))
+	return p0s,p1s,margins
+		
+# inefficient but clear implementation
+def get_VA_margin_cross_external(pts,external):
+	n_splits=3
+	margins = np.full((external.shape[0],n_splits), np.nan)
+	p0s = np.full((external.shape[0],n_splits), np.nan)
+	p1s = np.full((external.shape[0],n_splits), np.nan)
+	skf = StratifiedKFold(n_splits=3, shuffle=True, random_state=10)
+	yhat = pts[:,0]
+	ytrue = pts[:,1]
+	for idx, (cal_index, test_index) in enumerate(skf.split(yhat, ytrue)):
+		yhat_cal, yhat_test = yhat[cal_index], yhat[test_index]
+		y_cal = ytrue[cal_index]
+		calibrPts = np.vstack((yhat_cal, y_cal)).T
+		calibrPts = [tuple(i) for i in calibrPts]
+		p0,p1 = ScoresToMultiProbs(calibrPts, external)
+		margin = p1-p0
+		margins[:,idx]=margin.reshape((-1,))
+		p0s[:,idx]=p0.reshape((-1,))
+		p1s[:,idx]=p1.reshape((-1,))
+	return np.mean(p0s,axis=1),np.mean(p1s,axis=1),np.mean(margins,axis=1)

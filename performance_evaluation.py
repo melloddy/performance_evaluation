@@ -23,6 +23,7 @@ def init_arg_parser():
 	parser.add_argument("--f2", help="Output from the second run to compare (pred or .npy)", type=str, required=True)
 	parser.add_argument("--aggr_binning_scheme_perf", help="(Comma separated) Shared aggregated binning scheme for f1/f2 performances", type=str, default='0.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0',required=False)
 	parser.add_argument("--aggr_binning_scheme_perf_delta", help="(Comma separated) Shared aggregated binning scheme for delta performances", type=str, default='-0.4,-0.3,-0.2,-0.1,0.0,0.1,0.2,0.3,0.4',required=False)
+	parser.add_argument("--pharma_name", help="Name of pharma partner identifier (A/B/C/etc.)", type=str, default=None,required=False)
 	args = parser.parse_args()
 	args.aggr_binning_scheme_perf=list(map(np.float,args.aggr_binning_scheme_perf.split(',')))
 	args.aggr_binning_scheme_perf_delta=list(map(np.float,args.aggr_binning_scheme_perf_delta.split(',')))
@@ -78,9 +79,9 @@ def cut(x, bins, lower_infinite=True, upper_infinite=True, **kwargs):
 
 
 ## write performance reports for global aggregation
-def write_global_report(global_performances, fname, name):	
-	cols = ['aucpr_mean','aucroc_mean','logloss_mean','maxf1_mean', 'brier_mean', 'kappa_mean', 'tn', 'fp', 'fn', 'tp']
-	if args.use_venn_abers: cols += ['vennabers_mean']
+def write_global_report(global_performances, fname, name):
+	if args.use_venn_abers: cols = ['aucpr_mean','aucroc_mean','logloss_mean','maxf1_mean', 'kappa_mean', 'vennabers_mean', 'brier_mean', 'tn', 'fp', 'fn', 'tp']
+	else: cols = ['aucpr_mean','aucroc_mean','logloss_mean','maxf1_mean', 'kappa_mean', 'brier_mean', 'tn', 'fp', 'fn', 'tp']
 	perf_df = pd.DataFrame([global_performances],columns=cols)
 	fn = name + '/' + fname + "_global_performances.csv"
 	perf_df.to_csv(fn, index=None)
@@ -92,7 +93,7 @@ def write_aggregated_report(local_performances, fname, name, task_map):
 	# write per-task report
 	df = local_performances[:]
 	df['classification_task_id'] = df['classification_task_id'].astype('int32')
-	for metric in df.loc[:, "aucpr":"kappa"].columns:
+	for metric in df.loc[:, "aucpr":"brier"].columns:
 		df[f'{metric}_percent'] = cut(df[metric].astype('float32'), \
 		args.aggr_binning_scheme_perf,include_lowest=True,right=True,lower_infinite=False, upper_infinite=False)
 	df = df.merge(task_map, right_on=["classification_task_id","assay_type"], left_on=["classification_task_id","assay_type"], how="left")
@@ -102,10 +103,11 @@ def write_aggregated_report(local_performances, fname, name, task_map):
 	
 	#write binned per-task performances
 	agg_concat=[]
-	for metric_bin in df.loc[:, "aucpr_percent":"kappa_percent"].columns:
+	for metric_bin in df.loc[:, "aucpr_percent":"brier_percent"].columns:
 		agg_perf=(df.groupby(metric_bin)['classification_task_id'].agg('count')/len(df)).reset_index().rename(columns={'classification_task_id': f'bin_{metric_bin}'})
 		agg_concat.append(agg_perf.set_index(metric_bin))
-	fnagg = name + '/' + fname + "_binned_per-task_performances.csv"
+	if args.pharma_name: fnagg = name + '/' + fname + f"_binned_{args.pharma_name}_per-task_performances.csv"
+	else: fnagg = name + '/' + fname + "_binned_per-task_performances.csv"
 	pd.concat(agg_concat,axis=1).astype(np.float32).reset_index().rename(columns={'index': 'perf_bin'}).to_csv(fnagg,index=False)
 	vprint(f"Wrote {fname} binned performance aggregated per-task report to: {fnagg}")
 	
@@ -117,12 +119,13 @@ def write_aggregated_report(local_performances, fname, name, task_map):
 
 	#write binned per-task perf performances by assay_type 
 	agg_concat2=[]
-	for metric_bin in df.loc[:, "aucpr_percent":"kappa_percent"].columns:
+	for metric_bin in df.loc[:, "aucpr_percent":"brier_percent"].columns:
 		agg_perf2=(df.groupby(['assay_type',metric_bin])['classification_task_id'].agg('count')).reset_index().rename(columns={'classification_task_id': f'count_{metric_bin}'})
 		agg_perf2[f'bin_{metric_bin}']=agg_perf2.apply(lambda x : x[f'count_{metric_bin}'] / (df.assay_type==x['assay_type']).sum() ,axis=1).astype('float32')
 		agg_perf2.drop(f'count_{metric_bin}',axis=1,inplace=True)
 		agg_concat2.append(agg_perf2.set_index(['assay_type',metric_bin]))
-	fnagg2 = name + '/' + fname + "_binned_per-assay_performances.csv"
+	if args.pharma_name: fnagg2 = name + '/' + fname + f"_binned_{args.pharma_name}_per-assay_performances.csv"
+	else: fnagg2 = name + '/' + fname + "_binned_per-assay_performances.csv"
 	pd.concat(agg_concat2,axis=1).astype(np.float32).reset_index().rename(columns={'level_0':'assay_type','level_1':'perf_bin',}).to_csv(fnagg2,index=False)
 	vprint(f"Wrote {fname} binned performance aggregated per-assay report to: {fnagg}")
 	return
@@ -153,8 +156,8 @@ def mask_y_hat(f1_path, f2_path, folding, fold_va, y_true):
 	return [f1_yhat, f2_yhat, f1_ftype, f2_ftype]
 
 ## check the pre_calculated_performance with the reported performance json
-def per_run_performance(y_pred, pred_or_npy, tasks_table, y_true, tw_df, task_map, name, flabel):	
-	if args.use_venn_abers: from VennABERS import get_VA_margin_median_cross
+def per_run_performance(y_pred, pred_or_npy, tasks_table, y_true, tw_df, task_map, name, flabel):
+	if args.use_venn_abers: from VennABERS import get_VA_margin_cross
 	if pred_or_npy == 'npy': y_pred = sparse.csc_matrix(y_pred)
 	## checks to make sure y_true and y_pred match
 	assert y_true.shape == y_pred.shape, f"y_true shape do not match {pred_or_npy} y_pred ({y_true.shape} & {y_pred.shape})"
@@ -169,8 +172,8 @@ def per_run_performance(y_pred, pred_or_npy, tasks_table, y_true, tw_df, task_ma
 	logloss = np.full(y_true.shape[1], np.nan)
 	aucroc  = np.full(y_true.shape[1], np.nan)
 	maxf1	= np.full(y_true.shape[1], np.nan)
-	brier	= np.full(y_true.shape[1], np.nan)
 	kappa	= np.full(y_true.shape[1], np.nan)
+	brier	= np.full(y_true.shape[1], np.nan)
 	tn	 = np.full(y_true.shape[1], np.nan)
 	fp	 = np.full(y_true.shape[1], np.nan)
 	fn	 = np.full(y_true.shape[1], np.nan)
@@ -188,8 +191,9 @@ def per_run_performance(y_pred, pred_or_npy, tasks_table, y_true, tw_df, task_ma
 		#check y_true_col
 		if y_true_col.shape[0] <= 1: continue
 		if (y_true_col[0] == y_true_col).all(): continue
-		
-		if args.use_venn_abers: pts = np.vstack((y_pred_col, y_true_col)).T # points for Venn-ABERS
+		if args.use_venn_abers:
+			pts = np.vstack((y_pred_col, y_true_col)).T # points for Venn-ABERS
+			pts[:,1]=(pts[:,1]==1).astype(np.uint8)
 		task_id[col] = tasks_table["classification_task_id"][tasks_table["cont_classification_task_id"]==col].iloc[0]
 		assay_type[col] = tasks_table["assay_type"][tasks_table["cont_classification_task_id"]==col].iloc[0]
 		task_size[col] = len(y_true_col)
@@ -200,18 +204,21 @@ def per_run_performance(y_pred, pred_or_npy, tasks_table, y_true, tw_df, task_ma
 		logloss[col]  = sklearn.metrics.log_loss(y_true=y_true_col.astype("float64"), y_pred=y_pred_col.astype("float64"))
 		aucroc[col] = sklearn.metrics.roc_auc_score(y_true=y_true_col, y_score=y_pred_col)
 		maxf1[col]  = find_max_f1(precision, recall)
-		brier[col] = sklearn.metrics.brier_score_loss(y_true=y_true_col, y_prob=y_pred_col)
 		kappa[col]  = sklearn.metrics.cohen_kappa_score(y_true_col, y_classes)
+		brier[col] = sklearn.metrics.brier_score_loss(y_true=y_true_col, y_prob=y_pred_col)
 		tn[col], fp[col], fn[col], tp[col] = sklearn.metrics.confusion_matrix(y_true = y_true_col, y_pred = y_classes).ravel()
 		##per-task performance:
-		cols = ['classification_task_id', 'assay_type', 'task_size', 'aucpr','aucroc','logloss','maxf1','brier','kappa','tn','fp','fn','tp']
-		if args.use_venn_abers: 
-			vennabers[col] = get_VA_margin_median_cross(pts)
+		if args.use_venn_abers:
+			cols = ['classification_task_id', 'assay_type', 'task_size', 'aucpr','aucroc','logloss','maxf1','kappa','vennabers','brier','tn','fp','fn','tp']
+			#try vennabers, except if #calibration-pts lower than #cv-splits
+			try: vennabers[col] = np.median(get_VA_margin_cross(pts)[-1])
+			except ValueError: pass
 			local_performance=pd.DataFrame(np.array([task_id[cols55],assay_type[cols55],task_size[cols55],aucpr[cols55],aucroc[cols55],logloss[cols55],maxf1[cols55],\
-				brier[cols55],kappa[cols55],tn[cols55],fp[cols55],fn[cols55],tp[cols55], vennabers[cols55]]).T, columns=cols+['vennabers'])
+				kappa[cols55],vennabers[cols55],brier[cols55],tn[cols55],fp[cols55],fn[cols55],tp[cols55]]).T, columns=cols)
 		else:
+			cols = ['classification_task_id', 'assay_type', 'task_size', 'aucpr','aucroc','logloss','maxf1','kappa','brier','tn','fp','fn','tp']
 			local_performance=pd.DataFrame(np.array([task_id[cols55],assay_type[cols55],task_size[cols55],aucpr[cols55],aucroc[cols55],logloss[cols55],maxf1[cols55],\
-				brier[cols55],kappa[cols55],tn[cols55],fp[cols55],fn[cols55],tp[cols55]]).T, columns=cols)
+				kappa[cols55],brier[cols55],tn[cols55],fp[cols55],fn[cols55],tp[cols55]]).T, columns=cols)
 	##correct the datatypes for numeric columns
 	for c in local_performance.iloc[:,2:].columns:
 		local_performance.loc[:,c] = local_performance.loc[:,c].astype('float32')
@@ -225,8 +232,8 @@ def per_run_performance(y_pred, pred_or_npy, tasks_table, y_true, tw_df, task_ma
 	aucroc_mean = np.average(aucroc[cols55],weights=tw_weights)
 	logloss_mean = np.average(logloss[cols55],weights=tw_weights)
 	maxf1_mean  = np.average(maxf1[cols55],weights=tw_weights)
-	brier_mean  = np.average(brier[cols55],weights=tw_weights)
 	kappa_mean  = np.average(kappa[cols55],weights=tw_weights)
+	brier_mean  = np.average(brier[cols55],weights=tw_weights)
 	tn_sum = tn[cols55].sum()
 	fp_sum = fp[cols55].sum()
 	fn_sum = fn[cols55].sum()
@@ -234,8 +241,8 @@ def per_run_performance(y_pred, pred_or_npy, tasks_table, y_true, tw_df, task_ma
 
 	if args.use_venn_abers:
 		vennabers_mean  = np.average(vennabers[cols55],weights=tw_weights)
-		global_performance = write_global_report([aucpr_mean,aucroc_mean,logloss_mean,maxf1_mean,brier_mean,kappa_mean, tn_sum, fp_sum, fn_sum, tp_sum, vennabers_mean], flabel, name)
-	else: global_performance = write_global_report([aucpr_mean,aucroc_mean,logloss_mean,maxf1_mean,brier_mean,kappa_mean, tn_sum, fp_sum, fn_sum, tp_sum], flabel, name)
+		global_performance = write_global_report([aucpr_mean,aucroc_mean,logloss_mean,maxf1_mean,kappa_mean,vennabers_mean,brier_mean,tn_sum,fp_sum,fn_sum,tp_sum], flabel, name)
+	else: global_performance = write_global_report([aucpr_mean,aucroc_mean,logloss_mean,maxf1_mean,kappa_mean,brier_mean,tn_sum,fp_sum,fn_sum,tp_sum], flabel, name)
 	return [local_performance,global_performance]
 
 ## calculate the difference between the single- and multi-pharma outputs and write to a file
@@ -253,7 +260,7 @@ def calculate_deltas(f1_results, f2_results, name, task_map):
 			pertask = tdf[:]
 			pertask['classification_task_id'] = pertask['classification_task_id'].astype('int32')
 			#add per-task perf aggregated performance delta bins to output
-			for metric in pertask.loc[:, "aucpr":"kappa"].columns:
+			for metric in pertask.loc[:, "aucpr":"brier"].columns:
 				pertask[f'{metric}_percent'] = cut(pertask[metric].astype('float32'), \
 				args.aggr_binning_scheme_perf_delta,include_lowest=True,right=True)
 			pertask = pertask.merge(task_map, right_on=["classification_task_id","assay_type"], left_on=["classification_task_id","assay_type"], how="left")
@@ -263,10 +270,11 @@ def calculate_deltas(f1_results, f2_results, name, task_map):
 			
 			#write binned per-task aggregated performance deltas
 			agg_deltas=[]
-			for metric_bin in pertask.loc[:, "aucpr_percent":"kappa_percent"].columns:
+			for metric_bin in pertask.loc[:, "aucpr_percent":"brier_percent"].columns:
 				agg_perf=(pertask.groupby(metric_bin)['classification_task_id'].agg('count')/len(pertask)).reset_index().rename(columns={'classification_task_id': f'bin_{metric_bin}'})
 				agg_deltas.append(agg_perf.set_index(metric_bin))
-			fnagg = name + "/deltas_binned_per-task_performances.csv"
+			if args.pharma_name: fnagg = name + f"/deltas_binned_{args.pharma_name}_per-task_performances.csv"
+			else: fnagg = name + "/deltas_binned_per-task_performances.csv"
 			pd.concat(agg_deltas,axis=1).astype(np.float32).reset_index().rename(columns={'index': 'perf_bin'}).to_csv(fnagg,index=False)
 			vprint(f"Wrote binned performance per-task delta report to: {fnagg}")
 
@@ -277,13 +285,14 @@ def calculate_deltas(f1_results, f2_results, name, task_map):
 
 			#write binned per-assay aggregated performance deltas
 			agg_deltas2=[]
-			for metric_bin in pertask.loc[:, "aucpr_percent":"kappa_percent"].columns:
+			for metric_bin in pertask.loc[:, "aucpr_percent":"brier_percent"].columns:
 				#pertask[metric_bin]=pertask[metric_bin].astype("|S6")
 				agg_perf2=(pertask.groupby(['assay_type',metric_bin])['classification_task_id'].agg('count')).reset_index().rename(columns={'classification_task_id': f'count_{metric_bin}'})
 				agg_perf2[f'bin_{metric_bin}']=agg_perf2.apply(lambda x : x[f'count_{metric_bin}'] / (pertask.assay_type==x['assay_type']).sum() ,axis=1).astype('float32')
 				agg_perf2.drop(f'count_{metric_bin}',axis=1,inplace=True)
 				agg_deltas2.append(agg_perf2.set_index(['assay_type',metric_bin]))
-			fnagg2 = name + "/deltas_binned_per-assay_performances.csv"
+			if args.pharma_name: fnagg2 = name + f"/deltas_binned_{args.pharma_name}_per-assay_performances.csv"
+			else: fnagg2 = name + "/deltas_binned_per-assay_performances.csv"	
 			pd.concat(agg_deltas2,axis=1).astype(np.float32).reset_index().rename(columns={'level_0':'assay_type','level_1':'perf_bin',}).to_csv(fnagg2,index=False)
 			vprint(f"Wrote binned performance per-assay delta report to: {fnagg}")
 		else:
