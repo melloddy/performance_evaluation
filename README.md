@@ -218,7 +218,7 @@ f[1/2]_binned_per-task_performances.csv **      #file 1/2 tasks split by perf bi
 f[1/2]_binned_per-assay_performances.csv **     #file 1/2 output split by perf bins and aggregated by assay_types with proportion of assay_type tasks in each bin
 deltas_binned_per-task_performances.csv **      #per-task binned perf delta between file 1/2
 deltas_binned_per-assay_performances.csv **     #delta between 1/2 perf split by perf bins and aggregated by assay_types with proportion of assay_type tasks in each bin
-deltas_global_performances.csv **               #global delta of file 1/2 perf
+deltas_global_performances.csv               #global delta of file 1/2 perf
 
 **=for the WP3 per-pharma performance YR1 report
 ```
