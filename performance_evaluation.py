@@ -19,6 +19,7 @@ def init_arg_parser():
 	parser.add_argument("--filename", help="Filename for results from this output", type=str, default=None)
 	parser.add_argument("--use_venn_abers", help="Toggle to turn on Venn-ABERs code", action='store_true', default=False)
 	parser.add_argument("--verbose", help="Verbosity level: 1 = Full; 0 = no output", type=int, default=1, choices=[0, 1])
+	parser.add_argument("--validation_fold", help="Validation fold to used to calculate performance", type=int, default=0, choices=[0, 1, 2, 3, 4])
 	parser.add_argument("--f1", help="Output from the first run to compare (pred or .npy)", type=str, required=True)
 	parser.add_argument("--f2", help="Output from the second run to compare (pred or .npy)", type=str, required=True)
 	parser.add_argument("--aggr_binning_scheme_perf", help="(Comma separated) Shared aggregated binning scheme for f1/f2 performances", type=str, default='0.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0',required=False)
@@ -326,7 +327,7 @@ def main(args):
 		y_true_all = mmread(args.y_true_all)
 	y_true_all = y_true_all.tocsc()
 	## filtering out validation fold
-	fold_va = 1
+	fold_va = args.validation_fold
 	y_true = y_true_all[folding == fold_va]
 	y_true_all = None #clear all ytrue to save memory
 
