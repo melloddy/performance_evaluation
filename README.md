@@ -236,7 +236,7 @@ python performance_evaluation.py \
     --f1 data/example/single/pred/pred \
     --f2 data/example/multi/pred/pred \
     --folding data/example/files_4_ml/folding.npy \
-    --task_weights data/example/files_4_ml/weights.csv \
+    --task_weights data/example/files_4_ml/weights.csv \ #this is optional (not for YR1 report)
     --filename out \
     --task_map data/example/files_4_ml/weight_table_T3_mapped.csv \
     --y_true_all data/example/files_4_ml/pharma_y.npy \
