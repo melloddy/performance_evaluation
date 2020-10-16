@@ -173,6 +173,7 @@ python performance_evaluation.py -h
 usage: performance_evaluation.py [-h] --y_true_all Y_TRUE_ALL --task_map
                                   TASK_MAP --folding FOLDING
                                   [--task_weights TASK_WEIGHTS]
+                                  [--validation_fold]
                                   [--filename FILENAME] [--use_venn_abers]
                                   [--verbose {0,1}] --f1 F1 --f2 F2
                                   [--aggr_binning_scheme_perf AGGR_BINNING_SCHEME_PERF]
@@ -187,6 +188,7 @@ optional arguments:
   --task_map TASK_MAP   Taskmap from MELLODDY_tuner output of single run (i.e.
                         from results/weight_table_T3_mapped.csv)
   --folding FOLDING     LSH Folding file (npy) (i.e. from files_4_ml/)
+  --validation_fold     Validation fold to used to calculate performance
   --task_weights TASK_WEIGHTS
                         (Optional: for weighted global aggregation) CSV file
                         with columns task_id and weight (i.e.
@@ -237,7 +239,8 @@ python performance_evaluation.py \
     --task_weights data/example/files_4_ml/weights.csv \
     --filename out \
     --task_map data/example/files_4_ml/weight_table_T3_mapped.csv \
-    --y_true_all data/example/files_4_ml/pharma_y.npy 
+    --y_true_all data/example/files_4_ml/pharma_y.npy \
+    --validation_fold 0
 ```
 
 This will write all relevant output files into the out folder. 
