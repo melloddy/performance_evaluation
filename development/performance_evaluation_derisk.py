@@ -14,6 +14,7 @@ parser.add_argument("--y_true_all", help="Activity file (npy) (i.e. from files_4
 parser.add_argument("--y_pred_onpremise", help="Yhat prediction output from onpremise run (<single pharma dir>/y_hat.npy)", type=str, required=True)
 parser.add_argument("--y_pred_substra", help="Pred prediction output from substra platform (./Single-pharma-run/substra/medias/subtuple/<pharma_hash>/pred/pred)", type=str, required=True)
 parser.add_argument("--folding", help="LSH Folding file (npy) (i.e. from files_4_ml/)", type=str, required=True)
+parser.add_argument("--validation_fold", help="Validation fold to used to calculate performance", type=int, default=0, choices=[0, 1, 2, 3, 4])
 parser.add_argument("--substra_performance_report", help="JSON file with global reported performance from substra platform (i.e. ./Single-pharma-run/substra/medias/subtuple/<pharma_hash>/pred/perf.json)", type=str, required=True)
 parser.add_argument("--task_map", help="Taskmap from MELLODDY_tuner output of single run (i.e. from results/weight_table_T3_mapped.csv)", required=True)
 parser.add_argument("--filename", help="Filename for results from this output", type=str, default=None)
@@ -56,7 +57,7 @@ y_true_all = np.load(args.y_true_all, allow_pickle=True).item()
 y_true_all = y_true_all.tocsc()
 
 ## filtering out validation fold
-fold_va = 1
+fold_va = args.validation_fold
 y_true = y_true_all[folding == fold_va]
 y_true_all = None #clear all ytrue to save memory
 
