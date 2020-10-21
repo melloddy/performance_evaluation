@@ -173,6 +173,7 @@ python performance_evaluation.py -h
 usage: performance_evaluation.py [-h] --y_true_all Y_TRUE_ALL --task_map
                                   TASK_MAP --folding FOLDING
                                   [--task_weights TASK_WEIGHTS]
+                                  [--validation_fold]
                                   [--filename FILENAME] [--use_venn_abers]
                                   [--verbose {0,1}] --f1 F1 --f2 F2
                                   [--aggr_binning_scheme_perf AGGR_BINNING_SCHEME_PERF]
@@ -187,6 +188,7 @@ optional arguments:
   --task_map TASK_MAP   Taskmap from MELLODDY_tuner output of single run (i.e.
                         from results/weight_table_T3_mapped.csv)
   --folding FOLDING     LSH Folding file (npy) (i.e. from files_4_ml/)
+  --validation_fold     Validation fold to used to calculate performance
   --task_weights TASK_WEIGHTS
                         (Optional: for weighted global aggregation) CSV file
                         with columns task_id and weight (i.e.
@@ -216,7 +218,7 @@ f[1/2]_binned_per-task_performances.csv **      #file 1/2 tasks split by perf bi
 f[1/2]_binned_per-assay_performances.csv **     #file 1/2 output split by perf bins and aggregated by assay_types with proportion of assay_type tasks in each bin
 deltas_binned_per-task_performances.csv **      #per-task binned perf delta between file 1/2
 deltas_binned_per-assay_performances.csv **     #delta between 1/2 perf split by perf bins and aggregated by assay_types with proportion of assay_type tasks in each bin
-deltas_global_performances.csv **               #global delta of file 1/2 perf
+deltas_global_performances.csv               #global delta of file 1/2 perf
 
 **=for the WP3 per-pharma performance YR1 report
 ```
@@ -234,10 +236,11 @@ python performance_evaluation.py \
     --f1 data/example/single/pred/pred \
     --f2 data/example/multi/pred/pred \
     --folding data/example/files_4_ml/folding.npy \
-    --task_weights data/example/files_4_ml/weights.csv \
+    --task_weights data/example/files_4_ml/weights.csv \ #this is optional (not for YR1 report)
     --filename out \
     --task_map data/example/files_4_ml/weight_table_T3_mapped.csv \
-    --y_true_all data/example/files_4_ml/pharma_y.npy 
+    --y_true_all data/example/files_4_ml/pharma_y.npy \
+    --validation_fold 0
 ```
 
 This will write all relevant output files into the out folder. 
