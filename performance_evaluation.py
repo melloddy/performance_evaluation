@@ -23,7 +23,7 @@ def init_arg_parser():
 	parser.add_argument("--f1", help="Output from the first run to compare (pred or .npy)", type=str, required=True)
 	parser.add_argument("--f2", help="Output from the second run to compare (pred or .npy)", type=str, required=True)
 	parser.add_argument("--aggr_binning_scheme_perf", help="(Comma separated) Shared aggregated binning scheme for f1/f2 performances", type=str, default='0.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0',required=False)
-	parser.add_argument("--aggr_binning_scheme_perf_delta", help="(Comma separated) Shared aggregated binning scheme for delta performances", type=str, default='-0.4,-0.3,-0.2,-0.1,0.0,0.1,0.2,0.3,0.4',required=False)
+	parser.add_argument("--aggr_binning_scheme_perf_delta", help="(Comma separated) Shared aggregated binning scheme for delta performances", type=str, default='-0.2,-0.15,-0.1,-0.05,0.0,0.05,0.1,0.15,0.2',required=False)
 	parser.add_argument("--pharma_name", help="Name of pharma partner identifier (A/B/C/etc.)", type=str, default=None,required=False)
 	args = parser.parse_args()
 	args.aggr_binning_scheme_perf=list(map(np.float,args.aggr_binning_scheme_perf.split(',')))
