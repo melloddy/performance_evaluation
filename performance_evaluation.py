@@ -20,8 +20,9 @@ def init_arg_parser():
 	parser.add_argument("--use_venn_abers", help="Toggle to turn on Venn-ABERs code", action='store_true', default=False)
 	parser.add_argument("--verbose", help="Verbosity level: 1 = Full; 0 = no output", type=int, default=1, choices=[0, 1])
 	parser.add_argument("--validation_fold", help="Validation fold to used to calculate performance", type=int, default=0, choices=[0, 1, 2, 3, 4])
-	parser.add_argument("--f1", help="Output from the first run to compare (pred or .npy)", type=str, required=True)
-	parser.add_argument("--f2", help="Output from the second run to compare (pred or .npy)", type=str, required=True)
+	parser.add_argument("--min_size", help="Minimum size of the task (NB: defaults to 25)", type=int, default=25, required=False)
+	parser.add_argument("--f1", help="Output 1 (i.e. from the SP run) to compare (pred or .npy)", type=str, required=True)
+	parser.add_argument("--f2", help="Output 2 (i.e. from the MP run) run to compare (pred or .npy)", type=str, required=True)
 	parser.add_argument("--aggr_binning_scheme_perf", help="(Comma separated) Shared aggregated binning scheme for f1/f2 performances", type=str, default='0.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0',required=False)
 	parser.add_argument("--aggr_binning_scheme_perf_delta", help="(Comma separated) Shared aggregated binning scheme for delta performances", type=str, default='-0.2,-0.15,-0.1,-0.05,0.0,0.05,0.1,0.15,0.2',required=False)
 	parser.add_argument("--pharma_name", help="Name of pharma partner identifier (A/B/C/etc.)", type=str, default=None,required=False)
@@ -183,7 +184,7 @@ def per_run_performance(y_pred, pred_or_npy, tasks_table, y_true, tw_df, task_ma
 
 	num_pos = (y_true == +1).sum(0)
 	num_neg = (y_true == -1).sum(0)
-	cols55  = np.array((num_pos >= 5) & (num_neg >= 5)).flatten()
+	cols55  = np.array((num_pos >= args.min_size) & (num_neg >= args.min_size)).flatten()
 	for col in range(y_true.shape[1]):
 		y_true_col = y_true.data[y_true.indptr[col] : y_true.indptr[col+1]] == 1
 		y_pred_col = y_pred.data[y_pred.indptr[col] : y_pred.indptr[col+1]]
