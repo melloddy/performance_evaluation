@@ -16,7 +16,7 @@ sns.set_style("whitegrid")
 
 
 # function template
-#def template():
+# def template():
 #    """ description
 #     :param dtype name: description
 #     :param dtype name: description
@@ -32,7 +32,7 @@ def perf_from_json(
         aggregate=False, 
         evaluation_set='va',
         model_name='Y',
-        n_cv=5,
+        fold_va=[0,1,2,3,4],
         filename_mask=None,
         verbose=False
     ):
@@ -43,12 +43,15 @@ def perf_from_json(
 #     :param bool aggrgate: if True, uses the aggregate result from sparsechem (considering all tasks verifying MIN_SAMPLES).
 #     :param string evaluation_set: keyword for result extraction from json file. 
 #     :param string model_name: adds a name in a column to resulting dataframe (default=Y)
-#     :param int n_cv: specify the number of folds used for cross valid, starting with 1, higher fold_va numbers will be dropped
+#     :param list fold_va: validation folds to look for, will only return specifed folds 
 #     :param str filename_mask: specify a filename mask to restrict the perf loading to a subset of files
 #     :return pandas df containing performance and configuration summaries 
     """
     # pandas v0.24 (pd.read_json) is not returning expected results when used with the arguement "tasks_for_eval" 
     assert pd.__version__ > '0.25', 'Pandas version must be 0.25 or higher' # string comparison will compare first char # should this be placed somewhere else?
+    
+    for fva in fold_va:
+        assert type(fva) is int, f"{fold_va}: contains none integers and should not!"
     
     if tasks_for_eval is not None: 
         assert type(tasks_for_eval) is np.ndarray, "tasks_for_eval must be an np.array"
@@ -60,7 +63,7 @@ def perf_from_json(
             
         assert np.unique(tasks_for_eval).shape[0] == tasks_for_eval.shape[0], "tasks_for_eval must not have duplicates"
         
-    assert n_cv != 0, "n_cv minimum value must be 1"
+    assert type(fold_va) is list or type(fold_va) is tuple, f"{fold_va} : needs to be a list or a tuple"
     
     res_all = []
 
@@ -118,10 +121,12 @@ def perf_from_json(
     output_df = pd.concat(res_all)
 
     # filter out some folds 
-    cvfolds = list(range(n_cv))
-    output_df = output_df.query('fold_va in @cvfolds')
+    output_df = output_df.query('fold_va in @fold_va').copy()
     
-    assert output_df.shape[0] > 0, f"No records found for the specified cv fold {n_cv}:{cvfolds}"
+    assert output_df.shape[0] > 0, f"No records found for the specified cv fold {fold_va}"
+    
+    # TO DO: print a warning when a fold specified by fold_va is not found
+    
     
     output_df['model_name'] = model_name
     
@@ -140,12 +145,18 @@ def perf_from_json(
 
 
 
-def verify_cv_runs(metrics_df, n_cv=5):
-    """ From the metrics dataframe yielded by perf_from_json(), cehcks if each hyperparameter was run n_cv
+def verify_cv_runs(metrics_df, fold_va=[0,1,2,3,4]):
+    """ From the metrics dataframe yielded by perf_from_json(), cehcks if each hyperparameter was run fold_va
 #     :param pandas df metrics_df: metrics dataframe yielded by perf_from_json() 
-#     :param int n_cv: number of folds to look for
+#     :param list fold_va: validation folds to look for
 #     :return void: prints message in stdout
     """    
+    assert np.unique(fold_va).shape[0] == len(fold_va), f"{fold_va}: contains duplicates and should not!"
+    for fva in fold_va:
+        assert type(fva) is int, f"{fold_va}: contains none integers and should not!"
+    
+    fold_va.sort()
+    
     hp = [x for x in metrics_df.columns if x[:3] == 'hp_' and not metrics_df[x].isnull().all()]
     hp.append('model_name')
     assert len(hp) > 0, "metrics dataframe must contain hyperparameter columns starting with hp_ and model_name"
@@ -154,34 +165,58 @@ def verify_cv_runs(metrics_df, n_cv=5):
     
      # if missing ones, print out a warning message
     valid=True
-    folds = ",".join([str(x) for x in range(n_cv)])
-    if aggr[~aggr.str.contains(folds)].shape[0]>0:
-        valid = False
-        print("WARNING: missing fold runs")
-        print(f"Fold runs found :\n {aggr}")
+    warning=False
+    folds = ",".join([str(x) for x in fold_va])
+    
+    aggr = aggr.reset_index()
+    aggr['hp_string'] = make_hp_string_col(aggr)
+    
+    # loop over the rows and find out if missing fold_va
+    for idx,row in aggr[['hp_string', 'fold_va']].iterrows():
+        
+        # missing fold_va
+        if row['fold_va'] != folds and row['fold_va'] in folds:
+            print(f"HP string: {row['hp_string']:<25} expected fold_va: {fold_va} , found: {row['fold_va']}")
+            valid = False
+            
+        # validation folds found not in fold_va
+        elif row['fold_va'] != folds:warning=True
+            
+   
+    if warning:
+        print(f"# WARNING: Validation folds found not in specified fold_va: {fold_va}")
+        print(f"# WARNING: Found: {aggr['fold_va'].unique()}")
+        
+        
+    
     
     return valid
 
 
 
-def quorum_filter(metrics_df, min_samples=5, n_cv=5, verbose=True):
+def quorum_filter(metrics_df, min_samples=5, fold_va=[0,1,2,3,4], verbose=True):
     """ Filter the metrics data frame of each model (as defined by a HP set) with a quorum rule: minimum N postive samples and N negative sample in each fold 
 #     :param pandas df metrics_df: metrics dataframe yielded by perf_from_json() 
 #     :param int min_samples: minimum class size per fold
-#     :param int n_cv: number of folds to look for
+#     :param list fold_va: validation folds to look for, will filter out results in metrics_df if belonging to fold_va not specified
 #     :param bool verbose: adds verbosity
 #     :return pandas df filtered_df: metrics data frame containing , for every given HPs sets, only tasks present in each of the folds 
     """
-    if verbose: print(f"# Quorum on class size applied: {min_samples}-{min_samples}")
+    if verbose: 
+        print(f"# Quorum on class size applied: {min_samples}-{min_samples}")
+        print(f"# validation folds considered: {fold_va}")
     
-    assert verify_cv_runs(metrics_df, n_cv=n_cv), "Missing cv run, abort."
+    assert verify_cv_runs(metrics_df, fold_va=fold_va), "Missing cv run, abort."
     assert 'fold_va' in metrics_df.columns, "fold_va must be present in metrics data frame"
     assert 'task' in metrics_df.columns, "task must be present in metrics data frame"
     assert 'num_pos' in metrics_df.columns, "num_pos must be present in metrics data frame"
     assert 'num_neg' in metrics_df.columns, "num_neg must be present in metrics data frame"
     
+    if metrics_df['fold_va'].unique().shape[0] > len(fold_va):
+        print(f"# WARNING: Results for validation folds not in {fold_va} will be filtered out at this step")
+    
     index_cols = ['fold_va', 'task', 'model_name'] + [col for col in metrics_df if col[:3] == 'hp_' if not metrics_df[col].isna().all()] 
-    df = metrics_df.loc[metrics_df['fold_va']<n_cv].set_index(keys=index_cols, verify_integrity=True).copy()
+    df = metrics_df.loc[metrics_df['fold_va'].isin(fold_va)].set_index(keys=index_cols, verify_integrity=True).copy()
     
     # add a dummy column to perform the count
     df['_'] = 1
@@ -192,16 +227,17 @@ def quorum_filter(metrics_df, min_samples=5, n_cv=5, verbose=True):
     # then count the number of folds for each <task,hp> and filter (it must be present in each fold)
     levels = [x for x in range(1, len(index_cols))]
     task_count = task_mini['_'].groupby(level=levels).count()
-    selected_tasks = task_count[task_count==n_cv].index.unique()
+    selected_tasks = task_count[task_count==len(fold_va)].index.unique()
     
     filtered_res = df.reset_index(level=0).loc[selected_tasks, :].reset_index().drop('_',axis=1)
     
     if verbose: 
-        print(f"# --> Total number of tasks   : {metrics_df.task.unique().shape[0]}")
-        print(f"# --> Tasks further considerd : {filtered_res.task.unique().shape[0]}")
+        print(f"# --> Total number of tasks : {metrics_df.task.unique().shape[0]}")
+        print(f"# --> Tasks considerd       : {filtered_res.task.unique().shape[0]}")
+        print(f"# --> Valid folds considerd : {filtered_res.fold_va.unique()}")
     
     return filtered_res
-    
+
     
 
 
@@ -213,12 +249,12 @@ def quorum_filter(metrics_df, min_samples=5, n_cv=5, verbose=True):
 # ==== aggregation functions: apply only to individual task performances 
 # ==== does not apply to sparsechem aggregate performance metrics
 
-def aggregate_fold_perf(metrics_df, min_samples=5, n_cv=5, stats='basic', score_type=['roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score','kappa'], verbose=True):
-    """ HP performance aggregation over folds. Includes a quorum filtering step (at least N actives and N inactives in each of the n_cv folds)
+def aggregate_fold_perf(metrics_df, min_samples=5, fold_va=[0,1,2,3,4], stats='basic', score_type=['roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score','kappa'], verbose=True):
+    """ HP performance aggregation over folds. Includes a quorum filtering step (at least N actives and N inactives in each of the validation folds )
     From the metrics dataframe yielded by perf_from_metrics(), does the aggregation over the fold (mean, median, std, skewness, kurtosis) results in one perf per fold.
 #     :param pandas df metrics_df: metrics dataframe yielded by perf_from_metrics() 
 #     :param int min_sample: minimum number of each class (overal) to be present in each fold for aggregation metric
-#     :param int n_cv: number of folds to look for
+#     :param list fold_va: validation folds to look for
 #     :param bool verify: checks for missing folds runs in CV and prints a report if missing jobs
 #     :param string stats: ['basic', 'full'], if full, calculates skewness of kurtosis
 #     :param list score_type: ['roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score','kappa'] thelist of metrics to aggregate
@@ -238,14 +274,13 @@ def aggregate_fold_perf(metrics_df, min_samples=5, n_cv=5, stats='basic', score_
     
     
     # keep only tasks verifying the min_sample rule: at least N postives and N negatives in each of the 5 folds
-    metrics2consider_df = quorum_filter(metrics_df, min_samples=min_samples, n_cv=n_cv)
+    metrics2consider_df = quorum_filter(metrics_df, min_samples=min_samples, fold_va=fold_va)
     cols2drop = [col for col in metrics_df.columns if col not in score_type and col not in hp]
     
     if verbose: print("# Aggregatate (performance mean) hyperparameter combinations")
     
     ### Scores must be numeric types!!!
     # should assert that scores are numeric types
-    
     
     # do the mean aggregation
     aggr_mean = metrics2consider_df.drop(cols2drop, axis=1).groupby(hp).mean()
@@ -279,16 +314,16 @@ def aggregate_fold_perf(metrics_df, min_samples=5, n_cv=5, stats='basic', score_
         
     if verbose: print(f"# --> Found {results.shape[0]} fold performance records")
     return results.reset_index()
-      
 
-    
-    
-def aggregate_task_perf(metrics_df, min_samples=5, n_cv=5, stats='basic', score_type=['roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score','kappa'], verbose=True):
-    """ HP performance aggregation over tasks. Includes a quorum filtering step (at least N actives and N inactives in each of the n_cv folds)
+
+
+
+def aggregate_task_perf(metrics_df, min_samples=5, fold_va=[0,1,2,3,4], stats='basic', score_type=['roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score','kappa'], verbose=True):
+    """ HP performance aggregation over tasks. Includes a quorum filtering step (at least N actives and N inactives in each of the validation folds)
     From the metrics dataframe yielded by perf_from_json(), does the aggregation over the CV (mean, std) results in one perf per task.
 #     :param pandas df metrics_df: metrics dataframe yielded by perf_from_json() 
 #     :param int min_sample: minimum number of each class (overal) to be present in each fold for aggregation metric
-#     :param int n_cv: number of folds to look for
+#     :param list fold_va: validatio folds to look for
 #     :param bool verify: checks for missing folds runs in CV and prints a report if missing jobs
 #     :param string stats: ['basic', 'full'], if full, calculates skewness of kurtosis
 #     :param list score_type: ['roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score','kappa'] thelist of metrics to aggregate
@@ -306,7 +341,7 @@ def aggregate_task_perf(metrics_df, min_samples=5, n_cv=5, stats='basic', score_
     assert len(hp) > 0, "metrics dataframe must contain hyperparameter columns starting with hp_, task and model_name"
     
     # keep only tasks verifying the min_sample rule: at least N postives and N negatives in each of the 5 folds
-    metrics2consider_df = quorum_filter(metrics_df, min_samples=min_samples, n_cv=n_cv, verbose=verbose)
+    metrics2consider_df = quorum_filter(metrics_df, min_samples=min_samples, fold_va=fold_va, verbose=verbose)
     col2drop = [col for col in metrics_df.columns if col not in score_type and col not in hp]
     
     if verbose: print("# Aggregatate (performance mean) hyperparameter combinations")
@@ -346,17 +381,17 @@ def aggregate_task_perf(metrics_df, min_samples=5, n_cv=5, stats='basic', score_
 
     if verbose: print(f"# --> Found {results.shape[0]} task performance records")
     return results.reset_index()
-    
+
+
 
     
-    
-    
-def aggregate_overall(metrics_df, min_samples=5, stats='basic', n_cv=5, score_type=['roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score','kappa'], verbose=True):
-    """ HP performance aggregation overall . Includes a quorum filtering step (at least N actives and N inactives in each of the n_cv folds)
+
+def aggregate_overall(metrics_df, min_samples=5, stats='basic', fold_va=[0,1,2,3,4], score_type=['roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score','kappa'], verbose=True):
+    """ HP performance aggregation overall . Includes a quorum filtering step (at least N actives and N inactives in each of the validation folds)
     From the metrics dataframe yielded by perf_from_json(), does the aggregation over the CV (mean, std) results in one perf per hyperparameter.
 #     :param pandas df metrics_df: metrics dataframe yielded by perf_from_json() 
 #     :param int min_sample: minimum number of each class (overal) to be present in each fold for aggregation metric
-#     :param int n_cv: number of folds to look for
+#     :param list fold_va: validation to look for 
 #     :param bool verify: checks for missing folds runs in CV and prints a report if missing jobs
 #     :param string stats: ['basic', 'full'], if full, calculates skewness of kurtosis
 #     :param list score_type: ['roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score','kappa'] thelist of metrics to aggregate
@@ -374,7 +409,7 @@ def aggregate_overall(metrics_df, min_samples=5, stats='basic', n_cv=5, score_ty
     
     
     # keep only tasks verifying the min_sample rule: at least N postives and N negatives in each of the 5 folds
-    metrics2consider_df = quorum_filter(metrics_df, min_samples=min_samples, n_cv=n_cv, verbose=verbose)
+    metrics2consider_df = quorum_filter(metrics_df, min_samples=min_samples, fold_va=fold_va, verbose=verbose)
     cols2drop = [col for col in metrics_df.columns if col not in score_type and col not in hp]
     
     if verbose: print("# Aggregatate (performance mean) hyperparameter combinations")
@@ -410,7 +445,7 @@ def aggregate_overall(metrics_df, min_samples=5, stats='basic', n_cv=5, score_ty
 
     if verbose: print(f"# --> Found {results.shape[0]} hyperparameters combinations")   
     return results.reset_index()  
-    
+
     
 
 def get_sc_hps(): 
@@ -447,6 +482,7 @@ def make_hp_string_col(metrics_df):
             col2drop.append(col)
             
     remain_hp = list(set(hp_cols).difference(set(col2drop)))
+    remain_hp.sort()
     if len(remain_hp) == 0:
         hp_string='single_hp'
     else: 
@@ -466,11 +502,11 @@ def make_hp_string_col(metrics_df):
 # =======================================================================
 # ==== Hyperparameter selection
 
-def find_best_hyperparam(metrics_df, min_samples=5, n_cv=5, score_type=['roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score','kappa'], verbose=True):
+def find_best_hyperparam(metrics_df, min_samples=5, fold_va=[0,1,2,3,4], score_type=['roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score','kappa'], verbose=True):
     """ Gets the best hyperparameters (according to mean aggregate) for each performance metrics. Performs the quorum filtering.
 #     :param pandas metrics_df: dataframe containing results as provided by perf_from_json()
 #     :param int min_sample: minimum number of each class (overal) to be present in each fold for aggregation metric
-#     :param int n_cv: number of folds to look for
+#     :param int fold_va: validation folds to look for
 #     :param list strings score_type: list of perf metrics to keep (depends on columns in df_res)
 #     :return dtype: pandas df containing best HPs per performance metrics
     """
@@ -478,7 +514,7 @@ def find_best_hyperparam(metrics_df, min_samples=5, n_cv=5, score_type=['roc_auc
     if verbose: print(f"# Hyperparameter selection considered score types: {score_type}")
     
     # aggregate over HPs (does the quorum on class size filtering)
-    aggr_df = aggregate_overall(metrics_df, min_samples=min_samples, stats='basic', n_cv=n_cv, score_type=score_type, verbose=verbose)
+    aggr_df = aggregate_overall(metrics_df, min_samples=min_samples, stats='basic', fold_va=fold_va, score_type=score_type, verbose=verbose)
 
     # melt the resulting data  
     aggr_dfm = melt_perf(aggr_df, score_type=[s+'_mean' for s in score_type])
@@ -492,9 +528,9 @@ def find_best_hyperparam(metrics_df, min_samples=5, n_cv=5, score_type=['roc_auc
     columns.append('value')
     
     return best_hps[columns]
+
     
-    
-       
+
 
 def melt_perf(metrics_df, score_type=['roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score','kappa']):
     """ Melts (or unpivot) the performance dataframe resuting from perf_from_conf(). 
@@ -525,14 +561,14 @@ def melt_perf(metrics_df, score_type=['roc_auc_score', 'auc_pr', 'avg_prec_score
 
 
 
-def extract_best_hp_records(perf_metrics, wanted_metrics, n_cv=5):
+def extract_best_hp_records(perf_metrics, wanted_metrics, fold_va=[0,1,2,3,4]):
     """From a HP search results df , extracts the rows corresponding to the best HP given a score type. The best HP is selected with an aggregate_overall() [mean]
 #      :param pandas perf_metrics containing the HP search results return from perf_from_json()
 #      :str wanted_metrics: the score type name to use for HP selection
-#      :int n_cv: the number of valid folds
+#      :list fold_va: validation folds to look for
     """
 
-    best_hps = find_best_hyperparam(perf_metrics, min_samples=5, score_type=[wanted_metrics], n_cv=n_cv)
+    best_hps = find_best_hyperparam(perf_metrics, min_samples=5, score_type=[wanted_metrics], fold_va=fold_va)
     
     hp_cols = [col for col in best_hps.columns if col[:3]=='hp_']
     selection = best_hps.loc[best_hps['score_type']==wanted_metrics+'_mean']
@@ -621,7 +657,7 @@ def perf_from_yhat(y_labels_pred, y_hat, verbose=True, limit=None):
         if limit is not None and t>limit:break
             
     return pd.concat(data, sort=False).reset_index(drop=True)
-    
+
     
 
 # Copied form Sparsechem utils.py: 
@@ -693,7 +729,7 @@ def all_metrics(y_true, y_score):
 # =======================================================================
 # ==== Performance analysis
 
-    
+
 # This function calculates the p value for the statistical difference between two ROC AUC curves
 # Based on :  http://www.med.mcgill.ca/epidemiology/hanley/software/Hanley_McNeil_Radiology_82.pdf
 # Authors : Adam Arany, Jaak Simm (KU Leuven)
@@ -712,11 +748,12 @@ def pvalue(auc1, num_pos1, num_neg1, auc2, num_pos2, num_neg2):
 
 
 
-def delta_to_baseline(top_baseline, list_top_perfs, n_cv=5):
+def delta_to_baseline(top_baseline, list_top_perfs, fold_va=[0,1,2,3,4]):
     """ Computes the delta-to-baseline of a list of models to compare. The performance data frames are like what perf_from_json returns. A quorum selection filter will take place.
 #       :param pandas df top_baseline, all task performance of the baseline model (assumed to correspond to the best HP)    
 #       :param list of pandas df top_perf: a list of performance data frames corresponding to models to comapre 
 #       :param list of pandas df top_perf: a list of performance data frames corresponding to models to comapre 
+#       :param list fold_va: validation folds to look for
 #       :return pandas df containing the performance deltas
     """
     deltas = []
@@ -725,7 +762,7 @@ def delta_to_baseline(top_baseline, list_top_perfs, n_cv=5):
     top_baseline_scores = top_baseline.drop([x for x in top_baseline.columns if x not in col2keep],axis=1)
 
     # apply quorum filtering to baseline results
-    baseline_valid = quorum_filter(top_baseline_scores, n_cv=n_cv)
+    baseline_valid = quorum_filter(top_baseline_scores, fold_va=fold_va)
     
     for top_perf in list_top_perfs:
         
@@ -750,9 +787,10 @@ def delta_to_baseline(top_baseline, list_top_perfs, n_cv=5):
 
 
 
-def delta_to_baseline_from_assay_ids(top_baseline, list_top_perfs, n_cv=5):
+def delta_to_baseline_from_assay_ids(top_baseline, list_top_perfs, fold_va=[0,1,2,3,4]):
     """ Computes the delta-to-baseline of a list of models to compare. The performance data frames are like what perf_from_json returns. A quorum selection filter will take place.
-#       :param pandas df top_baseline, all task performance of the baseline model (assumed to correspond to the best HP)    
+#       :param pandas df top_baseline, all task performance of the baseline model (assumed to correspond to the best HP) 
+#       :param list fold_va: validation folds to look for
 #       :param list of pandas df top_perf: a list of performance data frames corresponding to models to comapre 
 #       :return pandas df containing the performance deltas
     """
@@ -761,7 +799,7 @@ def delta_to_baseline_from_assay_ids(top_baseline, list_top_perfs, n_cv=5):
     col2keep = ['task', 'fold_va', 'input_assay_id', 'model_name', 'roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score','kappa', 'num_pos', 'num_neg', 'threshold_value']
     top_baseline_scores = top_baseline.drop([x for x in top_baseline.columns if x not in col2keep],axis=1)
     
-    baseline_valid = quorum_filter(top_baseline_scores, n_cv=n_cv)
+    baseline_valid = quorum_filter(top_baseline_scores, fold_va=fold_va)
     baseline_valid['threshold_value'] = baseline_valid['threshold_value'].round(4)
     
     
@@ -900,7 +938,7 @@ def reconstruct_boxplot_colored(boxplot_specs, n_partner, n_bins, figsize=(10,10
 
 def folds_asym_error_plot(metrics_df,  
                           min_samples=5,
-                          n_cv=5,
+                          fold_va=[0,1,2,3,4],
                           score_type=['roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score', 'kappa'],
                           error_bar_fraction_tasks=0.62,
                           gap_hue=0.5,
@@ -909,7 +947,7 @@ def folds_asym_error_plot(metrics_df,
     """ Validation folds means plotted with matplotlib errorbar and asymetric error bars. The error bar will cover 'error_bar_fraction_tasks' tasks (default, 62%) and will guaranty that the mean point separates the error bar in two parts covering equivalent fractions of the tasks. Peforms the quorum filtering and mean aggregation over folds.
 #     :param pandas df metrics_df: metrics dataframe like what is returned by perf_from_json() 
 #     :param int min_samples: minimum samples of positive / negative to be present in each fold for a task performance to be considerd (on thee basis of HPs)
-#     :param int n_cv: number of folds to be looking for
+#     :param list fold_va: number of folds to be looking for
 #     :param float error_bar_fraction_tasks, the fraction of tasks that the error bar will cover (0<=f<=1)
 #     :param float gap_hue, x interval in which HP fold performance will be plotted (around X=n_cv)
 #     :param list of str score_type: list of score types to consider
@@ -920,8 +958,8 @@ def folds_asym_error_plot(metrics_df,
     """
     assert error_bar_fraction_tasks > 0 and error_bar_fraction_tasks <=1, "error_bar_fraction_tasks must be < 0 and <= 1"
 
-    # data filtering: filters tasks-HP that do not fullfill the requirement: min_samples from each class in each n_cv fold
-    perf_to_consider = quorum_filter(metrics_df, min_samples=5, n_cv=n_cv, verbose=True)
+    # data filtering: filters tasks-HP that do not fullfill the requirement: min_samples from each class in each fold_va fold
+    perf_to_consider = quorum_filter(metrics_df, min_samples=5, fold_va=fold_va, verbose=True)
     perf_to_consider['hp'] = make_hp_string_col(perf_to_consider)
     
     if hue_order == 'auto':hue_order = perf_to_consider['hp'].unique()
@@ -937,7 +975,7 @@ def folds_asym_error_plot(metrics_df,
 
     k=0
     for score_name in score_type:
-        for fold in range(n_cv):
+        for fold in fold_va:
                                                
             # first calculate the means for each fold-HP in specifed order
             means = np.array([perf_to_consider.loc[(perf_to_consider['hp']==x)&(perf_to_consider['fold_va']==fold)][score_name].mean() for x in hue_order])
@@ -986,7 +1024,7 @@ def folds_asym_error_plot(metrics_df,
                                  capsize=2)
                 axes[k].set_title(score_name)
             
-                if k < len(range(n_cv)) - 1: 
+                if k < len(fold_va) - 1: 
                     axes[k].set_xticklabels([])
                     
                 else:
@@ -1004,7 +1042,7 @@ def folds_asym_error_plot(metrics_df,
 def pointplot_fold_perf(metrics_df, 
                         score_type=['roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score', 'kappa'],
                         figsize = (20, 18), 
-                        n_cv=5, 
+                        fold_va=[0,1,2,3,4], 
                         x_group='fold_va',
                         x_order='auto',
                         hue_order='auto',
@@ -1023,7 +1061,7 @@ def pointplot_fold_perf(metrics_df,
     assert (x_group == 'fold_va' and hue_group=='hp') or (x_group == 'hp' and hue_group=='fold_va'), "x_group and hue_group need to be either 'fold_va' or 'hp', interverted"
     
     # filter performance applying the quorumn filter
-    perf_to_consider  = quorum_filter(metrics_df, min_samples=5, n_cv=n_cv, verbose=True)
+    perf_to_consider  = quorum_filter(metrics_df, min_samples=5, fold_va=fold_va, verbose=True)
     
     # format for plotting
     perf_to_consider['hp'] = make_hp_string_col(perf_to_consider)
@@ -1085,22 +1123,22 @@ def pointplot_fold_perf(metrics_df,
         i+=1
 
     return
-    
+
 
 def ratioplot(perf_metrics,
               min_samples=5,
-              n_cv=5,
+              fold_va=[0,1,2,3,4],
               score_type=['roc_auc_score', 'auc_pr','avg_prec_score', 'max_f1_score', 'kappa'], 
               order='auto'):
     """
     
     """
     
-    perf_2_consider = quorum_filter(perf_metrics, min_samples=min_samples, n_cv=n_cv)
+    perf_2_consider = quorum_filter(perf_metrics, min_samples=min_samples, fold_va=fold_van_cv)
 
 
     # aggregate performance of tasks over the folds
-    aggr_perf = aggregate_task_perf(perf_2_consider, n_cv=n_cv, min_samples=min_samples,score_type=score_type , stats='basic')
+    aggr_perf = aggregate_task_perf(perf_2_consider, fold_va=fold_va, min_samples=min_samples,score_type=score_type , stats='basic')
     aggr_perf['hp'] = make_hp_string_col(aggr_perf)    
     score_type = [x+'_mean' for x in score_type]
     
@@ -1138,14 +1176,14 @@ def ratioplot(perf_metrics,
         ax[i].set_ylabel(f"ratio tasks with better than X {score}")
     
     return df
+
     
-    
-    
-    
+
+
 def swarmplot_fold_perf(metrics_df, 
                         score_type=['roc_auc_score', 'auc_pr', 'avg_prec_score', 'max_f1_score', 'kappa'],
                         figsize = (20, 18), 
-                        n_cv=5, 
+                        fold_va=[0,1,2,3,4], 
                         x_group='fold_va',
                         x_order='auto',
                         hue_order='auto',
@@ -1164,7 +1202,7 @@ def swarmplot_fold_perf(metrics_df,
     assert (x_group == 'fold_va' and hue_group=='hp') or (x_group == 'hp' and hue_group=='fold_va'), "x_group and hue_group need to be either 'fold_va' or 'hp', interverted"
     
     # aggregate performance of each fold to get a value per fold per HP
-    perf_fold  = aggregate_fold_perf(metrics_df, 5, stats='basic', n_cv=n_cv, score_type=score_type)
+    perf_fold  = aggregate_fold_perf(metrics_df, 5, stats='basic', fold_va=fold_va, score_type=score_type)
     
     # format for plotting
     perf_foldm = melt_perf(perf_fold, score_type=[x+'_mean' for x in score_type])
@@ -1219,22 +1257,22 @@ def swarmplot_fold_perf(metrics_df,
         i+=1
 
     return
-    
 
 
 
 
-def match_best_tasks(results_dir_x, t3_mapped_x, label_x, results_dir_y, t3_mapped_y, label_y, aux_assay_type='Yx', n_cv=5, hp_selection_metric='auc_pr',filename_mask_x=None, filename_mask_y=None, min_samples=5): 
+
+def match_best_tasks(results_dir_x, t3_mapped_x, label_x, results_dir_y, t3_mapped_y, label_y, aux_assay_type='Yx', fold_va=[0,1,2,3,4], hp_selection_metric='auc_pr',filename_mask_x=None, filename_mask_y=None, min_samples=5): 
 
     hp_bests = list()
     for e in ((results_dir_x, t3_mapped_x, filename_mask_x),(results_dir_y, t3_mapped_y, filename_mask_y)):
         df_t3_mapped = pd.read_csv(e[1])
         main_tasks = df_t3_mapped.loc[df_t3_mapped['assay_type']!=aux_assay_type].cont_classification_task_id.dropna().values
-        json_df = perf_from_json(e[0],aggregate=False,tasks_for_eval=main_tasks, n_cv=n_cv, filename_mask=e[2]) 
+        json_df = perf_from_json(e[0],aggregate=False,tasks_for_eval=main_tasks, fold_va=fold_va, filename_mask=e[2]) 
         #json_melted = melt_perf(json_df, score_type=[hp_selection_metric])
         #hp_best = best_hyperparam(json_melted)
 
-        hp_best = find_best_hyperparam(json_df, n_cv=n_cv,min_samples=min_samples,score_type=[hp_selection_metric])
+        hp_best = find_best_hyperparam(json_df, fold_va=fold_va,min_samples=min_samples,score_type=[hp_selection_metric])
         # keeping only the records associated to the best hyperparameters
         hp_cols = ['hp_'+hp for hp in get_sc_hps()]
         hp_best = pd.merge(json_df[~json_df[hp_selection_metric].isna()],hp_best,how='inner',on=hp_cols)
@@ -1243,7 +1281,7 @@ def match_best_tasks(results_dir_x, t3_mapped_x, label_x, results_dir_y, t3_mapp
 
     return hp_bests
 
-def statistical_model_comparison_analysis(results_dir_x, t3_mapped_x, label_x, results_dir_y, t3_mapped_y, label_y, aux_assay_type='Yx', n_cv=5, min_samples=5, filename_mask_x=None, filename_mask_y=None):
+def statistical_model_comparison_analysis(results_dir_x, t3_mapped_x, label_x, results_dir_y, t3_mapped_y, label_y, aux_assay_type='Yx', fold_va=[0,1,2,3,4], min_samples=5, filename_mask_x=None, filename_mask_y=None):
     """ Run a statistical significance analysis between two runs, both with hyperparameter optimization
      Best hyperparameters will be selected based on the auc_pr
      For now, only compatible with the json result format . 
@@ -1254,14 +1292,14 @@ def statistical_model_comparison_analysis(results_dir_x, t3_mapped_x, label_x, r
     :param  str path to the results folder of the 2nd run, containing the json files
     :param  str path to the mapped T3 file of the 2nd run
     :param  str axis label for the plot, designating the 2nd run
-    :param int n_cv: specify the number of folds used for cross valid, starting with 0, higher fold_va numbers will be dropped
-    :param int n_cv: statistics calculations will be limited to the tasks which have at least this number of positives and negatives
+    :param list fold_va: specify folds to be used for valid
+    :param int min_samples: statistics calculations will be limited to the tasks which have at least this number of positives and negatives
     :param str filename_mask_x: specify a filename mask to restrict the perf loading to a subset of files for the 1st run results
     :param str filename_mask_y: specify a filename mask to restrict the perf loading to a subset of files for the 2nd run results
     :return None 
     """ 
 
-    hp_bests = match_best_tasks(results_dir_x, t3_mapped_x, label_x, results_dir_y, t3_mapped_y, label_y, aux_assay_type='Yx', n_cv=n_cv, filename_mask_x=filename_mask_x, filename_mask_y=filename_mask_y, min_samples=min_samples)
+    hp_bests = match_best_tasks(results_dir_x, t3_mapped_x, label_x, results_dir_y, t3_mapped_y, label_y, aux_assay_type='Yx', fold_va=fold_va, filename_mask_x=filename_mask_x, filename_mask_y=filename_mask_y, min_samples=min_samples)
     # matching x and y runs
     df_merge = pd.merge(hp_bests[0], hp_bests[1],how='inner',on=['input_assay_id','threshold_value','fold_va'])
 
@@ -1274,7 +1312,7 @@ def statistical_model_comparison_analysis(results_dir_x, t3_mapped_x, label_x, r
     y_lim = 0.5
     title = 'AUC ROC'
 
-    res_wide = summarize_diff_statistics(hp_bests[0],hp_bests[1],min_samples=min_samples, n_cv=n_cv)
+    res_wide = summarize_diff_statistics(hp_bests[0],hp_bests[1],min_samples=min_samples, fold_va=fold_va)
     table = table[~table['roc_auc_score_y'].isna()]
     table = table[~table['roc_auc_score_x'].isna()]
     res_stat_sign = plot_statisical_significance(table, metric_x, metric_y, label_x, label_y, x_lim, y_lim, title )
@@ -1282,7 +1320,7 @@ def statistical_model_comparison_analysis(results_dir_x, t3_mapped_x, label_x, r
 
     return res 
 
-def summarize_diff_statistics(tasks_x, tasks_y, min_samples=5, n_cv=5): 
+def summarize_diff_statistics(tasks_x, tasks_y, min_samples=5, fold_va=[0,1,2,3,4]): 
     """ Get the difference of overall aggregated metrics between two task-level dataframe
     Result is the difference between the second and the first argument
 #    :param  dataframe containing task-level metrics (reference to compare with)
@@ -1302,11 +1340,11 @@ def summarize_diff_statistics(tasks_x, tasks_y, min_samples=5, n_cv=5):
 
         # aggregate_overall goes over the folds and tasks, meaning e.g. the median will be calculated over the folds and tasks
         # it might be preferable to first compute the mean over the folds, then generate the full set of statistics
-        t = aggregate_task_perf(t,min_samples=min_samples, n_cv=n_cv, stats='basic')
+        t = aggregate_task_perf(t,min_samples=min_samples, fold_va=fold_va, stats='basic')
         t = t.rename(columns={'roc_auc_score_mean': 'roc_auc_score', 'auc_pr_mean': 'auc_pr', 'avg_prec_score_mean': 'avg_prec_score','max_f1_score_mean':'max_f1_score','kappa_mean':'kappa'})
         t.to_csv('t.csv')
         t['fold_va'] = 0  # on previous line, aggregated over the folds, this will trick the aggregate_overall in believing that all folds are there
-        ress.append(aggregate_overall(t,min_samples=min_samples, n_cv=1, stats='full'))
+        ress.append(aggregate_overall(t,min_samples=min_samples, n_cv=1, stats='full')) #### TO DO : this has to be fixed
         
     ress[1].to_csv('ress1.csv')
     res = ress[1][fields]-ress[0][fields]
@@ -1355,7 +1393,7 @@ def split_folds(M, fold_vector):
     
     folds = [M[fold_vector==f,:] for f in np.unique(fold_vector)]
     return folds
-    
+
 
 def slice_mtx_rows(M, rows_indices):
     """ Slices out rows of a scipy.sparse.csr_matrix
@@ -1378,204 +1416,3 @@ def slice_mtx_cols(M, col_indices):
 
 
 
-
-# ==========================================================================
-# ==========================================================================
-# === old sparsechem utils: not recommanded
-
-
-def perf_from_metrics(result_dir, tasks_for_eval=None, model_name='Y', 
-                      prefix=None, n_cv=5, verify=False, 
-                      hidden_sizes=None,
-                      last_dropout=None,
-                      learning_rate=None,
-                      learning_steps=None,
-                      weight_decay=None,
-                      epochs=None,
-                      fold_va=None,
-                      fold_te=None,
-                      verbose=False):
-    """ Collects the performance from the results/*-metrics.csv files. This metrics file contain positive/negtive counts.
-    Assumes filename have the default naming convention (i.e. --filename was not used). 
-#     :param string result_dir: path to the model folder containing the conf.npy files
-#     :param np.array (integers like) tasks_for_eval: tasks to consider for evaluation (default=None)
-#     :param bool aggrgate: if True, aggregate results over folds (considering all tasks verifying MIN_SAMPLES)
-#     :param string model_name: adds a name in a column to resulting dataframe (default=Y)
-#     :param string prefix: used as a filter, if specified only files starting with prefix will be considered
-#     :param int n_cv: specify the number of folds used for cross valid, will spit a warning if a setting has not n_cv perf reports
-#     :param bool verify: checks for missing folds runs in CV and prints a report if missing jobs
-#     :param string hidden_sizes: sets a filter on hidden layer size on filename
-#     :param string last_dropout: sets a filter on last_dropout  on filename
-#     :param string learning_rate: sets a filter on learning_rate on filename
-#     :param string learning_steps: sets a filter on learning_steps on filename
-#     :param string weight_decay: sets a filter on weight_decay on filename
-#     :param string epochs: sets a filter on epochs on filename
-#     :param string fold_va: sets a filter on fold_va on filename
-#     :param string fold_te: sets a filter on fold_te on filename
-#     :param bool verbose: speaks by itself
-#     :return dtype: pandas df containing performance metrics files appended to each other and including some HPs
-    """    
-    
-    assert os.path.isdir(result_dir), f"Can't find results directory at {result_dir}"
-    
-    if prefix is not None: prefix_len = len(prefix)
-    
-    dataframes = []
-    for f in os.listdir(result_dir):
-        
-        if f[:3]!='sc_':continue
-        
-        # skip files without prefix if specified 
-        if prefix is not None and f[:prefix_len]!=prefix:continue
-        
-        # skip hyperparameters if requested
-        if hidden_sizes is not None and f'_h{hidden_sizes}_' not in f:continue
-        if last_dropout is not None and f'_ldo{last_dropout}_' not in f:continue
-        if learning_rate is not None and f'_lr{learning_rate}_' not in f:continue
-        if learning_steps is not None and f'_lrsteps{learning_steps}_' not in f:continue
-        if weight_decay is not None and f'_wd{weight_decay}_' not in f:continue
-        if epochs is not None and f'_ep{epochs}_' not in f:continue
-        if fold_va is not None and f'_fva{fold_va}_' not in f:continue
-        if fold_te is not None and f'_fte{fold_te}-metrics' not in f:continue
-        
-        
-        df = pd.read_csv(os.path.join(result_dir, f))
-        
-        if tasks_for_eval is not None: df = df.loc[df['task'].isin(tasks_for_eval)].copy()
-        
-        # capture HP from file name
-        # TO DO : capture all possible settings from file name?
-        # or request printing out HP settings in metrics dataframe from sparsechem
-        df['hp_hidden_sizes']   = re.search('_h(.+?)_', f).group(1)
-        df['hp_last_dropout']   = re.search('_ldo(.+?)_', f).group(1)
-        df['hp_weight_decay']   = re.search('_wd(.+?)_', f).group(1)
-        df['hp_learning_rate']  = re.search('_lr(.+?)_', f).group(1)
-        df['hp_learning_steps'] = re.search('_lrsteps(.+?)_', f).group(1)
-        df['hp_epochs']         = re.search('_ep(.+?)_', f).group(1)
-        df['fold_va']        = re.search('_fva(.+?)_', f).group(1)
-        df['fold_va']        = df['fold_va'].astype(np.int)
-        df['fold_test']      = re.search('_fte(.+?)-metrics', f).group(1)
-
-        dataframes.append(df)
-    
-    if verbose:print(f"Loaded {len(dataframes)} metrics files")
-    
-    metrics_df = pd.DataFrame()
-
-    if len(dataframes)>0: 
-        metrics_df = metrics_df.append(dataframes)
-        metrics_df['model'] = model_name
-    
-    # check that every settings have been run over the n_cv 
-    if verify:verify_cv_runs(metrics_df, n_cv=n_cv)
-
-    return metrics_df.reset_index(drop=True)
-
-
-
-def perf_from_conf(model_dir, tasks_for_eval=None, aggregate=False, model_name='Y'):
-    """ Collects the performance from thje models/*-conf.npy files. Useful for HP search because it includes HPs details.
-#     :param string model_dir: path to the model folder containing the conf.npy files
-#     :param np.array (integers like) tasks_for_eval: tasks to consider for evaluation (default=None)
-#     :param bool aggrgate: if True, uses the aggregate results (considering all tasks verifying MIN_SAMPLES)
-#     :param string model_name: adds a name in a column to resulting dataframe (default=Y)
-#     :return dtype: pandas df containing performance summaries from conf file (including HP: epoch, valid fold, hidden sizes, lr steps ...)
-    """
-    
-    assert os.path.isdir(model_dir), f"Can't find models directory at {model_dir}"
-    assert len([x for x in os.listdir(model_dir) if os.path.splitext(x)[1] == '.npy'])>0, f"Did not find *conf.npy in {model_dir}"
-    
-    if tasks_for_eval is not None and aggregate:
-        print("tasks_for_eval will not be considered. Turn off aggregate to consider a subset of tasks")
-    
-    if aggregate: 
-        df_res = perf_from_conf_aggregate(model_dir, model_name=model_name)
-    else:
-        df_res = perf_from_conf_individual(model_dir, tasks_for_eval, model_name=model_name)
-    
-    return df_res
-
-
-
-
-def perf_from_conf_aggregate(model_dir, model_name='Y'):
-    """ Collects the performance from thje models/*-conf.npy files using the aggregate results (considering min_samples). 
-    Useful for HP search because it includes HPs details.
-#     :param string model_dir: path to the model folder containing the conf.npy files
-#     :param string model_name: adds a name in a column to resulting dataframe (default=Y)
-#     :return dtype: pandas df containing performance summaries from conf file (including HP: epoch, valid fold, hidden sizes, lr steps)
-    """    
-    data = []
-
-    for f in os.listdir(model_dir):
-        if f[-4:]!='.npy':continue
-        r = np.load(os.path.join(model_dir,f), allow_pickle=True).item()
-        auc_roc_va = r["results_agg"]["va"]["roc_auc_score"]
-        auc_pr_va  = r["results_agg"]["va"]["auc_pr"]
-        
-        #kappa      = r["results_agg"]["va"]["kappa"]
-        #max_f1     = r["results_agg"]["va"]["max_f1_score"]
-        
-        epoch_time_tr = r["results_agg"]["tr"]["epoch_time"]
-        hidden_sizes  = ",".join([str(x) for x in r["conf"].hidden_sizes])
-        learning_rate = r["conf"].lr
-        dropout       = r["conf"].last_dropout
-        epochs        = r["conf"].epochs
-        weight_decay =  r["conf"].weight_decay
-        fold_va       = r["conf"].fold_va
-        fold_te       = r["conf"].fold_te
-        lr_steps      = ",".join([str(x) for x in r["conf"].lr_steps])
-        min_samples   = r['conf'].min_samples_auc
-        data.append([fold_te, fold_va, epochs, hidden_sizes, dropout, weight_decay, learning_rate, lr_steps, min_samples, auc_roc_va, auc_pr_va, epoch_time_tr])
-        
-        #data.append([fold_te, fold_va, epochs, hidden_sizes, dropout, weight_decay, learning_rate, lr_steps, min_samples, auc_roc_va, auc_pr_va, max_f1, kappa, epoch_time_tr])
-        
-    #df_res = pd.DataFrame(data, columns=['fold_te','fold_va', 'hp_epochs', 'hp_hidden_sizes', 'hp_last_dropout', 'hp_weight_decay', 'hp_learning_rate','hp_learning_steps', 'min_samples', 'auc_va_mean', 'auc_pr_va_mean', 'max_f1_va_mean', 'kappa_va_mean', 'train_time_1epochs'])
-    
-    df_res = pd.DataFrame(data, columns=['fold_te','fold_va', 'hp_epochs', 'hp_hidden_sizes', 'hp_last_dropout', 'hp_weight_decay', 'hp_learning_rate','hp_learning_steps', 'min_samples', 'auc_va_mean', 'auc_pr_va_mean', 'train_time_1epochs'])
-    df_res['model'] = model_name
-    
-    return df_res
-
-
-
-def perf_from_conf_individual(model_dir, tasks_for_eval, model_name='Y'):
-    """ Collects the performance from thje models/*-conf.npy files using the individual performance numbers. Useful for HP search because it includes HPs details.
-#     :param string model_dir: path to the model folder containing the conf.npy files
-#     :param np.array like (integers like) tasks_for_eval: tasks to consider for evaluation (user's responsability)
-#     :param string model_name: adds a name in a column to resulting dataframe (default=Y)
-#     :return dtype: pandas df containing performance summaries from conf file (including HP: epoch, valid fold, hidden sizes, lr steps)
-    """    
-        
-    data = []
-    for f in os.listdir(model_dir):
-        if f[-4:]!='.npy':continue
-        r = np.load(os.path.join(model_dir,f), allow_pickle=True).item()
-    
-        if tasks_for_eval is None: 
-            auc_roc_va = r["results"]["va"]['auc_roc']
-            auc_pr_va  = r["results"]["va"]["auc_pr"]
-            n_tasks = r["results"]["va"]["auc_pr"].shape[0]
-        else: 
-            # only pick the wanted tasks 
-            auc_roc_va = r["results"]["va"]['auc_roc'][tasks_for_eval]
-            auc_pr_va  = r["results"]["va"]["auc_pr"][tasks_for_eval]
-            n_tasks = r["results"]["va"]["auc_pr"][tasks_for_eval].shape[0]
-    
-        hidden_sizes  = ",".join([str(x) for x in r["conf"].hidden_sizes])
-        dropout       = r["conf"].last_dropout
-        learning_rate = r["conf"].lr
-        epochs        = r["conf"].epochs
-        weight_decay =  r["conf"].weight_decay
-        fold_va       = r["conf"].fold_va
-        fold_te       = r["conf"].fold_te
-        lr_steps      = ",".join([str(x) for x in r["conf"].lr_steps])
-        min_samples   = r['conf'].min_samples_auc
-        for i in auc_roc_va.index:
-            data.append([i, fold_te, fold_va, epochs, hidden_sizes, dropout, weight_decay, learning_rate, lr_steps, n_tasks, min_samples, auc_roc_va[i], auc_pr_va[i]])
-    
-    df_res = pd.DataFrame(data, columns=['task','fold_te', 'fold_va', 'hp_epochs', 'hp_hidden_sizes', 'hp_last_dropout', 'hp_weight_decay', 'hp_learning_rate','hp_learning_steps', 'n_tasks_eval', 'min_samples', 'auc_va', 'auc_pr_va'])
-    
-    df_res['model'] = model_name
-    
-    return df_res
