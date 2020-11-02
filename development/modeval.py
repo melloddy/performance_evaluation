@@ -93,7 +93,7 @@ def perf_from_json(
             res_df.columns = [x+'_agg' for x in res_df.columns]
         
         else: 
-            assert "results" in data, "Error: cannot find 'results' in data"
+            assert "results" in data, f"Error: cannot find 'results' in {f}"
             assert evaluation_set in data["results"], f"Error: cannot find '{evaluation_set}' in data results"
             
             res_df = pd.read_json(data["results"][evaluation_set])
@@ -401,8 +401,8 @@ def aggregate_overall(metrics_df, min_samples=5, stats='basic', fold_va=[0,1,2,3
         
     hp = [x for x in metrics_df.columns if x[:3] == 'hp_' and not metrics_df[x].isna().all()]
     
-    assert 'num_pos' in metrics_df.columns, "metrics dataframe must contain num_pos column"
-    assert 'num_neg' in metrics_df.columns, "metrics dataframe must contain num_neg column"
+    #assert 'num_pos' in metrics_df.columns, "metrics dataframe must contain num_pos column"
+    #assert 'num_neg' in metrics_df.columns, "metrics dataframe must contain num_neg column"
     
     hp.append('model_name')
     assert len(hp) > 0, "metrics dataframe must contain hyperparameter columns starting with hp_ and model_name"
