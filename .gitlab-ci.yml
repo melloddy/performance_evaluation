@@ -3,6 +3,6 @@ build:
   script:
     - apt-get update -q -y
     - apt-get install -y build-essential
-    - conda env create -f development/environment_melloddy_combined.yml
+    - conda env create -f environment_melloddy_combined.yml
     - source activate melloddy_combined
     - python performance_evaluation.py -h
