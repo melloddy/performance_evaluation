@@ -1,3 +1,4 @@
 .DS_Store
 *.csv
 *.json
+.ipynb_checkpoints/additional_yr1_analysis-checkpoint.ipynb
