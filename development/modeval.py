@@ -85,8 +85,8 @@ def perf_from_json(
             data = json.load(fi)
 
         if aggregate: 
-            assert "results_agg" in data, "Error: cannot find 'results_agg' in data"
-            assert evaluation_set in data["results_agg"], f"Error: cannot find '{evaluation_set}' in data results_agg"
+            assert "results_agg" in data, f"Error: cannot find 'results_agg' in performance summary {f}"
+            assert evaluation_set in data["results_agg"], f"Error: cannot find '{evaluation_set}' in data results_agg of {f}"
             assert tasks_for_eval is None, 'tasks_for_eval has no effect in combination with aggregate=True'
 
             res_df = pd.read_json(data["results_agg"][evaluation_set], typ="series").to_frame().transpose()
@@ -181,15 +181,11 @@ def verify_cv_runs(metrics_df, fold_va=[0,1,2,3,4]):
             
         # validation folds found not in fold_va
         elif row['fold_va'] != folds:warning=True
-            
-   
+
     if warning:
         print(f"# WARNING: Validation folds found not in specified fold_va: {fold_va}")
         print(f"# WARNING: Found: {aggr['fold_va'].unique()}")
         
-        
-    
-    
     return valid
 
 
@@ -272,9 +268,9 @@ def aggregate_fold_perf(metrics_df, min_samples=5, fold_va=[0,1,2,3,4], stats='b
     hp.append('model_name')
     assert len(hp) > 0, "metrics dataframe must contain hyperparameter columns starting with hp_, fold_va and model_name"
     
-    
+
     # keep only tasks verifying the min_sample rule: at least N postives and N negatives in each of the 5 folds
-    metrics2consider_df = quorum_filter(metrics_df, min_samples=min_samples, fold_va=fold_va)
+    metrics2consider_df = quorum_filter(metrics_df, min_samples=min_samples, fold_va=fold_va, verbose=verbose)
     cols2drop = [col for col in metrics_df.columns if col not in score_type and col not in hp]
     
     if verbose: print("# Aggregatate (performance mean) hyperparameter combinations")
@@ -478,8 +474,8 @@ def make_hp_string_col(metrics_df):
 
     col2drop=[]
     for col in hp_cols:
-        if metrics_df[col].unique().shape[0] == 1:
-            col2drop.append(col)
+        if metrics_df[col].unique().shape[0] == 1:col2drop.append(col)
+        if col == 'hp_string': col2drop.append(col)
             
     remain_hp = list(set(hp_cols).difference(set(col2drop)))
     remain_hp.sort()
