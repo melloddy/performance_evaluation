@@ -147,8 +147,13 @@ def write_aggregated_report(local_performances, fname, name, task_map):
 def load_yhats(input_f, folding, fold_va, y_true):
 	# load the data
 	if input_f.suffix == '.npy':
-		vprint(f'Loading (npy) predictions for: {input_f}') 
-		yhats = np.load(input_f, allow_pickle=True).item().tocsr().astype('float32')
+		vprint(f'Loading (npy) predictions for: {input_f}')
+		yhats = np.load(input_f, allow_pickle=True)
+		print(yhats)
+		yhats = yhats.tocsr()
+		print(yhats)
+		yhats=yhats.astype('float32')
+		print(yhats)
 		ftype = 'npy'
 	else:
 		vprint(f'Loading (pred) output for: {input_f}') 
