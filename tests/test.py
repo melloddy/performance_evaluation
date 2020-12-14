@@ -209,8 +209,8 @@ def per_run_performance(y_pred, pred_or_npy, tasks_table, y_true, tw_df, task_ma
 		if args.use_venn_abers:
 			pts = np.vstack((y_pred_col, y_true_col)).T # points for Venn-ABERS
 			pts[:,1]=(pts[:,1]==1).astype(np.uint8)
-		task_id[col] = tasks_table["classification_task_id"][tasks_table["cont_classification_task_id"]==col].iloc[0]
-		assay_type[col] = tasks_table["assay_type"][tasks_table["cont_classification_task_id"]==col].iloc[0]
+		task_id[col] = tasks_table["classification_task_id"][tasks_table["classification_task_id"]==col].iloc[0]
+		assay_type[col] = tasks_table["assay_type"][tasks_table["classification_task_id"]==col].iloc[0]
 		task_size[col] = len(y_true_col)
 		y_classes	= np.where(y_pred_col > 0.5, 1, 0).astype(np.uint8)
 		precision, recall, thresholds = sklearn.metrics.precision_recall_curve(y_true = y_true_col, probas_pred = y_pred_col)
