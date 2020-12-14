@@ -148,12 +148,9 @@ def load_yhats(input_f, folding, fold_va, y_true):
 	# load the data
 	if input_f.suffix == '.npy':
 		vprint(f'Loading (npy) predictions for: {input_f}')
-		yhats = np.load(input_f, allow_pickle=True)
-		print(yhats)
-		yhats = yhats.tocsr()
-		print(yhats)
-		yhats=yhats.astype('float32')
-		print(yhats)
+		try:
+			yhats = np.load(input_f, allow_pickle=True).astype('float32')
+		except ValueError: yhats = np.load(input_f, allow_pickle=True).item().tocsr().astype('float32')
 		ftype = 'npy'
 	else:
 		vprint(f'Loading (pred) output for: {input_f}') 
