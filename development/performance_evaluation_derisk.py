@@ -15,38 +15,38 @@ import sparsechem as sc
 		
 def init_arg_parser():
 	parser = argparse.ArgumentParser(description="MELLODDY Year 2 Performance Evaluation De-risk")
-	parser.add_argument("--y_cls", help="Classification activity file (npy) (i.e. from files_4_ml/)", type=str, default=None)
-	parser.add_argument("--y_clsaux", help="Aux classification activity file (npy) (i.e. from files_4_ml/)", type=str, default=None)
-	parser.add_argument("--y_regr", help="Activity file (npy) (i.e. from files_4_ml/)", type=str, default=None)
+	parser.add_argument("--y_cls", help="Classification activity file (npz) (e.g. cls_T10_y.npz)", type=str, default=None)
+	parser.add_argument("--y_clsaux", help="Aux classification activity file (npz) (e.g. cls_T10_y.npz)", type=str, default=None)
+	parser.add_argument("--y_regr", help="Activity file (npz) (e.g. reg_T10_y.npz)", type=str, default=None)
 
-	parser.add_argument("--y_cls_onpremise", help="Yhat cls prediction output from onpremise run (<single pharma dir>/<cls_prefix>-class.npy)", type=str, default=None)
-	parser.add_argument("--y_clsaux_onpremise", help="Yhat clsaux prediction output from onpremise run (<single pharma dir>/<clsaux_prefix>-class.npy)", type=str, default=None)
-	parser.add_argument("--y_regr_onpremise", help="Yhat regr prediction output from onpremise run (<single pharma dir>/<regr_prefix>-regr.npy)", type=str, default=None)
+	parser.add_argument("--y_cls_onpremise", help="Yhat cls prediction output from an onpremise run (e.g. <single pharma dir>/<cls_prefix>-class.npy)", type=str, default=None)
+	parser.add_argument("--y_clsaux_onpremise", help="Yhat clsaux prediction from an onpremise run (e.g. <single pharma dir>/<clsaux_prefix>-class.npy)", type=str, default=None)
+	parser.add_argument("--y_regr_onpremise", help="Yhat regr prediction from an onpremise run (e.g. <single pharma dir>/<regr_prefix>-regr.npy)", type=str, default=None)
 
-	parser.add_argument("--y_cls_substra", help="Pred classification prediction output from substra platform (./Single-pharma-run/substra/medias/subtuple/<pharma_hash>/pred/pred)", type=str, default=None)
-	parser.add_argument("--y_clsaux_substra", help="Pred classification w/ aux prediction output from substra platform", type=str, default=None)
-	parser.add_argument("--y_regr_substra", help="Pred regression prediction output from substra platform", type=str, default=None)
+	parser.add_argument("--y_cls_substra", help="Classification prediction output for comparison (e.g. pred from the substra platform)", type=str, default=None)
+	parser.add_argument("--y_clsaux_substra", help="Classification w/ aux prediction output for comparison (e.g. pred from the substra platform)", type=str, default=None)
+	parser.add_argument("--y_regr_substra", help="Regression prediction output for comparison (e.g. pred from the substra platform)", type=str, default=None)
 
-	parser.add_argument("--folding_cls", help="LSH Folding file (npy) (i.e. from files_4_ml/)", type=str, default=None)
-	parser.add_argument("--folding_clsaux", help="LSH Folding file (npy) (i.e. from files_4_ml/)", type=str, default=None)
-	parser.add_argument("--folding_regr", help="LSH Folding file (npy) (i.e. from files_4_ml/)", type=str, default=None)
+	parser.add_argument("--folding_cls", help="Folding file (npy) (e.g. cls_T11_fold_vector.npy)", type=str, default=None)
+	parser.add_argument("--folding_clsaux", help="Folding file (npy) (e.g. cls_T11_fold_vector.npy)", type=str, default=None)
+	parser.add_argument("--folding_regr", help="Folding file (npy) (e.g. reg_T11_fold_vector.npy)", type=str, default=None)
 
 	parser.add_argument("--t8c_cls", help="T8c file for classification in the results_tmp/classification folder", type=str, default=None)
 	parser.add_argument("--t8c_clsaux", help="T8c file for classification w/ auxiliary in the results_tmp/classification folder", type=str, default=None)
 	parser.add_argument("--t8r_regr", help="T8r file for regression in the results_tmp/regression folder", type=str, default=None)
 
-	parser.add_argument("--weights_cls", help="CSV file with columns task_id and weight (i.e. T8c.csv)", type=str, default=None)
-	parser.add_argument("--weights_clsaux", help="CSV file with columns task_id and weight (i.e. T8c.csv)", type=str, default=None)
-	parser.add_argument("--weights_regr", help="CSV file with columns task_id and weight (i.e. T8c.csv)", type=str, default=None)
+	parser.add_argument("--weights_cls", help="CSV file with columns task_id and weight (e.g. cls_weights.csv)", type=str, default=None)
+	parser.add_argument("--weights_clsaux", help="CSV file with columns task_id and weight (e.g cls_weights.csv)", type=str, default=None)
+	parser.add_argument("--weights_regr", help="CSV file with columns task_id and weight (e.g. reg_weights.csv)", type=str, default=None)
 
-	parser.add_argument("--perf_json_cls", help="CSV file with columns task_id and weight (i.e. T8c.csv)", type=str, default=None)
-	parser.add_argument("--perf_json_clsaux", help="CSV file with columns task_id and weight (i.e. T8c.csv)", type=str, default=None)
-	parser.add_argument("--perf_json_regr", help="CSV file with columns task_id and weight (i.e. T8c.csv)", type=str, default=None)
+	parser.add_argument("--perf_json_cls", help="Reported json performances for classification model (i.e. sc_run<cls-params>.json)", type=str, default=None)
+	parser.add_argument("--perf_json_clsaux", help="Reported json performances for aux classification model (i.e. sc_run<clsaux-params>.json)", type=str, default=None)
+	parser.add_argument("--perf_json_regr", help="Reported json performances for regression model (i.e. sc_run<reg-params>.json)", type=str, default=None)
 
 	parser.add_argument("--filename", help="Filename for results from this output", type=str, default=None)
 	parser.add_argument("--verbose", help="Verbosity level: 1 = Full; 0 = no output", type=int, default=1, choices=[0, 1])
 	parser.add_argument("--validation_fold", help="Validation fold to used to calculate performance", type=int, default=[0], nargs='+', choices=[0, 1, 2, 3, 4])
-	parser.add_argument("--aggr_binning_scheme_perf", help="(Comma separated) Shared aggregated binning scheme for f1/f2 performances", type=str, nargs='+', default=[0.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0],required=False)
+	parser.add_argument("--aggr_binning_scheme_perf", help="(Comma separated) Shared aggregated binning scheme for performances", type=str, nargs='+', default=[0.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0],required=False)
 	parser.add_argument("--aggr_binning_scheme_perf_delta", help="(Comma separated) Shared aggregated binning scheme for delta performances", type=str, nargs='+', default=[-0.2,-0.15,-0.1,-0.05,0.0,0.05,0.1,0.15,0.2],required=False)
 	args = parser.parse_args()
 	assert len(args.aggr_binning_scheme_perf) == 11, f"len of aggr_binning_scheme_perf should be 11, got {len(args.aggr_binning_scheme_perf)}"
@@ -286,8 +286,8 @@ def calculate_delta(f1_results, f2_results, run_name, run_type, sc_columns):
 	derisk_checks = []
 	header_type = getheader(run_type)
 	for idx, delta_comparison in enumerate(['locals',f'deltas_global_performances.csv']):
-		assert f1_results.shape[0] == f2_results.shape[0], "the number of tasks are not equal between the --f1 and --f2 outputs for {delta_comparison}"
-		assert f1_results.shape[1] == f2_results.shape[1], "the number of reported metrics are not equal between the --f1 and --f2 outputs for {delta_comparison}"
+		assert f1_results.shape[0] == f2_results.shape[0], "the number of tasks are not equal between the outputs for {delta_comparison}"
+		assert f1_results.shape[1] == f2_results.shape[1], "the number of reported metrics are not equal between the outputs for {delta_comparison}"
 		# add assay aggregation if local
 		if(delta_comparison == 'locals'):
 			task_id = f2_results[f"{header_type}_task_id"]
@@ -545,4 +545,4 @@ if __name__ == '__main__':
 	vprint('=== WP3 Y2 Performance evaluation de-risk script for npy and pred files ===')
 	main(args)
 	end = time.time()
-	vprint(f'Performance evaluation took {end - start:.08} seconds.')
+	vprint(f'Performance evaluation de-risk took {end - start:.08} seconds.')
