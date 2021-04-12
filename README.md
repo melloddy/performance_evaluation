@@ -10,10 +10,9 @@ On your local IT infrastructure you'd need
 1. Python 3.6 or higher
 2. Local Conda installation (e.g. miniconda)
 3. Data prep and Sparsechem (suggested >= 0.8.2) installation
-4. melloddy_pipeline environment from WP1 code: https://git.infra.melloddy.eu/wp1/data_prep
+4. melloddy_pipeline environment from WP1 code: https://git.infra.melloddy.eu/wp1/data_prep & Sparsechem environments
 
 
-Alternatively you can install the combined enrionment in environment_melloddy_combined.yml using `conda env create -f development/environment_melloddy_combined.yml`
 
 # Example 1: De-risk analysis (on-premise vs. single-partner substra output evaluation)
 
