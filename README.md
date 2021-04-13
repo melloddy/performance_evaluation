@@ -9,8 +9,8 @@ On your local IT infrastructure you'd need
 
 1. Python 3.6 or higher
 2. Local Conda installation (e.g. miniconda)
-3. Data prep and Sparsechem (suggested >= 0.8.2) installation
-4. melloddy_pipeline environment from WP1 code: https://git.infra.melloddy.eu/wp1/data_prep & Sparsechem environments
+3. Data prep (>= 2.1.2) and Sparsechem (suggested >= 0.8.2) installation
+4. melloddy_pipeline environment from WP1 code: https://git.infra.melloddy.eu/wp1/data_prep & Sparsechem installed into that environment
 
 
 
