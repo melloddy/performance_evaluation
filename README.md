@@ -75,7 +75,7 @@ $ python performance_evaluation.py -h
 
 ##### 1a. Download the MELLODDY_tuner (2.1.2) processed public dataset from here: https://jjcloud.box.com/s/g5c5efl864h5aah7chp3ot0d0urwg646
 
-##### 1b. Extract the 'cls', 'reg' and 'tmp_files_wo_aux.tar.gz' folders:
+##### 1b. Extract the 'cls.tar.gz', 'reg.tar.gz' and 'tmp_files_wo_aux.tar.gz' folders:
 ```
 gunzip -c cls.tar.gz | tar xvf - && gunzip -c reg.tar.gz | tar xvf - && gunzip -c cls.tar.gz | tar xvf - && gunzip -c tmp_files_wo_aux.tar.gz | tar xvf -
 ```
