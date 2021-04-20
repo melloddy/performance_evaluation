@@ -16,7 +16,7 @@ On your local IT infrastructure you'd need
 
 ## De-risk analysis (performance_evaluation_derisk.py): on-premise vs. substra output evaluation
 ```
-$ python performance_evaluation.py -h
+$ python performance_evaluation_derisk.py -h
   
   optional arguments:
     -h, --help            show this help message and exit
@@ -200,7 +200,7 @@ $ tree -l reg/ cls/
 #### Step 4. Run the derisk script
 
 ```
-python performance_evaluation.py \ 
+python performance_evaluation_derisk.py \ 
   --y_cls cls/cls_T10_y.npz \ 
   --y_cls_onpremise cls/pred-class.npy \ 
   --y_cls_substra cls/pred-class-copy.npy \ 
