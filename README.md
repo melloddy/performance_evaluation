@@ -62,9 +62,9 @@ $ python performance_evaluation_derisk.py -h
     --validation_fold {0,1,2,3,4} [{0,1,2,3,4} ...]
                           Validation fold to used to calculate performance
     --aggr_binning_scheme_perf AGGR_BINNING_SCHEME_PERF [AGGR_BINNING_SCHEME_PERF ...]
-                          (Comma separated) Shared aggregated binning scheme for performances
+                          Shared aggregated binning scheme for performances
     --aggr_binning_scheme_perf_delta AGGR_BINNING_SCHEME_PERF_DELTA [AGGR_BINNING_SCHEME_PERF_DELTA ...]
-                          (Comma separated) Shared aggregated binning scheme for delta performances
+                          Shared aggregated binning scheme for delta performances
   
 ```
 
