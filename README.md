@@ -88,18 +88,19 @@ mkdir derisk_cls derisk_clsaux
 
 ##### 2b. Predict the validation fold using the MP model output from substra (load your conda env), e.g.:
 
+for cls:
 ```
 python <sparsechem_dir>/examples/chembl/predict.py \
-  --x cls/cls_T11_x.npz \
-  --y_class cls/cls_T10_y.npz \
-  --folding cls/cls_T11_fold_vector.npy \
+  --x <cls_dir>/cls_T11_x.npz \
+  --y_class <cls_dir>/cls_T10_y.npz \
+  --folding <cls_dir>/cls_T11_fold_vector.npy \
   --predict_fold 0 \
   --conf <2epoch_mp_cls_dir>/export/hyperparameters.json \
   --model <2epoch_mp_cls_dir>/export/model.pth \
   --dev cuda:0 \
   --outprefix "derisk_cls/pred"
 ```
-and
+and clsaux:
 ```
 python <sparsechem_dir>/examples/chembl/predict.py \
   --x <clsaux_dir>/clsaux_T11_x.npz \
@@ -133,6 +134,117 @@ python performance_evaluation_derisk.py \
   --run_name derisk_2epoch_cls_clsaux
 ```
 
+Output should look something like this:
+```
+=======================================================================================================================================
+=======================================================================================================================================
+De-risking cls performance
+=======================================================================================================================================
+=======================================================================================================================================
+
+[INFO]: Loading cls: cls/cls_T10_y.npz
+[INFO]: Loading (npy) predictions for: derisk_cls/pred-class.npy
+[INFO]: Loading (pred) output for: <2epoch_mp_cls_dir>/pred/pred
+
+=======================================================================================================================================
+[DERISK-CHECK #1]: PASSED! yhats close between 'pred-class' and 'pred' (tol:1e-05)
+Spearmanr rank correlation coefficient of the 'pred-class' and 'pred' yhats = SpearmanrResult(correlation=0.9999999999999996, pvalue=0.0)
+=======================================================================================================================================
+
+[INFO]: === Calculating derisk_cls/pred-class.npy performance ===
+[INFO]: Wrote per-task report to: <derisk_run>/cls/pred-class/pred-class_per-task_performances.csv
+[INFO]: Wrote per-task binned performance report to: <derisk_run>/cls/pred-class/pred-class_binned_per-task_performances.csv
+[INFO]: Wrote per-assay report to: <derisk_run>/cls/pred-class/pred-class_per-assay_performances.csv
+[INFO]: Wrote per-assay binned report to: <derisk_run>/cls/pred-class/pred-class_binned_per-task_performances.csv
+[INFO]: Wrote global report to: <derisk_run>/cls/pred-class/pred-class_global_performances.csv
+
+[INFO]: === Calculating <2epoch_mp_cls_dir>/pred/pred performance ===
+[INFO]: Wrote per-task report to: <derisk_run>/cls/pred/pred_per-task_performances.csv
+[INFO]: Wrote per-task binned performance report to: <derisk_run>/cls/pred/pred_binned_per-task_performances.csv
+[INFO]: Wrote per-assay report to: <derisk_run>/cls/pred/pred_per-assay_performances.csv
+[INFO]: Wrote per-assay binned report to: <derisk_run>/cls/pred/pred_binned_per-task_performances.csv
+
+=======================================================================================================================================
+[DERISK-CHECK #2]: SKIPPED! substra does not report individual task performances
+=======================================================================================================================================
+
+[INFO]: Wrote global report to: <derisk_run>/cls/pred/pred_global_performances.csv
+
+=======================================================================================================================================
+[DERISK-CHECK #3]: FAILED! global reported performance metrics and global calculated performance metrics NOT close (tol:1e-05)
+Calculated:<removed>
+Reported:<removed>
+=======================================================================================================================================
+
+=======================================================================================================================================
+[DERISK-CHECK #4]: PASSED! delta between local & substra assay_type aggregated performances close to 0 across all metrics (tol:1e-05)
+=======================================================================================================================================
+
+[INFO]: Wrote per-task delta report to: <derisk_run>/cls/deltas/deltas_per-task_performances.csv
+[INFO]: Wrote binned performance per-task delta report to: <derisk_run>/cls/deltas/deltas_binned_per-task_performances.csv
+[INFO]: Wrote per-assay delta report to: <derisk_run>/cls/deltas/deltas_per-assay_performances.csv
+[INFO]: Wrote binned performance per-assay delta report to: <derisk_run>/cls/deltas/deltas_binned_per-task_performances.csv
+
+=======================================================================================================================================
+[DERISK-CHECK #5]: PASSED! delta performance between global local & global substra performances close to 0 across all metrics (tol:1e-05)
+=======================================================================================================================================
+
+=======================================================================================================================================
+=======================================================================================================================================
+De-risking clsaux performance
+=======================================================================================================================================
+=======================================================================================================================================
+
+[INFO]: Loading clsaux: clsaux/clsaux_T10_y.npz
+[INFO]: Loading (npy) predictions for: derisk_clsaux/pred-class.npy
+[INFO]: Loading (pred) output for: <2epoch_mp_clsaux_dir>/pred/pred
+
+=======================================================================================================================================
+[DERISK-CHECK #1]: PASSED! yhats close between 'pred-class' and 'pred' (tol:1e-05)
+Spearmanr rank correlation coefficient of the 'pred-class' and 'pred' yhats = SpearmanrResult(correlation=1.0, pvalue=0.0)
+=======================================================================================================================================
+
+[INFO]: === Calculating derisk_clsaux/pred-class.npy performance ===
+[INFO]: Wrote per-task report to: <derisk_run>/clsaux/pred-class/pred-class_per-task_performances.csv
+[INFO]: Wrote per-task binned performance report to: <derisk_run>/clsaux/pred-class/pred-class_binned_per-task_performances.csv
+[INFO]: Wrote per-assay report to: <derisk_run>/clsaux/pred-class/pred-class_per-assay_performances.csv
+[INFO]: Wrote per-assay binned report to: <derisk_run>/clsaux/pred-class/pred-class_binned_per-task_performances.csv
+[INFO]: Wrote global report to: <derisk_run>/clsaux/pred-class/pred-class_global_performances.csv
+
+[INFO]: === Calculating <2epoch_mp_clsaux_dir>/pred/pred performance ===
+[INFO]: Wrote per-task report to: <derisk_run>/clsaux/pred/pred_per-task_performances.csv
+[INFO]: Wrote per-task binned performance report to: <derisk_run>/clsaux/pred/pred_binned_per-task_performances.csv
+[INFO]: Wrote per-assay report to: <derisk_run>/clsaux/pred/pred_per-assay_performances.csv
+[INFO]: Wrote per-assay binned report to: <derisk_run>/clsaux/pred/pred_binned_per-task_performances.csv
+
+=======================================================================================================================================
+[DERISK-CHECK #2]: SKIPPED! substra does not report individual task performances
+=======================================================================================================================================
+
+[INFO]: Wrote global report to: <derisk_run>/clsaux/pred/pred_global_performances.csv
+
+=======================================================================================================================================
+[DERISK-CHECK #3]: FAILED! global reported performance metrics and global calculated performance metrics NOT close (tol:1e-05)
+Calculated:<removed>
+Reported:<removed>
+=======================================================================================================================================
+
+=======================================================================================================================================
+[DERISK-CHECK #4]: PASSED! delta between local & substra assay_type aggregated performances close to 0 across all metrics (tol:1e-05)
+=======================================================================================================================================
+
+[INFO]: Wrote per-task delta report to: <derisk_run>/clsaux/deltas/deltas_per-task_performances.csv
+[INFO]: Wrote binned performance per-task delta report to: <derisk_run>/clsaux/deltas/deltas_binned_per-task_performances.csv
+[INFO]: Wrote per-assay delta report to: <derisk_run>/clsaux/deltas/deltas_per-assay_performances.csv
+[INFO]: Wrote binned performance per-assay delta report to: <derisk_run>/clsaux/deltas/deltas_binned_per-task_performances.csv
+
+=======================================================================================================================================
+[DERISK-CHECK #5]: PASSED! delta performance between global local & global substra performances close to 0 across all metrics (tol:1e-05)
+=======================================================================================================================================
+
+[INFO]: Run name '<derisk_run>' is finished.
+[INFO]: Performance evaluation de-risk took 1101.3661 seconds.
+```
 
 
 
