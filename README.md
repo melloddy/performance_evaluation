@@ -69,6 +69,73 @@ $ python performance_evaluation_derisk.py -h
 ```
 
 
+### De-risk 2 epoch MP models
+
+#### Step 1. Retrieve the cls & clsaux output from substra and decompress
+```
+gunzip -c <cls-hash>.tar.gz | tar xvf - && gunzip -c <clsaux-hash>.tar.gz | tar xvf -
+```
+
+#### Step 2. Create SparseChem predictions on-premise with the outputted model
+
+##### 2a. Fix both cls & clsaux hyperparameter.json (by removing model_type) & setup dirs:
+
+```/
+sed -i 's/, "model_type": "federated"//g' <2epoch_mp_cls_dir>/export/hyperparameters.json 
+sed -i 's/, "model_type": "federated"//g' <2epoch_mp_clsaux_dir>/export/hyperparameters.json 
+mkdir derisk_cls derisk_clsaux
+```
+
+##### 2b. Predict the validation fold using the MP model output from substra (load your conda env), e.g.:
+
+```
+python <sparsechem_dir>/examples/chembl/predict.py \
+  --x cls/cls_T11_x.npz \
+  --y_class cls/cls_T10_y.npz \
+  --folding cls/cls_T11_fold_vector.npy \
+  --predict_fold 0 \
+  --conf <2epoch_mp_cls_dir>/export/hyperparameters.json \
+  --model <2epoch_mp_cls_dir>/export/model.pth \
+  --dev cuda:0 \
+  --outprefix "derisk_cls/pred"
+```
+and
+```
+python <sparsechem_dir>/examples/chembl/predict.py \
+  --x <clsaux_dir>/clsaux_T11_x.npz \
+  --y_class <clsaux_dir>/clsaux_T10_y.npz \
+  --folding <clsaux_dir>/clsaux_T11_fold_vector.npy \
+  --predict_fold 0 \
+  --conf <2epoch_mp_clsaux_dir>/export/hyperparameters.json \
+  --model <2epoch_mp_clsaux_dir>/export/model.pth \
+  --dev cuda:0 \
+  --outprefix "derisk_clsaux/pred"
+  ```
+  
+#### Step 3. Run the derisk script
+```
+python performance_evaluation_derisk.py \ 
+  --y_cls cls/cls_T10_y.npz \ 
+  --y_cls_onpremise derisk_cls/pred-class.npy \ 
+  --y_cls_substra <2epoch_mp_cls_dir>/pred/pred \ 
+  --folding_cls cls/cls_T11_fold_vector.npy \
+  --t8c_cls cls/T8c.csv \
+  --weights_cls cls/cls_weights.csv \ 
+  --perf_json_cls <2epoch_mp_cls_dir>/perf/perf.json \ 
+  --y_clsaux clsaux/clsaux_T10_y.npz \ 
+  --y_clsaux_onpremise derisk_clsaux/pred-class.npy \ 
+  --y_clsaux_substra <2epoch_mp_clsaux_dir>/pred/pred \ 
+  --folding_clsaux clsaux/clsaux_T11_fold_vector.npy \ 
+  --t8c_clsaux clsaux/T8c.csv \ 
+  --weights_clsaux clsaux/clsaux_weights.csv \ 
+  --perf_json_clsaux <2epoch_mp_clsaux_dir>/perf/perf.json \ 
+  --validation_fold 0 \ 
+  --run_name derisk_2epoch_cls_clsaux
+```
+
+
+
+
 ### Minimum working example
 
 #### Step 1. Download data

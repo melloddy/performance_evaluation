@@ -376,7 +376,7 @@ def run_performance_calculation(run_type, y_pred, pred_or_npy, y_true, tw_df, ta
 	if perf_report:
 		if pred_or_npy == 'npy':
 			return calculated_performance, sc_columns, [check2, global_allclose_check(globally_calculated, perf_agg)]
-		else: calculated_performance, sc_columns, [check2, global_allclose_check(globally_calculated, substra_reported,header=header_type)]
+		else: return calculated_performance, sc_columns, [check2, global_allclose_check(globally_calculated, substra_reported,header=header_type)]
 	else: return calculated_performance, sc_columns
 
 
