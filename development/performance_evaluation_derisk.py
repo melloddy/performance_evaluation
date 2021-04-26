@@ -95,16 +95,11 @@ def cut(x, bins, lower_infinite=True, upper_infinite=True, **kwargs):
 	for i in range(0,num_labels):
 		new_label = None
 		if i == 0:
-			if lower_infinite:
-				new_label = "{0} {1}".format(symbol_lower, bins_final[i+1])
-			elif include_lowest:
-				new_label = make_label(i, lb="[")
-			else:
-				new_label = make_label(i)
-		elif upper_infinite and i == (num_labels - 1):
-			new_label = "{0} {1}".format(symbol_upper, bins_final[i])
-		else:
-			new_label = make_label(i)
+			if lower_infinite: new_label = "{0} {1}".format(symbol_lower, bins_final[i+1])
+			elif include_lowest: new_label = make_label(i, lb="[")
+			else: new_label = make_label(i)
+		elif upper_infinite and i == (num_labels - 1): new_label = "{0} {1}".format(symbol_upper, bins_final[i])
+		else: new_label = make_label(i)
 		labels.append(new_label)
 	return pd.cut(x, bins_final, labels=labels, **kwargs)
 
@@ -137,7 +132,7 @@ def validate_cls_clsuax_regr_inputs(args):
 	return
 
 
-def validate_ytrue_ypred(y_true, y_pred):
+def validate_ytrue_ypred(y_true, y_pred, pred_or_npy):
 	assert y_true.shape == y_pred.shape, f"y_true shape do not match {pred_or_npy} y_pred ({y_true.shape} & {y_pred.shape})"
 	assert y_true.nnz == y_pred.nnz, f"y_true number of nonzero values do not match {pred_or_npy} y_pred"
 	assert (y_true.indptr == y_pred.indptr).all(), f"y_true indptr do not match {pred_or_npy} y_pred"
@@ -160,19 +155,31 @@ def yhat_allclose_check(yhat1,yhat2,f1,f2, tol=1e-05):
 		return True
 
 
-def global_allclose_check(globally_calculated,perf_agg, tol=1e-05):
+def global_allclose_check(globally_calculated,perf_agg,header=None, tol=1e-05):
 	"""
 	Check globally aggregated performances are close between those calculated & reported
 	"""
-	perf_agg=pd.concat([pd.DataFrame([i[1]], columns=[i[0]]) for i in perf_agg.items()],axis=1)
-	allclose = np.allclose(globally_calculated, perf_agg[globally_calculated.columns.tolist()], rtol=tol, atol=tol)
-	if not allclose: 
-		vprint(f"FAILED! global reported performance metrics and global calculated performance metrics NOT close (tol:{tol}) \
-							\nCalculated:{globally_calculated}\nReported:{perf_agg[globally_calculated.columns.tolist()]}",derisk_check=3)
-		return False
-	else:
-		vprint(f"PASSED! global reported performance metrics and global calculated performance metrics close (tol:{tol})",derisk_check=3)
-		return True
+	if not header:
+		perf_agg=pd.concat([pd.DataFrame([i[1]], columns=[i[0]]) for i in perf_agg.items()],axis=1)
+		allclose = np.allclose(globally_calculated, perf_agg[globally_calculated.columns.tolist()], rtol=tol, atol=tol)	
+		if not allclose: 
+			vprint(f"FAILED! global reported performance metrics and global calculated performance metrics NOT close (tol:{tol}) \
+					\nCalculated:{globally_calculated}\nReported:{perf_agg[globally_calculated.columns.tolist()]}",derisk_check=3)
+			return False
+		else:
+			vprint(f"PASSED! global reported performance metrics and global calculated performance metrics close (tol:{tol})",derisk_check=3)
+			return True
+	else: 
+		if header == 'classification': primary = 'auc_pr'
+		else: primary = 'rmse'
+		allclose = np.allclose(globally_calculated[primary], perf_agg, rtol=tol, atol=tol)
+		if not allclose: 
+			vprint(f"FAILED! global reported performance metrics and global calculated performance metrics NOT close (tol:{tol}) \
+					\nCalculated:{globally_calculated[primary].tolist()[0]}\nReported:{perf_agg}",derisk_check=3)
+			return False
+		else:
+			vprint(f"PASSED! global reported performance metrics and global calculated performance metrics close (tol:{tol})",derisk_check=3)
+			return True
 
 
 def delta_assay_allclose_check(deltas, tol=1e-05):
@@ -208,11 +215,11 @@ def load_yhats(input_f, folding, fold_va, y_true):
 	# load the data
 	if input_f.suffix == '.npy':
 		vprint(f'Loading (npy) predictions for: {input_f}') 
-		yhats = np.load(input_f, allow_pickle=True).item().tocsr().astype('float32')
+		yhats = np.load(input_f, allow_pickle=True).item().tocsr().astype('float64')
 		ftype = 'npy'
 	else:
 		vprint(f'Loading (pred) output for: {input_f}') 
-		yhats = torch.load(input_f).astype('float32')
+		yhats = torch.load(input_f).astype('float64')
 		ftype = 'pred'
 	# mask validation fold if possible
 	try: yhats = yhats[[i in fold_va for i in folding]]
@@ -266,9 +273,9 @@ def check_weights(tw_df, y_true, header_type):
 	return
 
 
-def substra_global_perf_from_json(performance_report,agg,required_headers):
+def sc_global_perf_from_json(performance_report,agg,required_headers):
 	"""
-	Validate reported performance metrics
+	Validate reported performance metrics from sc report (only for local runs)
 	"""
 	agg = getheader(agg)
 	with open(performance_report, "r") as fid:
@@ -282,6 +289,20 @@ def substra_global_perf_from_json(performance_report,agg,required_headers):
 	return returned_performances
 
 
+## Check performance reports for federated (substra) output
+def substra_global_perf_from_json(performance_report):
+	"""
+	Validate reported performance metrics from subtra output
+	"""
+	with open(performance_report, "r") as fi:
+		json_data = json.load(fi)
+	assert 'all' in json_data.keys(), "expected 'all' in the performance report"
+	assert len(json_data.keys()) == 1, "only expect one performance report"
+	reported_performance = json_data["all"]
+	assert 0.0 <= reported_performance <= 1.0, "reported performance does not range between 0.0-1.0"
+	return reported_performance
+
+
 def run_performance_calculation(run_type, y_pred, pred_or_npy, y_true, tw_df, task_map, run_name, flabel, perf_report=None):
 	"""
 	Calculate performance for one run, bin results and then individual performance reports including aggregation by assay/globally
@@ -293,14 +314,16 @@ def run_performance_calculation(run_type, y_pred, pred_or_npy, y_true, tw_df, ta
 		sc_columns = sc.utils.all_metrics([0],[0]).columns.tolist()  #get the names of reported metrics from the sc utils
 	else:
 		sc_columns = sc.utils.all_metrics_regr([0],[0]).columns.tolist()  #get the names of reported metrics from the sc utils
-	if pred_or_npy == 'npy': y_pred = sparse.csc_matrix(y_pred) # if output not 'pred' from the platform then csc_matrix
-	validate_ytrue_ypred(y_true, y_pred) # checks to make sure y_true and y_pred match
+	y_pred = sparse.csc_matrix(y_pred)
+	validate_ytrue_ypred(y_true, y_pred, pred_or_npy) # checks to make sure y_true and y_pred match
 	if perf_report:
-		perf_columns = [f'{header_type}_task_id',f'cont_{header_type}_task_id']+sc_columns
-		perf, perf_agg = substra_global_perf_from_json(perf_report, run_type, sc_columns)
-		sc_reported = pd.concat([pd.DataFrame(i[1].items(), \
-			columns=[f'cont_{header_type}_task_id',i[0]]).set_index(f'cont_{header_type}_task_id') for i in perf.items()],axis=1).reset_index()
-		delta_reported = pd.DataFrame(columns=perf_columns)
+		if pred_or_npy == 'npy':
+			perf_columns = [f'{header_type}_task_id',f'cont_{header_type}_task_id']+sc_columns
+			perf, perf_agg = sc_global_perf_from_json(perf_report, run_type, sc_columns)
+			sc_reported = pd.concat([pd.DataFrame(i[1].items(), \
+				columns=[f'cont_{header_type}_task_id',i[0]]).set_index(f'cont_{header_type}_task_id') for i in perf.items()],axis=1).reset_index()
+			delta_reported = pd.DataFrame(columns=perf_columns)
+		else: substra_reported = substra_global_perf_from_json(perf_report)
 	calculated_performance = pd.DataFrame()
 	for col_idx, col in enumerate(range(y_true.shape[1])):
 	
@@ -322,7 +345,7 @@ def run_performance_calculation(run_type, y_pred, pred_or_npy, y_true, tw_df, ta
 		if (y_true_col[0] == y_true_col).all(): continue
 		sc_metrics = pd.concat([details,sc_calculation],axis=1)
 		#de-risk: track when individual task metrics differ between calculated and reported
-		if perf_report:
+		if perf_report and pred_or_npy == 'npy':
 			this_task = sc_reported[sc_reported[f"cont_{header_type}_task_id"]==str(col_idx)][sc_columns].values
 			this_task = pd.DataFrame([[task_id, col_idx] + np.isclose(this_task,sc_calculation, rtol=1e-05, atol=1e-05).tolist()[0]], columns = perf_columns)
 			delta_reported = pd.concat((delta_reported,this_task),axis=0)			
@@ -332,21 +355,28 @@ def run_performance_calculation(run_type, y_pred, pred_or_npy, y_true, tw_df, ta
 	##write per-task & per-assay_type performance:
 	write_aggregated_report(run_name, run_type, flabel, calculated_performance, sc_columns, header_type)
 	if perf_report:
-		if delta_reported[sc_columns].all().all():
-			vprint(f'PASSED! calculated and reported metrics are the same across individual tasks \
-			\n{delta_reported[sc_columns].all()[delta_reported[sc_columns].all()].index.tolist()} are identical',derisk_check=2)
-			check2 = True
+		if pred_or_npy == 'npy':
+			if delta_reported[sc_columns].all().all():
+				vprint(f'PASSED! calculated and reported metrics are the same across individual tasks \
+				\n{delta_reported[sc_columns].all()[delta_reported[sc_columns].all()].index.tolist()} are identical',derisk_check=2)
+				check2 = True
+			else:
+				vprint(f'FAILED! calculated metrics for one or more individual tasks differ to reported performances (tol:1e-05) \
+				\n{delta_reported[sc_columns].all()[~delta_reported[sc_columns].all()].index.tolist()} are the reported metrics with different performances \
+				\n{delta_reported[sc_columns].all()[delta_reported[sc_columns].all()].index.tolist()} are identical \
+				\nCheck the output of {run_name}/{run_type}/{flabel}/{flabel}_closeto_reported_performances.csv for details',derisk_check=2)
+				check2 = False
+			delta_reported.to_csv(f"{run_name}/{run_type}/{flabel}/{flabel}_closeto_reported_performances.csv",index=False)
+			vprint(f"Wrote reported vs. calculated performance delta to: {run_name}/{run_type}/{flabel}_delta-reported_performances.csv")
 		else:
-			vprint(f'FAILED! calculated metrics for one or more individual tasks differ to reported performances (tol:1e-05) \
-			\n{delta_reported[sc_columns].all()[~delta_reported[sc_columns].all()].index.tolist()} are the reported metrics with different performances \
-			\n{delta_reported[sc_columns].all()[delta_reported[sc_columns].all()].index.tolist()} are identical \
-			\nCheck the output of {run_name}/{run_type}/{flabel}/{flabel}_closeto_reported_performances.csv for details',derisk_check=2)
-			check2 = False
-		delta_reported.to_csv(f"{run_name}/{run_type}/{flabel}/{flabel}_closeto_reported_performances.csv",index=False)
-		vprint(f"Wrote reported vs. calculated performance delta to: {run_name}/{run_type}/{flabel}_delta-reported_performances.csv")
+			vprint('SKIPPED! substra does not report individual task performances', derisk_check=2)
+			check2 = float('nan')
 	##global aggregation & derisk if necessary:
 	globally_calculated = write_global_report(run_name, run_type, flabel, calculated_performance, sc_columns)
-	if perf_report: return calculated_performance, sc_columns, [check2, global_allclose_check(globally_calculated, perf_agg)]
+	if perf_report:
+		if pred_or_npy == 'npy':
+			return calculated_performance, sc_columns, [check2, global_allclose_check(globally_calculated, perf_agg)]
+		else: calculated_performance, sc_columns, [check2, global_allclose_check(globally_calculated, substra_reported,header=header_type)]
 	else: return calculated_performance, sc_columns
 
 
@@ -371,7 +401,7 @@ def calculate_delta(f1_results, f2_results, run_name, run_type, sc_columns, head
 			pertask.loc[:,f'{header_type}_task_id'] = pertask[f'{header_type}_task_id'].astype('int32')
 			#add per-task perf aggregated performance delta bins to output
 			for metric in pertask.loc[:, sc_columns[0]:sc_columns[-1]].columns:
-				pertask.loc[:,f'{metric}_percent'] = cut(pertask[metric].astype('float32'), \
+				pertask.loc[:,f'{metric}_percent'] = cut(pertask[metric].astype('float64'), \
 				args.aggr_binning_scheme_perf_delta,include_lowest=True,right=True)
 			#write per-task perf aggregated performance delta
 			pertask.to_csv(fn1, index= False)
@@ -384,7 +414,7 @@ def calculate_delta(f1_results, f2_results, run_name, run_type, sc_columns, head
 				agg_perf=(pertask.groupby(metric_bin)[f'{header_type}_task_id'].agg('count')/len(pertask)).reset_index().rename(columns={f'{header_type}_task_id': f'bin_{metric_bin}'})
 				agg_deltas.append(agg_perf.set_index(metric_bin))
 			fnagg = f"{run_name}/{run_type}/deltas/deltas_binned_per-task_performances.csv"
-			pd.concat(agg_deltas,axis=1).astype(np.float32).reset_index().rename(columns={'index': 'perf_bin'}).to_csv(fnagg,index=False)
+			pd.concat(agg_deltas,axis=1).astype(np.float64).reset_index().rename(columns={'index': 'perf_bin'}).to_csv(fnagg,index=False)
 			vprint(f"Wrote binned performance per-task delta report to: {fnagg}")
 
 			# aggregate on assay_type level
@@ -396,11 +426,11 @@ def calculate_delta(f1_results, f2_results, run_name, run_type, sc_columns, head
 			agg_deltas2=[]
 			for metric_bin in pertask.loc[:, f"{sc_columns[0]}_percent":f"{sc_columns[-1]}_percent"].columns:
 				agg_perf2=(pertask.groupby(['assay_type',metric_bin])[f'{header_type}_task_id'].agg('count')).reset_index().rename(columns={f'{header_type}_task_id': f'count_{metric_bin}'})
-				agg_perf2[f'bin_{metric_bin}']=agg_perf2.apply(lambda x : x[f'count_{metric_bin}'] / (pertask.assay_type==x['assay_type']).sum() ,axis=1).astype('float32')
+				agg_perf2[f'bin_{metric_bin}']=agg_perf2.apply(lambda x : x[f'count_{metric_bin}'] / (pertask.assay_type==x['assay_type']).sum() ,axis=1).astype('float64')
 				agg_perf2.drop(f'count_{metric_bin}',axis=1,inplace=True)
 				agg_deltas2.append(agg_perf2.set_index(['assay_type',metric_bin]))
 			fnagg2 = f"{run_name}/{run_type}/deltas/deltas_binned_per-assay_performances.csv"	
-			pd.concat(agg_deltas2,axis=1).astype(np.float32).reset_index().rename(columns={f'{sc_columns[0]}_percent':'perf_bin',}).to_csv(fnagg2,index=False)
+			pd.concat(agg_deltas2,axis=1).astype(np.float64).reset_index().rename(columns={f'{sc_columns[0]}_percent':'perf_bin',}).to_csv(fnagg2,index=False)
 			vprint(f"Wrote binned performance per-assay delta report to: {fnagg}")
 		else:
 			global_delta = pd.DataFrame(f2_results[sc_columns].mean(axis=0)).T - pd.DataFrame(f1_results[sc_columns].mean(axis=0)).T
@@ -427,7 +457,7 @@ def write_aggregated_report(run_name, run_type, fname, local_performances, sc_co
 	"""
 	df = local_performances.copy()
 	for metric in df.loc[:, sc_columns[0]:sc_columns[-1]].columns:
-		df.loc[:,f'{metric}_percent'] = cut(df[metric].astype('float32'), \
+		df.loc[:,f'{metric}_percent'] = cut(df[metric].astype('float64'), \
 		args.aggr_binning_scheme_perf,include_lowest=True,right=True,lower_infinite=False, upper_infinite=False)
 	df.loc[:,f'{header_type}_task_id'] = df[f'{header_type}_task_id'].astype('float').astype('int32')
 	os.makedirs(f"{run_name}/{run_type}/{fname}/")
@@ -441,7 +471,7 @@ def write_aggregated_report(run_name, run_type, fname, local_performances, sc_co
 		agg_perf=(df.groupby(metric_bin)[f'{header_type}_task_id'].agg('count')/len(df)).reset_index().rename(columns={f'{header_type}_task_id': f'bin_{metric_bin}'})
 		agg_concat.append(agg_perf.set_index(metric_bin))
 	fnagg = f"{run_name}/{run_type}/{fname}/{fname}_binned_per-task_performances.csv"
-	pd.concat(agg_concat,axis=1).astype(np.float32).reset_index().rename(columns={'index': 'perf_bin'}).to_csv(fnagg,index=False)
+	pd.concat(agg_concat,axis=1).astype(np.float64).reset_index().rename(columns={'index': 'perf_bin'}).to_csv(fnagg,index=False)
 	vprint(f"Wrote per-task binned performance report to: {fnagg}")
 
 	#write performance aggregated performances by assay_type
@@ -455,7 +485,7 @@ def write_aggregated_report(run_name, run_type, fname, local_performances, sc_co
 	agg_concat2=[]
 	for metric_bin in df.loc[:, f"{sc_columns[0]}_percent":f"{sc_columns[-1]}_percent"].columns:
 		agg_perf2=(df.groupby(['assay_type',metric_bin])[f'{header_type}_task_id'].agg('count')).reset_index().rename(columns={f'{header_type}_task_id': f'count_{metric_bin}'})
-		agg_perf2.loc[:,f'bin_{metric_bin}']=agg_perf2.apply(lambda x : x[f'count_{metric_bin}'] / (df.assay_type==x['assay_type']).sum() ,axis=1).astype('float32')
+		agg_perf2.loc[:,f'bin_{metric_bin}']=agg_perf2.apply(lambda x : x[f'count_{metric_bin}'] / (df.assay_type==x['assay_type']).sum() ,axis=1).astype('float64')
 		agg_perf2.drop(f'count_{metric_bin}',axis=1,inplace=True)
 		agg_concat2.append(agg_perf2.set_index(['assay_type',metric_bin]))
 	fnagg2 = f"{run_name}/{run_type}/{fname}/{fname}_binned_per-assay_performances.csv"
