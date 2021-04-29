@@ -12,6 +12,7 @@ from scipy.stats import spearmanr
 from  pathlib import Path
 from scipy.io import mmread
 import sparsechem as sc
+pd.set_option('display.max_columns', 20) #show all columns for de-risk print
 		
 def init_arg_parser():
 	parser = argparse.ArgumentParser(description="MELLODDY Year 2 Performance Evaluation De-risk")
@@ -146,13 +147,14 @@ def yhat_allclose_check(yhat1,yhat2,f1,f2, tol=1e-05):
 	"""
 	nnz1, nnz2 = yhat1.nonzero(), yhat2.nonzero()
 	allclose = np.allclose(yhat1[nnz1], yhat2[nnz2], rtol=tol, atol=tol)
-	spr=f"Spearmanr rank correlation coefficient of the '{f1}' and '{f2}' yhats = {spearmanr(yhat1[nnz1],yhat2[nnz2],axis=1)}"
+	sprr = spearmanr(yhat1[nnz1],yhat2[nnz2],axis=1)
+	spr=f"Spearmanr rank correlation coefficient of the '{f1}' and '{f2}' yhats = {sprr}"
 	if not allclose:
 		vprint(f"FAILED! yhats NOT close between '{f1}' and '{f2}' (tol:{tol})\n{spr}",derisk_check=1)
-		return False
+		return [False, sprr[0]]
 	else:
 		vprint(f"PASSED! yhats close between '{f1}' and '{f2}' (tol:{tol})\n{spr}",derisk_check=1)
-		return True
+		return [True, sprr[0]]
 
 
 def global_allclose_check(globally_calculated,perf_agg,header=None, tol=1e-05):
@@ -182,29 +184,29 @@ def global_allclose_check(globally_calculated,perf_agg,header=None, tol=1e-05):
 			return True
 
 
-def delta_assay_allclose_check(deltas, tol=1e-05):
+def delta_assay_allclose_check(deltas, tol=1e-03):
 	"""
-	Check deltas are close to zero across all calculated ∆performances
+	Check deltas are close to zero across all assay_type ∆performances
 	"""
-	allclose = np.isclose(deltas, 0, rtol=tol, atol=tol).all()
+	allclose = np.isclose(deltas, 0, rtol=tol, atol=tol).all().all()
 	if not allclose:
-		vprint(f"FAILED! delta between local & substra assay_type aggregated performances NOT close to 0 across all metrics (tol:{tol})",derisk_check=4)
+		vprint(f"FAILED! delta between local calculated assay_type aggregated & substra performances NOT close to 0 across all metrics (tol:{tol})\nReported:\n{deltas}",derisk_check=4)
 		return False
 	else:
-		vprint(f"PASSED! delta between local & substra assay_type aggregated performances close to 0 across all metrics (tol:{tol})",derisk_check=4)
+		vprint(f"PASSED! delta between local calculated assay_type aggregated & substra performances close to 0 across all metrics (tol:{tol})\nReported:\n{deltas}",derisk_check=4)
 		return True
 
 
 def delta_global_allclose_check(deltas, tol=1e-05):
 	"""
-	Check deltas are close to zero across all calculated ∆performances
+	Check deltas are close to zero across global calculated ∆performances
 	"""
 	allclose = np.isclose(deltas, 0,  rtol=tol, atol=tol).all()
 	if not allclose:
-		vprint(f"FAILED! delta performance between global local & global substra performances NOT close to 0 across all metrics (tol:{tol})",derisk_check=5)
+		vprint(f"FAILED! delta performance between calculated global local & global substra performances NOT close to 0 across all metrics (tol:{tol})\nReported:\n{deltas}",derisk_check=5)
 		return False
 	else:
-		vprint(f"PASSED! delta performance between global local & global substra performances close to 0 across all metrics (tol:{tol})",derisk_check=5)
+		vprint(f"PASSED! delta performance between calculated global local & global substra performances close to 0 across all metrics (tol:{tol})\nReported:\n{deltas}",derisk_check=5)
 		return True
 	
 
@@ -289,7 +291,6 @@ def sc_global_perf_from_json(performance_report,agg,required_headers):
 	return returned_performances
 
 
-## Check performance reports for federated (substra) output
 def substra_global_perf_from_json(performance_report):
 	"""
 	Validate reported performance metrics from subtra output
@@ -405,7 +406,6 @@ def calculate_delta(f1_results, f2_results, run_name, run_type, sc_columns, head
 				args.aggr_binning_scheme_perf_delta,include_lowest=True,right=True)
 			#write per-task perf aggregated performance delta
 			pertask.to_csv(fn1, index= False)
-			derisk_checks.append(delta_assay_allclose_check(pertask[sc_columns]))
 			vprint(f"Wrote per-task delta report to: {fn1}")
 			
 			#write binned per-task aggregated performance deltas
@@ -419,7 +419,9 @@ def calculate_delta(f1_results, f2_results, run_name, run_type, sc_columns, head
 
 			# aggregate on assay_type level
 			fn2 = f"{run_name}/{run_type}/deltas/deltas_per-assay_performances.csv"
-			tdf[['assay_type'] + sc_columns].groupby("assay_type").mean().to_csv(fn2)
+			per_assay_delta=tdf[['assay_type'] + sc_columns].groupby("assay_type").mean()
+			per_assay_delta.to_csv(fn2)
+			derisk_checks.append(delta_assay_allclose_check(per_assay_delta[sc_columns]))
 			vprint(f"Wrote per-assay delta report to: {fn2}")
 
 			#write binned per-assay aggregated performance deltas
@@ -498,7 +500,6 @@ def calculate_onpremise_substra_results(run_name, run_type, y_true, folding, fol
 	"""
 	Calculate cls, clsaux or regr performances for onpremise and substra outputs, then calculate delta, plot outputs along the way
 	"""
-	derisk_checks = []
 	header_type = getheader(run_type)
 	y_true = mask_ytrue(run_type,y_true,folding,fold_va)
 	tw_df = pd.read_csv(task_weights)
@@ -508,7 +509,7 @@ def calculate_onpremise_substra_results(run_name, run_type, y_true, folding, fol
 	if run_type == 'regr': t8=t8.reset_index().rename(columns={'index': 'regression_task_id'})
 	task_map = t8.merge(tw_df,left_on=f'cont_{header_type}_task_id',right_on='task_id',how='left').query('task_id.notna()')
 	y_onpremise_yhat, y_substra_yhat, y_onpremise_ftype, y_substra_ftype = mask_y_hat(onpremise, substra, folding, fold_va, y_true, header_type)
-	derisk_checks.append(yhat_allclose_check(y_onpremise_yhat,y_substra_yhat,onpremise.stem,substra.stem)) #add derisk #1
+	derisk_checks = yhat_allclose_check(y_onpremise_yhat,y_substra_yhat,onpremise.stem,substra.stem) #add derisk #1 & #1spr
 	y_onpremise_results, _ = run_performance_calculation(run_type, y_onpremise_yhat, y_onpremise_ftype, y_true, tw_df, task_map, run_name, onpremise)
 	del y_onpremise_yhat
 	y_substra_results, sc_columns, derisk_reported = run_performance_calculation(run_type, y_substra_yhat, y_substra_ftype, y_true, tw_df, task_map, run_name, substra, perf_report=performance_report)
@@ -534,7 +535,7 @@ def main(args):
 		vprint(f"Wrote input params to '{run_name}/run_params.json'\n")
 
 	fold_va = args.validation_fold
-	derisk_df = pd.DataFrame(columns=['run_type','check#1','check#2','check#3','check#4','check#5'])
+	derisk_df = pd.DataFrame(columns=['run_type','check#1','check#1_spr','check#2','check#3','check#4','check#5'])
 	if args.y_cls:
 		folding = np.load(args.folding_cls)
 		os.makedirs(f"{run_name}/cls")

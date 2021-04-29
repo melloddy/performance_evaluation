@@ -246,6 +246,51 @@ Reported:<removed>
 [INFO]: Performance evaluation de-risk took 1101.3661 seconds.
 ```
 
+The file 'derisk_summary.csv' has a concise summary of de-risk checks
+
+
+### Delta between on-premise and substra models
+
+#### Step 1. Train a local model with the exact same hyperparameters as it was trianed on the platform, e.g.:
+```
+python $train \
+  --x $data_path/cls/cls_T11_x.npz \
+  --y $data_path/cls/cls_T10_y.npz \
+  --folding $data_path/cls/cls_T11_fold_vector.npy \
+  --weights_class $data_path/cls/cls_weights.csv \
+  --hidden_sizes $hidden_sizes \
+  --weight_decay 0 \
+  --last_dropout $dropout \
+  --middle_dropout $dropout \
+  --last_non_linearity relu \
+  --non_linearity relu \
+  --input_transform binarize \
+  --lr 0.001 \
+  --lr_alpha 0.3 \
+  --lr_steps 10 \
+  --epochs 20 \
+  --normalize_loss 100_000 \
+  --eval_frequency 1 \
+  --batch_ratio 0.02 \
+  --fold_va 0 \
+  --verbose 1 \
+  --save_model 1 
+```
+#### Step 2. check the performance here:
+```
+import sparsechem as sc
+res = sc.load_results('models/sc_run_h2500_ldo0.8_wd0.0_lr0.001_lrsteps10_ep20_fva0_fteNone.json')
+print(res['validation']['classification_agg'])   
+```
+
+#### Step 3. Run the derisk workflow as usual  and you willo get some files in the output folder like:
+
+```
+cat derisk_sp_20epoch_cls/cls/pred/pred_global_performances.csv
+```
+
+The aucpr values needs to be compared for cls, or rmse for reg 
+
 
 
 ### Minimum working example
