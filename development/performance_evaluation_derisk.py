@@ -173,14 +173,14 @@ def global_allclose_check(globally_calculated,perf_agg,header=None, tol=1e-05):
 			return True
 	else: 
 		if header == 'classification': primary = 'auc_pr'
-		else: primary = 'rmse'
+		else: primary = 'corrcoef'
 		allclose = np.allclose(globally_calculated[primary], perf_agg, rtol=tol, atol=tol)
 		if not allclose: 
-			vprint(f"FAILED! global reported performance metrics and global calculated performance metrics NOT close (tol:{tol}) \
+			vprint(f"FAILED! {primary} global reported performance metrics and global calculated performance metrics NOT close (tol:{tol}) \
 					\nCalculated:{globally_calculated[primary].tolist()[0]}\nReported:{perf_agg}",derisk_check=3)
 			return False
 		else:
-			vprint(f"PASSED! global reported performance metrics and global calculated performance metrics close (tol:{tol})",derisk_check=3)
+			vprint(f"PASSED! {primary} global reported performance metrics and global calculated performance metrics close (tol:{tol})",derisk_check=3)
 			return True
 
 

@@ -283,7 +283,7 @@ res = sc.load_results('models/sc_run_h2500_ldo0.8_wd0.0_lr0.001_lrsteps10_ep20_f
 print(res['validation']['classification_agg'])   
 ```
 
-#### Step 3. Run the derisk workflow as usual  and you willo get some files in the output folder like:
+#### Step 3. Run the derisk workflow as usual and you will get some files in the output folder like:
 
 ```
 cat derisk_sp_20epoch_cls/cls/pred/pred_global_performances.csv
