@@ -69,7 +69,7 @@ $ python performance_evaluation_derisk.py -h
 ```
 
 
-### De-risk 2 epoch MP models
+### De-risk 2 epoch MP models (cls/clsaux)
 
 #### Step 1. Retrieve the cls & clsaux output from substra and decompress
 ```
@@ -249,6 +249,56 @@ Reported:<removed>
 The file 'derisk_summary.csv' has a concise summary of de-risk checks
 
 
+
+### De-risk MP reg models
+
+#### Step 1. Retrieve a regression output from substra and decompress
+```
+gunzip -c <reg-hash>.tar.gz | tar xvf -
+```
+
+#### Step 2. Create SparseChem predictions on-premise with the outputted model
+
+##### 2a. Fix reg hyperparameter.json (by removing model_type) & setup dirs:
+
+```
+sed -i 's/, "model_type": "federated"//g' <mp_reg_dir>/export/hyperparameters.json 
+mkdir derisk_reg
+```
+
+##### 2b. Predict the validation fold using the MP model output from substra (load your conda env), e.g.:
+```
+python <sparsechem_dir>/sparsechem/examples/chembl/predict.py \
+  --x <reg_dir>/reg_T11_x.npz \
+  --y_regr <reg_dir>/reg_T10_y.npz \
+  --folding <reg_dir>/reg_T11_fold_vector.npy \
+  --predict_fold 2 \
+  --conf <mp_reg_dir>/export/hyperparameters.json \
+  --model <mp_reg_dir>/export/model.pth \
+  --dev cuda:0 \
+  --inverse_normalization \
+  --outprefix "derisk_reg/pred"
+```
+
+  
+#### Step 3. Run the derisk script, e.g.:
+```
+python performance_evaluation_derisk.py \ 
+  --y_regr reg/reg_T10_y.npz \ 
+  --y_regr_onpremise derisk_reg/pred-regr.npy \ 
+  --y_regr_substra <mp_reg_dir>/pred/pred \ 
+  --folding_regr reg/reg_T11_fold_vector.npy \
+  --t8r_reg reg/T8r.csv \
+  --weights_regr reg/reg_weights.csv \ 
+  --perf_json_regr <mp_reg_dir>/perf/perf.json \ 
+  --validation_fold 2 \ 
+  --run_name derisk_<epoch>_reg
+```
+
+Report output here: https://jjcloud.box.com/s/ok3k2p6ugbr7nt189b9y2qw2fbmakiqd
+
+
+
 ### Delta between on-premise and substra models
 
 #### Step 1. Train a local model with the exact same hyperparameters as it was trianed on the platform, e.g.:
@@ -378,6 +428,7 @@ python <sparsechem_dir>/sparsechem/examples/chembl/predict.py \
   --conf reg/sc_run_h400_ldo0.2_wd0.0_lr0.001_lrsteps10_ep2_fva2_fte0.json \
   --model reg/sc_run_h400_ldo0.2_wd0.0_lr0.001_lrsteps10_ep2_fva2_fte0.pt \
   --dev cuda:0 \
+  --inverse_normalization \
   --outprefix "reg/pred"
 ```
 

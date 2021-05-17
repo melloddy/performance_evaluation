@@ -176,11 +176,11 @@ def global_allclose_check(globally_calculated,perf_agg,header=None, tol=1e-05):
 		else: primary = 'corrcoef'
 		allclose = np.allclose(globally_calculated[primary], perf_agg, rtol=tol, atol=tol)
 		if not allclose: 
-			vprint(f"FAILED! {primary} global reported performance metrics and global calculated performance metrics NOT close (tol:{tol}) \
+			vprint(f"FAILED! {primary} global reported performance metric and global calculated performance metric NOT close (tol:{tol}) \
 					\nCalculated:{globally_calculated[primary].tolist()[0]}\nReported:{perf_agg}",derisk_check=3)
 			return False
 		else:
-			vprint(f"PASSED! {primary} global reported performance metrics and global calculated performance metrics close (tol:{tol})",derisk_check=3)
+			vprint(f"PASSED! {primary} global reported performance metric and global calculated performance metric close (tol:{tol})",derisk_check=3)
 			return True
 
 
