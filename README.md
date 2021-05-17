@@ -276,7 +276,7 @@ python <sparsechem_dir>/sparsechem/examples/chembl/predict.py \
   --conf <mp_reg_dir>/export/hyperparameters.json \
   --model <mp_reg_dir>/export/model.pth \
   --dev cuda:0 \
-  --inverse_normalization \
+  --inverse_normalization 1 \
   --outprefix "derisk_reg/pred"
 ```
 
