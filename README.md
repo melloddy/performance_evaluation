@@ -339,7 +339,7 @@ print(res['validation']['classification_agg'])
 cat derisk_sp_20epoch_cls/cls/pred/pred_global_performances.csv
 ```
 
-The aucpr values needs to be compared for cls, or rmse for reg 
+The aucpr values needs to be compared for cls, or coeff for reg 
 
 
 
