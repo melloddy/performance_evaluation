@@ -13,60 +13,133 @@ On your local IT infrastructure you'd need
 4. melloddy_pipeline environment from WP1 code: https://git.infra.melloddy.eu/wp1/data_prep & Sparsechem installed into that environment
 
 
+## Year 2 run analysis (performance_evaluation.py): on-premise vs. substra output evaluation
 
-## De-risk analysis (performance_evaluation_derisk.py): on-premise vs. substra output evaluation
+### Evaluate phase 2 models
+
 ```
-$ python performance_evaluation_derisk.py -h
+$ python performance_evaluation.py -h
   
-  optional arguments:
-    -h, --help            show this help message and exit
-    --y_cls Y_CLS         Classification activity file (npz) (e.g. cls_T10_y.npz)
-    --y_clsaux Y_CLSAUX   Aux classification activity file (npz) (e.g. cls_T10_y.npz)
-    --y_regr Y_REGR       Activity file (npz) (e.g. reg_T10_y.npz)
-    --y_cls_onpremise Y_CLS_ONPREMISE
-                          Yhat cls prediction output from an onpremise run (e.g. <single pharma dir>/<cls_prefix>-class.npy)
-    --y_clsaux_onpremise Y_CLSAUX_ONPREMISE
-                          Yhat clsaux prediction from an onpremise run (e.g. <single pharma dir>/<clsaux_prefix>-class.npy)
-    --y_regr_onpremise Y_REGR_ONPREMISE
-                          Yhat regr prediction from an onpremise run (e.g. <single pharma dir>/<regr_prefix>-regr.npy)
-    --y_cls_substra Y_CLS_SUBSTRA
-                          Classification prediction output for comparison (e.g. pred from the substra platform)
-    --y_clsaux_substra Y_CLSAUX_SUBSTRA
-                          Classification w/ aux prediction output for comparison (e.g. pred from the substra platform)
-    --y_regr_substra Y_REGR_SUBSTRA
-                          Regression prediction output for comparison (e.g. pred from the substra platform)
-    --folding_cls FOLDING_CLS
-                          Folding file (npy) (e.g. cls_T11_fold_vector.npy)
-    --folding_clsaux FOLDING_CLSAUX
-                          Folding file (npy) (e.g. cls_T11_fold_vector.npy)
-    --folding_regr FOLDING_REGR
-                          Folding file (npy) (e.g. reg_T11_fold_vector.npy)
-    --t8c_cls T8C_CLS     T8c file for classification in the results_tmp/classification folder
-    --t8c_clsaux T8C_CLSAUX
-                          T8c file for classification w/ auxiliary in the results_tmp/classification folder
-    --t8r_regr T8R_REGR   T8r file for regression in the results_tmp/regression folder
-    --weights_cls WEIGHTS_CLS
-                          CSV file with columns task_id and weight (e.g. cls_weights.csv)
-    --weights_clsaux WEIGHTS_CLSAUX
-                          CSV file with columns task_id and weight (e.g cls_weights.csv)
-    --weights_regr WEIGHTS_REGR
-                          CSV file with columns task_id and weight (e.g. reg_weights.csv)
-    --perf_json_cls PERF_JSON_CLS
-                          Reported json performances for classification model (i.e. sc_run<cls-params>.json)
-    --perf_json_clsaux PERF_JSON_CLSAUX
-                          Reported json performances for aux classification model (i.e. sc_run<clsaux-params>.json)
-    --perf_json_regr PERF_JSON_REGR
-                          Reported json performances for regression model (i.e. sc_run<reg-params>.json)
-    --run_name RUN_NAME   Run name directory for results from this output
-    --verbose {0,1}       Verbosity level: 1 = Full; 0 = no output
-    --validation_fold {0,1,2,3,4} [{0,1,2,3,4} ...]
-                          Validation fold to used to calculate performance
-    --aggr_binning_scheme_perf AGGR_BINNING_SCHEME_PERF [AGGR_BINNING_SCHEME_PERF ...]
-                          Shared aggregated binning scheme for performances
-    --aggr_binning_scheme_perf_delta AGGR_BINNING_SCHEME_PERF_DELTA [AGGR_BINNING_SCHEME_PERF_DELTA ...]
-                          Shared aggregated binning scheme for delta performances
-  
+optional arguments:
+  -h, --help            show this help message and exit
+  --y_cls Y_CLS         Classification activity file (npz) (e.g. cls_T10_y.npz)
+  --y_clsaux Y_CLSAUX   Aux classification activity file (npz) (e.g. cls_T10_y.npz)
+  --y_regr Y_REGR       Activity file (npz) (e.g. reg_T10_y.npz)
+  --y_cls_single_partner Y_CLS_SINGLE_PARTNER
+                        Yhat cls prediction output from an single-partner run (e.g. <single pharma dir>/<cls_prefix>-class.npy)
+  --y_clsaux_single_partner Y_CLSAUX_SINGLE_PARTNER
+                        Yhat clsaux prediction from an single-partner run (e.g. <single pharma dir>/<clsaux_prefix>-class.npy)
+  --y_regr_single_partner Y_REGR_SINGLE_PARTNER
+                        Yhat regr prediction from an single-partner run (e.g. <single pharma dir>/<regr_prefix>-regr.npy)
+  --y_cls_multi_partner Y_CLS_MULTI_PARTNER
+                        Classification prediction output for comparison (e.g. pred from the multi-partner run)
+  --y_clsaux_multi_partner Y_CLSAUX_MULTI_PARTNER
+                        Classification w/ aux prediction output for comparison (e.g. pred from the multi-partner run)
+  --y_regr_multi_partner Y_REGR_MULTI_PARTNER
+                        Regression prediction output for comparison (e.g. pred from the multi-partner run)
+  --folding_cls FOLDING_CLS
+                        Folding file (npy) (e.g. cls_T11_fold_vector.npy)
+  --folding_clsaux FOLDING_CLSAUX
+                        Folding file (npy) (e.g. cls_T11_fold_vector.npy)
+  --folding_regr FOLDING_REGR
+                        Folding file (npy) (e.g. reg_T11_fold_vector.npy)
+  --t8c_cls T8C_CLS     T8c file for classification in the results_tmp/classification folder
+  --t8c_clsaux T8C_CLSAUX
+                        T8c file for classification w/ auxiliary in the results_tmp/classification folder
+  --t8r_regr T8R_REGR   T8r file for regression in the results_tmp/regression folder
+  --weights_cls WEIGHTS_CLS
+                        CSV file with columns task_id and weight (e.g. cls_weights.csv)
+  --weights_clsaux WEIGHTS_CLSAUX
+                        CSV file with columns task_id and weight (e.g cls_weights.csv)
+  --weights_regr WEIGHTS_REGR
+                        CSV file with columns task_id and weight (e.g. reg_weights.csv)
+  --run_name RUN_NAME   Run name directory for results from this output (timestemp used if not specified)
+  --verbose {0,1}       Verbosity level: 1 = Full; 0 = no output
+  --validation_fold {0,1,2,3,4} [{0,1,2,3,4} ...]
+                        Validation fold to used to calculate performance
+  --aggr_binning_scheme_perf AGGR_BINNING_SCHEME_PERF [AGGR_BINNING_SCHEME_PERF ...]
+                        Shared aggregated binning scheme for performances
+  --aggr_binning_scheme_perf_delta AGGR_BINNING_SCHEME_PERF_DELTA [AGGR_BINNING_SCHEME_PERF_DELTA ...]
+                        Shared aggregated binning scheme for delta performances
 ```
+
+
+#### Step 1. Retrieve the MP and SP cls, clsaux & reg output from substra and decompress. E.g. for each model variant do:
+```
+gunzip -c <cls-hash>.tar.gz | tar xvf - && gunzip -c <clsaux-hash>.tar.gz | tar xvf - gunzip -c <reg-hash>.tar.gz | tar xvf -
+```
+
+#### Step 2. Run the performance evaluation code, e.g. for a clsaux model:
+```
+python performance_evaluation_y2.py --y_clsaux <clsaux_dir>/clsaux_T10_y.npz --y_clsaux_single_partner <sp_model>/pred/pred --y_clsaux_multi_partner <mp_model>/pred/pred --folding_clsaux <clsaux_dir>/clsaux_T11_fold_vector.npy --t8c_clsaux <clsaux_dir>/T8c.csv --weights_clsaux <clsaux_dir>/clsaux_weights.csv --validation_fold 0 --run_name slurm_y2_test
+```
+
+Output should look something like:
+
+```
+[INFO]: === WP3 Y2 Performance evaluation script for npy and pred files ===
+[INFO]: Wrote input params to 'slurm_y2_test/run_params.json'
+
+
+=======================================================================================================================================
+Evaluating clsaux performance
+=======================================================================================================================================
+
+[INFO]: Loading clsaux: <clsaux_dir>/clsaux_T10_y.npz
+[INFO]: Loading (pred) output for: <sp_model>/pred/pred
+[INFO]: Loading (pred) output for: <mp_model>/pred/pred
+
+[INFO]: === Calculating <sp_model>/pred/pred performance ===
+[INFO]: Wrote per-task report to: slurm_y2_test/clsaux/SP/pred_per-task_performances.csv
+[INFO]: Wrote per-task binned performance report to: slurm_y2_test/clsaux/SP/pred_binned_per-task_performances.csv
+[INFO]: Wrote per-assay report to: slurm_y2_test/clsaux/SP/pred_per-assay_performances.csv
+[INFO]: Wrote per-assay binned report to: slurm_y2_test/clsaux/SP/pred_binned_per-task_performances.csv
+[INFO]: Wrote global report to: slurm_y2_test/clsaux/SP/pred_global_performances.csv
+
+[INFO]: === Calculating <mp_model>/pred/pred performance ===
+[INFO]: Wrote per-task report to: slurm_y2_test/clsaux/MP/pred_per-task_performances.csv
+[INFO]: Wrote per-task binned performance report to: slurm_y2_test/clsaux/MP/pred_binned_per-task_performances.csv
+[INFO]: Wrote per-assay report to: slurm_y2_test/clsaux/MP/pred_per-assay_performances.csv
+[INFO]: Wrote per-assay binned report to: slurm_y2_test/clsaux/MP/pred_binned_per-task_performances.csv
+[INFO]: Wrote global report to: slurm_y2_test/clsaux/MP/pred_global_performances.csv
+
+[INFO]: Wrote per-task delta report to: slurm_y2_test/clsaux/deltas/deltas_per-task_performances.csv
+[INFO]: Wrote binned performance per-task delta report to: slurm_y2_test/clsaux/deltas/deltas_binned_per-task_performances.csv
+[INFO]: Wrote per-assay delta report to: slurm_y2_test/clsaux/deltas/deltas_per-assay_performances.csv
+[INFO]: Wrote binned performance per-assay delta report to: slurm_y2_test/clsaux/deltas/deltas_binned_per-task_performances.csv
+
+[INFO]: Run name 'slurm_y2_test' is finished.
+[INFO]: Performance evaluation took 482.36725 seconds.
+
+```
+
+The following files are created:
+
+```
+  derisk_test #name of the run (timestamp used if not defined)
+  ├── <clsaux>
+  │   ├── deltas
+  │   │   ├── deltas_binned_per-assay_performances.csv	#binned assay aggregated deltas between sp & mp  // to be reported to WP3
+  │   │   ├── deltas_binned_per-task_performances.csv	#binned deltas across all tasks between sp & mp // to be reported to WP3
+  │   │   ├── deltas_global_performances.csv	#global aggregated deltas between sp & mp  // to be reported to WP3
+  │   │   ├── deltas_per-assay_performances.csv	#assay aggregated deltas between sp & mp
+  │   │   └── deltas_per-task_performances.csv	#deltas between sp & mp
+  │   ├── sp #e.g. the single-partner prediction results
+  │   │   ├── pred_binned_per-assay_performances.csv	#binned sp assay aggregated performances
+  │   │   ├── pred_binned_per-task_performances.csv	#binned sp performances
+  │   │   ├── pred_global_performances.csv	#sp global performance
+  │   │   ├── pred_per-assay_performances.csv	#sp assay aggregated performances
+  │   │   └── pred_per-task_performances.csv	#sp performances
+  │   └── mp #e.g. the multi-partner predictions results
+  │   │   ├── pred_binned_per-assay_performances.csv	#binned mp assay aggregated performances
+  │   │   ├── pred_binned_per-task_performances.csv	#binned mp performances
+  │   │   ├── pred_global_performances.csv	#mp global performance
+  │   │   ├── pred_per-assay_performances.csv	#mp assay aggregated performances
+  │   │   └── pred_per-task_performances.csv	#mp performances
+  └── run_params.json #json with the runtime parameters
+
+```
+
 
 
 ### De-risk 2 epoch MP models (cls/clsaux)
