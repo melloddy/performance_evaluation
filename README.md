@@ -142,7 +142,7 @@ The following files are created:
 
 
 
-### De-risk 2 epoch MP models (cls/clsaux)
+## De-risk 2 epoch MP models (cls/clsaux)
 
 #### Step 1. Retrieve the cls & clsaux output from substra and decompress
 ```
