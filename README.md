@@ -13,9 +13,9 @@ On your local IT infrastructure you'd need
 4. melloddy_pipeline environment from WP1 code: https://git.infra.melloddy.eu/wp1/data_prep & Sparsechem installed into that environment
 
 
-## Year 2 run analysis (performance_evaluation.py): on-premise vs. substra output evaluation
+## Year 2 run analysis (performance_evaluation.py): single- vs. multi-partner evaluation
 
-### Evaluate phase 2 models
+### Evaluate models
 
 ```
 $ python performance_evaluation.py -h
