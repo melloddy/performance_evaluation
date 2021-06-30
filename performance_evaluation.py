@@ -18,6 +18,7 @@ def init_arg_parser():
 	parser.add_argument("--y_cls", help="Classification activity file (npz) (e.g. cls_T10_y.npz)", type=str, default=None)
 	parser.add_argument("--y_clsaux", help="Aux classification activity file (npz) (e.g. cls_T10_y.npz)", type=str, default=None)
 	parser.add_argument("--y_regr", help="Activity file (npz) (e.g. reg_T10_y.npz)", type=str, default=None)
+	parser.add_argument("--y_censored_regr", help="Censored activity file (npz) (e.g. reg_T10_censor_y.npz)", type=str, default=None)
 
 	parser.add_argument("--y_cls_single_partner", help="Yhat cls prediction output from an single-partner run (e.g. <single pharma dir>/<cls_prefix>-class.npy)", type=str, default=None)
 	parser.add_argument("--y_clsaux_single_partner", help="Yhat clsaux prediction from an single-partner run (e.g. <single pharma dir>/<clsaux_prefix>-class.npy)", type=str, default=None)
@@ -196,20 +197,22 @@ def check_weights(tw_df, y_true, header_type):
 	return
 
 
-def run_performance_calculation(run_type, y_pred, pred_or_npy, y_true, tw_df, task_map, run_name, flabel, rlabel):
+def run_performance_calculation(run_type, y_pred, pred_or_npy, y_true, tw_df, task_map, run_name, flabel, rlabel, y_true_cens = None):
 	"""
 	Calculate performance for one run, bin results and then individual performance reports including aggregation by assay/globally
 	"""
 	vprint(f"=== Calculating {flabel} performance ===")
 	flabel = Path(flabel).stem
 	header_type = getheader(run_type)
+	y_pred = sparse.csc_matrix(y_pred)
 	if header_type == 'classification':
 		sc_columns = sc.utils.all_metrics([0],[0]).columns.tolist()  #get the names of reported metrics from the sc utils
 	else:
 		sc_columns = sc.utils.all_metrics_regr([0],[0]).columns.tolist()  #get the names of reported metrics from the sc utils
-	y_pred = sparse.csc_matrix(y_pred)
 	validate_ytrue_ypred(y_true, y_pred, pred_or_npy) # checks to make sure y_true and y_pred match
+	if y_true_cens is not None: validate_ytrue_ypred(y_true_cens, y_pred, pred_or_npy)  # checks to make sure y_cens and y_pred match
 	calculated_performance = pd.DataFrame()
+	
 	for col_idx, col in enumerate(range(y_true.shape[1])):
 	
 		task_id = task_map[f"{header_type}_task_id"][task_map[f"cont_{header_type}_task_id"]==col].iloc[0]
@@ -222,7 +225,9 @@ def run_performance_calculation(run_type, y_pred, pred_or_npy, y_true, tw_df, ta
 		#setup for regression metrics
 		else:
 			y_true_col = (y_true.data[y_true.indptr[col] : y_true.indptr[col+1]])
-			sc_calculation = sc.utils.all_metrics_regr(y_true_col,y_pred_col)
+			if y_true_cens is not None: y_censor = (y_true_cens.data[y_true_cens.indptr[col] : y_true_cens.indptr[col+1]])
+			else: y_censor = None
+			sc_calculation = sc.utils.all_metrics_regr(y_true_col,y_pred_col,y_censor=y_censor)
 		details = pd.DataFrame({f'{header_type}_task_id': pd.Series(task_id, dtype='int32'),
 								'task_size': pd.Series(len(y_true_col), dtype='int32')})
 
@@ -348,7 +353,7 @@ def write_aggregated_report(run_name, run_type, fname, local_performances, sc_co
 	return
 
 
-def calculate_single_partner_multi_partner_results(run_name, run_type, y_true, folding, fold_va, t8, task_weights, single_partner, multi_partner):
+def calculate_single_partner_multi_partner_results(run_name, run_type, y_true, folding, fold_va, t8, task_weights, single_partner, multi_partner, y_true_cens=None):
 	"""
 	Calculate cls, clsaux or regr performances for single_partner and multi_partner outputs, then calculate delta, plot outputs along the way
 	"""
@@ -358,12 +363,14 @@ def calculate_single_partner_multi_partner_results(run_name, run_type, y_true, f
 	tw_df.sort_values("task_id", inplace=True)
 	check_weights(tw_df,y_true,header_type)
 	t8 = pd.read_csv(t8) #read t8c or t8r files
-	if run_type == 'regr': t8=t8.reset_index().rename(columns={'index': 'regression_task_id'})
+	if run_type == 'regr':
+		t8=t8.reset_index().rename(columns={'index': 'regression_task_id'})
+		if y_true_cens: y_true_cens = mask_ytrue(run_type,y_true_cens,folding,fold_va)
 	task_map = t8.merge(tw_df,left_on=f'cont_{header_type}_task_id',right_on='task_id',how='left').query('task_id.notna()')
 	y_single_partner_yhat, y_multi_partner_yhat, y_single_partner_ftype, y_multi_partner_ftype = mask_y_hat(single_partner, multi_partner, folding, fold_va, y_true, header_type)
-	y_single_partner_results, _ = run_performance_calculation(run_type, y_single_partner_yhat, y_single_partner_ftype, y_true, tw_df, task_map, run_name, single_partner,'SP')
+	y_single_partner_results, _ = run_performance_calculation(run_type, y_single_partner_yhat, y_single_partner_ftype, y_true, tw_df, task_map, run_name, single_partner,'SP', y_true_cens = y_true_cens)
 	del y_single_partner_yhat
-	y_multi_partner_results, sc_columns = run_performance_calculation(run_type, y_multi_partner_yhat, y_multi_partner_ftype, y_true, tw_df, task_map, run_name, multi_partner,'MP')
+	y_multi_partner_results, sc_columns = run_performance_calculation(run_type, y_multi_partner_yhat, y_multi_partner_ftype, y_true, tw_df, task_map, run_name, multi_partner,'MP', y_true_cens = y_true_cens)
 	del y_multi_partner_yhat
 	calculate_delta(y_single_partner_results, y_multi_partner_results, run_name, run_type, sc_columns, header_type)
 	return
@@ -406,7 +413,8 @@ def main(args):
 		vprint(f"Evaluating regr performance", model_category=True)
 		calculate_single_partner_multi_partner_results(run_name, 'regr' ,args.y_regr, \
 											folding, fold_va, args.t8r_regr, args.weights_regr, \
-											Path(args.y_regr_single_partner),Path(args.y_regr_multi_partner))
+											Path(args.y_regr_single_partner),Path(args.y_regr_multi_partner), \
+											y_true_cens = args.y_censored_regr)
 	vprint(f"Run name '{run_name}' is finished.")
 	return
 
