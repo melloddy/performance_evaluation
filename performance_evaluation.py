@@ -12,6 +12,7 @@ from scipy.stats import spearmanr
 from  pathlib import Path
 from scipy.io import mmread
 import sparsechem as sc
+import significance_analysis
 		
 def init_arg_parser():
 	parser = argparse.ArgumentParser(description="MELLODDY Year 2 Performance Evaluation")
@@ -41,6 +42,7 @@ def init_arg_parser():
 	parser.add_argument("--weights_regr", help="CSV file with columns task_id and weight (e.g. reg_weights.csv)", type=str, default=None)
 
 	parser.add_argument("--run_name", help="Run name directory for results from this output (timestemp used if not specified)", type=str, default=None)
+	parser.add_argument("--significance_analysis", help="Run significant analysis (1 = Yes, 0 = No sig. analysis", type=int, default=1, choices=[0, 1])
 	parser.add_argument("--verbose", help="Verbosity level: 1 = Full; 0 = no output", type=int, default=1, choices=[0, 1])
 	parser.add_argument("--validation_fold", help="Validation fold to used to calculate performance", type=int, default=[0], nargs='+', choices=[0, 1, 2, 3, 4])
 	parser.add_argument("--aggr_binning_scheme_perf", help="Shared aggregated binning scheme for performances", type=str, nargs='+', default=[0.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0],required=False)
@@ -196,6 +198,29 @@ def check_weights(tw_df, y_true, header_type):
 	assert tw_df.shape[0]==y_true.shape[1], f"The number of task weights ({tw_df.shape[0]}) must be equal to the number of columns in Y ({y_true.shape[1]})."
 	return
 
+def run_significance_calculation(run_type, y_pred0, y_pred1, y_true, task_map):
+	"""
+	Calculate significance between runs and bin individual performance reports including aggregation by assay/globally
+	"""
+	header_type = getheader(run_type)
+	if header_type != 'classification': return None
+	vprint(f"=== Calculating significance ===")
+	y_pred0 = sparse.csc_matrix(y_pred0)
+	y_pred1 = sparse.csc_matrix(y_pred1)
+	calculated_sig = pd.DataFrame()
+	for col_idx, col in enumerate(range(y_true.shape[1])):
+		task_id = task_map[f"{header_type}_task_id"][task_map[f"cont_{header_type}_task_id"]==col].iloc[0]
+		y_pred_col0 = (y_pred0.data[y_pred0.indptr[col] : y_pred0.indptr[col+1]]).astype(np.float64)
+		y_pred_col1 = (y_pred1.data[y_pred1.indptr[col] : y_pred1.indptr[col+1]]).astype(np.float64)
+		y_true_col = (y_true.data[y_true.indptr[col] : y_true.indptr[col+1]] == 1).astype(np.uint8)
+		details = pd.DataFrame({f'{header_type}_task_id': pd.Series(task_id, dtype='int32')})
+		if y_true_col.shape[0] <= 1: continue
+		if (y_true_col[0] == y_true_col).all(): continue
+		with np.errstate(divide='ignore',invalid='ignore'):
+			significance = significance_analysis.test_significance(y_true_col, y_pred_col0, y_pred_col1, level=0.05)
+		to_report = pd.concat([details,significance],axis=1)
+		calculated_sig = pd.concat([calculated_sig, to_report],axis=0)	
+	return calculated_sig
 
 def run_performance_calculation(run_type, y_pred, pred_or_npy, y_true, tw_df, task_map, run_name, flabel, rlabel, y_true_cens = None):
 	"""
@@ -212,9 +237,7 @@ def run_performance_calculation(run_type, y_pred, pred_or_npy, y_true, tw_df, ta
 	validate_ytrue_ypred(y_true, y_pred, pred_or_npy) # checks to make sure y_true and y_pred match
 	if y_true_cens is not None: validate_ytrue_ypred(y_true_cens, y_pred, pred_or_npy)  # checks to make sure y_cens and y_pred match
 	calculated_performance = pd.DataFrame()
-	
 	for col_idx, col in enumerate(range(y_true.shape[1])):
-	
 		task_id = task_map[f"{header_type}_task_id"][task_map[f"cont_{header_type}_task_id"]==col].iloc[0]
 		y_pred_col = (y_pred.data[y_pred.indptr[col] : y_pred.indptr[col+1]])
 		
@@ -243,10 +266,13 @@ def run_performance_calculation(run_type, y_pred, pred_or_npy, y_true, tw_df, ta
 	globally_calculated = write_global_report(run_name, run_type, flabel, calculated_performance, sc_columns, rlabel)
 	return calculated_performance, sc_columns
 
-def calculate_delta(f1_results, f2_results, run_name, run_type, sc_columns, header_type):
+
+def calculate_delta(f1_results, f2_results, run_name, run_type, sc_columns, header_type, sig = None):
 	"""
 	Calculate the delta between the outputs and write to a file
 	"""
+	f1_results = f1_results.query('evaluation_quorum_OK == 1 & is_auxiliary == 0 & aggregation_weight_y == 1')
+	f2_results = f2_results.query('evaluation_quorum_OK == 1 & is_auxiliary == 0 & aggregation_weight_y == 1')
 	assert f1_results.shape[0] == f2_results.shape[0], "the number of tasks are not equal between the outputs for comparison}"
 	assert f1_results.shape[1] == f2_results.shape[1], "the number of reported metrics are not equal between the outputs for comparison"
 	header_type = getheader(run_type)
@@ -262,6 +288,8 @@ def calculate_delta(f1_results, f2_results, run_name, run_type, sc_columns, head
 	for metric in pertask.loc[:, sc_columns[0]:sc_columns[-1]].columns:
 		pertask.loc[:,f'{metric}_percent'] = cut(pertask[metric].astype('float64'), \
 		args.aggr_binning_scheme_perf_delta,include_lowest=True,right=True)
+	#merge calculated significances (if set) with the calculated performances
+	if sig is not None: pertask = pertask.merge(sig, left_on=f'{header_type}_task_id', right_on=f'{header_type}_task_id',how='left')
 	#write per-task perf aggregated performance delta
 	pertask.to_csv(fn1, index= False)
 	vprint(f"Wrote per-task delta report to: {fn1}")
@@ -295,6 +323,26 @@ def calculate_delta(f1_results, f2_results, run_name, run_type, sc_columns, head
 	#write globally aggregated performance deltas	
 	global_delta = pd.DataFrame(f2_results[sc_columns].mean(axis=0)).T - pd.DataFrame(f1_results[sc_columns].mean(axis=0)).T
 	global_delta.to_csv(f"{run_name}/{run_type}/deltas/deltas_global_performances.csv", index=False)
+
+	#if significance flag was set then perform that analysis here
+	if sig is not None:
+		#write binned per-task significance
+		agg_concat=[]
+		agg_perf=(pertask.groupby('significant')[f'{header_type}_task_id'].agg('count')/len(pertask)).reset_index().rename(columns={f'{header_type}_task_id': f'percent_significant'})
+		agg_concat.append(agg_perf.set_index('significant'))
+		fnagg = f"{run_name}/{run_type}/deltas/delta_significance.csv"
+		pd.concat(agg_concat,axis=1).astype(np.float64).reset_index().to_csv(fnagg,index=False)
+		vprint(f"Wrote significance performance report to: {fnagg}")
+		
+		#write assay_type significance
+		agg_concat2=[]
+		agg_perf2=(pertask.groupby(['assay_type','significant'])[f'{header_type}_task_id'].agg('count')).reset_index().rename(columns={f'{header_type}_task_id': f'count_significant'})
+		agg_perf2.loc[:,f'percent_significant']=agg_perf2.apply(lambda x : x[f'count_significant'] / (pertask.assay_type==x['assay_type']).sum() ,axis=1).astype('float64')
+		agg_perf2.drop(f'count_significant',axis=1,inplace=True)
+		agg_concat2.append(agg_perf2.set_index(['assay_type','significant']))
+		fnagg2 = f"{run_name}/{run_type}/deltas/delta_per-assay_significance.csv"
+		pd.concat(agg_concat2,axis=1).astype(np.float32).reset_index().to_csv(fnagg2,index=False)
+		vprint(f"Wrote per-assay significance report to: {fnagg2}")
 	return
 
 
@@ -314,7 +362,7 @@ def write_aggregated_report(run_name, run_type, fname, local_performances, sc_co
 	"""
 	write performance reports per-task & per-task_assay
 	"""
-	df = local_performances.copy()
+	df = local_performances.query('evaluation_quorum_OK == 1 & is_auxiliary == 0 & aggregation_weight_y == 1').copy()
 	for metric in df.loc[:, sc_columns[0]:sc_columns[-1]].columns:
 		df.loc[:,f'{metric}_percent'] = cut(df[metric].astype('float64'), \
 		args.aggr_binning_scheme_perf,include_lowest=True,right=True,lower_infinite=False, upper_infinite=False)
@@ -340,7 +388,7 @@ def write_aggregated_report(run_name, run_type, fname, local_performances, sc_co
 	df2.to_csv(fn2)
 	vprint(f"Wrote per-assay report to: {fn2}")
 
-	#write binned per-task perf performances by assay_type 
+	#write binned perf performances by assay_type 
 	agg_concat2=[]
 	for metric_bin in df.loc[:, f"{sc_columns[0]}_percent":f"{sc_columns[-1]}_percent"].columns:
 		agg_perf2=(df.groupby(['assay_type',metric_bin])[f'{header_type}_task_id'].agg('count')).reset_index().rename(columns={f'{header_type}_task_id': f'count_{metric_bin}'})
@@ -363,16 +411,17 @@ def calculate_single_partner_multi_partner_results(run_name, run_type, y_true, f
 	tw_df.sort_values("task_id", inplace=True)
 	check_weights(tw_df,y_true,header_type)
 	t8 = pd.read_csv(t8) #read t8c or t8r files
-	if run_type == 'regr':
+	if 'regr' in run_type:
 		t8=t8.reset_index().rename(columns={'index': 'regression_task_id'})
 		if y_true_cens: y_true_cens = mask_ytrue(run_type,y_true_cens,folding,fold_va)
 	task_map = t8.merge(tw_df,left_on=f'cont_{header_type}_task_id',right_on='task_id',how='left').query('task_id.notna()')
 	y_single_partner_yhat, y_multi_partner_yhat, y_single_partner_ftype, y_multi_partner_ftype = mask_y_hat(single_partner, multi_partner, folding, fold_va, y_true, header_type)
+	if args.significance_analysis: sig = run_significance_calculation(run_type, y_single_partner_yhat, y_multi_partner_yhat, y_true, task_map)
 	y_single_partner_results, _ = run_performance_calculation(run_type, y_single_partner_yhat, y_single_partner_ftype, y_true, tw_df, task_map, run_name, single_partner,'SP', y_true_cens = y_true_cens)
 	del y_single_partner_yhat
 	y_multi_partner_results, sc_columns = run_performance_calculation(run_type, y_multi_partner_yhat, y_multi_partner_ftype, y_true, tw_df, task_map, run_name, multi_partner,'MP', y_true_cens = y_true_cens)
 	del y_multi_partner_yhat
-	calculate_delta(y_single_partner_results, y_multi_partner_results, run_name, run_type, sc_columns, header_type)
+	calculate_delta(y_single_partner_results, y_multi_partner_results, run_name, run_type, sc_columns, header_type, sig = sig)
 	return
 
 
@@ -413,8 +462,16 @@ def main(args):
 		vprint(f"Evaluating regr performance", model_category=True)
 		calculate_single_partner_multi_partner_results(run_name, 'regr' ,args.y_regr, \
 											folding, fold_va, args.t8r_regr, args.weights_regr, \
+											Path(args.y_regr_single_partner),Path(args.y_regr_multi_partner))
+	if args.y_regr and args.y_censored_regr:
+		folding = np.load(args.folding_regr)
+		os.makedirs(f"{run_name}/regr_cens")
+		vprint(f"Evaluating regr-censored performance", model_category=True)
+		calculate_single_partner_multi_partner_results(run_name, 'regr_cens' ,args.y_regr, \
+											folding, fold_va, args.t8r_regr, args.weights_regr, \
 											Path(args.y_regr_single_partner),Path(args.y_regr_multi_partner), \
 											y_true_cens = args.y_censored_regr)
+	
 	vprint(f"Run name '{run_name}' is finished.")
 	return
 

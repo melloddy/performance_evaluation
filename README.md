@@ -20,11 +20,22 @@ On your local IT infrastructure you'd need
 ```
 $ python performance_evaluation.py -h
   
+usage: performance_evaluation.py [-h] [--y_cls Y_CLS] [--y_clsaux Y_CLSAUX] [--y_regr Y_REGR] [--y_censored_regr Y_CENSORED_REGR] [--y_cls_single_partner Y_CLS_SINGLE_PARTNER]
+                                    [--y_clsaux_single_partner Y_CLSAUX_SINGLE_PARTNER] [--y_regr_single_partner Y_REGR_SINGLE_PARTNER] [--y_cls_multi_partner Y_CLS_MULTI_PARTNER]
+                                    [--y_clsaux_multi_partner Y_CLSAUX_MULTI_PARTNER] [--y_regr_multi_partner Y_REGR_MULTI_PARTNER] [--folding_cls FOLDING_CLS] [--folding_clsaux FOLDING_CLSAUX] [--folding_regr FOLDING_REGR]
+                                    [--t8c_cls T8C_CLS] [--t8c_clsaux T8C_CLSAUX] [--t8r_regr T8R_REGR] [--weights_cls WEIGHTS_CLS] [--weights_clsaux WEIGHTS_CLSAUX] [--weights_regr WEIGHTS_REGR] [--run_name RUN_NAME]
+                                    [--significance_analysis {0,1}] [--verbose {0,1}] [--validation_fold {0,1,2,3,4} [{0,1,2,3,4} ...]] [--aggr_binning_scheme_perf AGGR_BINNING_SCHEME_PERF [AGGR_BINNING_SCHEME_PERF ...]]
+                                    [--aggr_binning_scheme_perf_delta AGGR_BINNING_SCHEME_PERF_DELTA [AGGR_BINNING_SCHEME_PERF_DELTA ...]]
+
+MELLODDY Year 2 Performance Evaluation
+
 optional arguments:
   -h, --help            show this help message and exit
   --y_cls Y_CLS         Classification activity file (npz) (e.g. cls_T10_y.npz)
   --y_clsaux Y_CLSAUX   Aux classification activity file (npz) (e.g. cls_T10_y.npz)
   --y_regr Y_REGR       Activity file (npz) (e.g. reg_T10_y.npz)
+  --y_censored_regr Y_CENSORED_REGR
+                        Censored activity file (npz) (e.g. reg_T10_censor_y.npz)
   --y_cls_single_partner Y_CLS_SINGLE_PARTNER
                         Yhat cls prediction output from an single-partner run (e.g. <single pharma dir>/<cls_prefix>-class.npy)
   --y_clsaux_single_partner Y_CLSAUX_SINGLE_PARTNER
@@ -54,6 +65,8 @@ optional arguments:
   --weights_regr WEIGHTS_REGR
                         CSV file with columns task_id and weight (e.g. reg_weights.csv)
   --run_name RUN_NAME   Run name directory for results from this output (timestemp used if not specified)
+  --significance_analysis {0,1}
+                        Run significant analysis (1 = Yes, 0 = No sig. analysis
   --verbose {0,1}       Verbosity level: 1 = Full; 0 = no output
   --validation_fold {0,1,2,3,4} [{0,1,2,3,4} ...]
                         Validation fold to used to calculate performance
@@ -107,10 +120,11 @@ Evaluating clsaux performance
 [INFO]: Wrote binned performance per-task delta report to: slurm_y2_test/clsaux/deltas/deltas_binned_per-task_performances.csv
 [INFO]: Wrote per-assay delta report to: slurm_y2_test/clsaux/deltas/deltas_per-assay_performances.csv
 [INFO]: Wrote binned performance per-assay delta report to: slurm_y2_test/clsaux/deltas/deltas_binned_per-task_performances.csv
+[INFO]: Wrote significance performance report to: slurm_y2_test_cls/clsaux/deltas/delta_significance.csv
+[INFO]: Wrote per-assay significance report to: slurm_y2_test_cls/clsaux/deltas/delta_significance.csv
 
 [INFO]: Run name 'slurm_y2_test' is finished.
 [INFO]: Performance evaluation took 482.36725 seconds.
-
 ```
 
 The following files are created:
@@ -123,7 +137,9 @@ The following files are created:
   │   │   ├── deltas_binned_per-task_performances.csv	#binned deltas across all tasks between sp & mp // to be reported to WP3
   │   │   ├── deltas_global_performances.csv	#global aggregated deltas between sp & mp  // to be reported to WP3
   │   │   ├── deltas_per-assay_performances.csv	#assay aggregated deltas between sp & mp
-  │   │   └── deltas_per-task_performances.csv	#deltas between sp & mp
+  │   │   ├── deltas_per-task_performances.csv	#deltas between sp & mp
+  │   │   ├── delta_significance.csv #significance of deltas between sp & mp // to be reported to WP3
+  │   │   └── delta_per-assay_significance.csv	#assay aggregated significance of deltas between sp & mp // to be reported to WP3
   │   ├── sp #e.g. the single-partner prediction results
   │   │   ├── pred_binned_per-assay_performances.csv	#binned sp assay aggregated performances
   │   │   ├── pred_binned_per-task_performances.csv	#binned sp performances
@@ -138,6 +154,15 @@ The following files are created:
   │   │   └── pred_per-task_performances.csv	#mp performances
   └── run_params.json #json with the runtime parameters
 
+```
+
+The files to be uploaded to the WP3 pharma only box are ONLY:
+```
+deltas_binned_per-assay_performances.csv	
+deltas_binned_per-task_performances.csv	
+deltas_global_performances.csv
+delta_significance.csv
+delta_per-assay_significance.csv
 ```
 
 
