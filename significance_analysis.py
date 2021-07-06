@@ -87,9 +87,9 @@ def test_significance(y, yhat0, yhat1, level=0.05):
     auc1, V1_10, V1_01 = vs_and_auc(s_pos1, s_neg1)
 
     r = auc_corr(
-        V1_10, V1_01, auc1, V0_10, V0_01, auc0
+        V1_10, V1_01, auc1, V0_10, V0_01, auc0)
     print(r)
-    )  # computes correlation coefficient
+    # computes correlation coefficient
     p = pvalue(auc1, len(s_pos1), len(s_neg1), auc0, len(s_pos0), len(s_neg0), r)
     return pd.DataFrame({f'significant': pd.Series(p < level, dtype='int32'), \
 								'p_value': pd.Series(p, dtype='float64')})
