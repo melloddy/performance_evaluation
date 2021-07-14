@@ -2,10 +2,10 @@ import os
 import time
 import argparse
 import pandas as pd
-from pandas._testing import assert_frame_equal
 import numpy as np
 import torch
 import sklearn.metrics
+from sklearn.metrics._ranking import _binary_clf_curve
 import json
 import scipy.sparse as sparse
 from scipy.stats import spearmanr
@@ -232,6 +232,7 @@ def run_performance_calculation(run_type, y_pred, pred_or_npy, y_true, tw_df, ta
 	y_pred = sparse.csc_matrix(y_pred)
 	if header_type == 'classification':
 		sc_columns = sc.utils.all_metrics([0],[0]).columns.tolist()  #get the names of reported metrics from the sc utils
+		sc_columns.extend(['s_auc_pr', 'calibrated_auc_pr', 'positive_rate']) # added for calibrated auc_pr
 	else:
 		sc_columns = sc.utils.all_metrics_regr([0],[0]).columns.tolist()  #get the names of reported metrics from the sc utils
 	validate_ytrue_ypred(y_true, y_pred, pred_or_npy) # checks to make sure y_true and y_pred match
@@ -245,6 +246,20 @@ def run_performance_calculation(run_type, y_pred, pred_or_npy, y_true, tw_df, ta
 		if header_type == 'classification':
 			y_true_col = (y_true.data[y_true.indptr[col] : y_true.indptr[col+1]] == 1)
 			sc_calculation = sc.utils.all_metrics(y_true_col,y_pred_col)
+
+			# calculate positive_rate and calibrated auc_pr
+			if (len(y_true_col) > 0) and not (y_true_col[0] == y_true_col).all():
+				try: positive_rate_for_col = np.sum(y_true_col) / len(y_true_col)
+				except ZeroDivisionError:
+					positive_rate_for_col = 0
+				s_auc_pr = calculate_s_auc_pr(sc_calculation.auc_pr[0], y_true_col, positive_rate_for_col)
+				c_auc_pr = calculate_calibrated_auc_pr(y_true_col, y_pred_col, pi0=0.5)
+				sc_calculation['s_auc_pr'] = [s_auc_pr]
+				sc_calculation['calibrated_auc_pr'] = [c_auc_pr]
+				sc_calculation['positive_rate'] = [positive_rate_for_col]
+			else:
+				s_auc_pr = np.nan
+				c_auc_pr = np.nan
 		#setup for regression metrics
 		else:
 			y_true_col = (y_true.data[y_true.indptr[col] : y_true.indptr[col+1]])
@@ -424,9 +439,44 @@ def calculate_single_partner_multi_partner_results(run_name, run_type, y_true, f
 	calculate_delta(y_single_partner_results, y_multi_partner_results, run_name, run_type, sc_columns, header_type, sig = sig)
 	return
 
+def calculate_s_auc_pr(auc_pr, y_true_col, positive_rate_for_col):
+	with np.errstate(divide='ignore'):
+		try: s_auc_pr = auc_pr ** (np.log10(0.5)/np.log10(positive_rate_for_col))
+		except ZeroDivisionError:
+			s_auc_pr = auc_pr
+	return s_auc_pr
+
+def calculate_calibrated_auc_pr(y_true_col, y_pred_col, pi0=None):
+	'''
+	Siblini W., Fréry J., He-Guelton L., Oblé F., Wang YQ. (2020) 
+	Master Your Metrics with Calibration. 
+	In: Berthold M., Feelders A., Krempl G. (eds) 
+	Advances in Intelligent Data Analysis XVIII. IDA 2020. 
+	Lecture Notes in Computer Science, vol 12080. Springer, Cham
+	'''
+	fps, tps, thresholds = _binary_clf_curve(y_true_col, y_pred_col)
+
+	if pi0 is not None:
+		pi = np.sum(y_true_col) / len(y_true_col)
+		ratio = pi*(1-pi0) / (pi0*(1-pi))
+		precision = tps / (tps+ratio*fps)
+	else:
+		precision = tps / (tps+fps)
+
+	precision[np.isnan(precision)] = 0
+	recall = tps / tps[-1]
+
+	last_idx = tps.searchsorted(tps[-1])
+	sl = slice(last_idx, None, -1)
+	precision = np.r_[precision[sl], 1]
+	recall = np.r_[recall[sl], 0]
+	auc_pr = sklearn.metrics.auc(x=recall, y=precision)
+	return auc_pr
 
 def main(args):
 	vprint(args)
+	if args.validation_fold != [0]:
+		vprint('Expected validation_fold is 0 for the WP3 report (D3.8), continuing anyway ...', vtype='WARNING')
 	validate_cls_clsuax_regr_inputs(args)
 
 	if args.run_name is not None:
