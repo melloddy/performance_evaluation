@@ -217,9 +217,10 @@ def run_significance_calculation(run_type, y_pred0, y_pred1, y_true, task_map):
 		if y_true_col.shape[0] <= 1: continue
 		if (y_true_col[0] == y_true_col).all(): continue
 		with np.errstate(divide='ignore',invalid='ignore'):
-			significance = significance_analysis.test_significance(y_true_col, y_pred_col0, y_pred_col1, level=0.05)
-		to_report = pd.concat([details,significance],axis=1)
-		calculated_sig = pd.concat([calculated_sig, to_report],axis=0)	
+			sp_sig = significance_analysis.test_significance(y_true_col, y_pred_col1, y_pred_col0, level=0.05).rename(columns={'significant': 'sp_significant','p_value' : 'sp_pvalue'})
+			mp_sig = significance_analysis.test_significance(y_true_col, y_pred_col0, y_pred_col1, level=0.05).rename(columns={'significant': 'mp_significant','p_value' : 'mp_pvalue'})
+		sp_mp_sig = pd.concat([details,sp_sig,mp_sig],axis=1)
+		calculated_sig = pd.concat([calculated_sig, sp_mp_sig],axis=0)
 	return calculated_sig
 
 def run_performance_calculation(run_type, y_pred, pred_or_npy, y_true, tw_df, task_map, run_name, flabel, rlabel, y_true_cens = None):
@@ -341,23 +342,24 @@ def calculate_delta(f1_results, f2_results, run_name, run_type, sc_columns, head
 
 	#if significance flag was set then perform that analysis here
 	if sig is not None:
-		#write binned per-task significance
-		agg_concat=[]
-		agg_perf=(pertask.groupby('significant')[f'{header_type}_task_id'].agg('count')/len(pertask)).reset_index().rename(columns={f'{header_type}_task_id': f'percent_significant'})
-		agg_concat.append(agg_perf.set_index('significant'))
-		fnagg = f"{run_name}/{run_type}/deltas/delta_significance.csv"
-		pd.concat(agg_concat,axis=1).astype(np.float64).reset_index().to_csv(fnagg,index=False)
-		vprint(f"Wrote significance performance report to: {fnagg}")
+		for p in ['sp','mp']:
+			#write binned per-task significance
+			agg_concat=[]
+			agg_perf=(pertask.groupby(f'{p}_significant')[f'{header_type}_task_id'].agg('count')/len(pertask)).reset_index().rename(columns={f'{header_type}_task_id': f'percent_{p}_significant'})
+			agg_concat.append(agg_perf.set_index(f'{p}_significant'))
+			fnagg = f"{run_name}/{run_type}/deltas/delta_{p}_significance.csv"
+			pd.concat(agg_concat,axis=1).astype(np.float64).reset_index().to_csv(fnagg,index=False)
+			vprint(f"Wrote {p} significance report to: {fnagg}")
 		
-		#write assay_type significance
-		agg_concat2=[]
-		agg_perf2=(pertask.groupby(['assay_type','significant'])[f'{header_type}_task_id'].agg('count')).reset_index().rename(columns={f'{header_type}_task_id': f'count_significant'})
-		agg_perf2.loc[:,f'percent_significant']=agg_perf2.apply(lambda x : x[f'count_significant'] / (pertask.assay_type==x['assay_type']).sum() ,axis=1).astype('float64')
-		agg_perf2.drop(f'count_significant',axis=1,inplace=True)
-		agg_concat2.append(agg_perf2.set_index(['assay_type','significant']))
-		fnagg2 = f"{run_name}/{run_type}/deltas/delta_per-assay_significance.csv"
-		pd.concat(agg_concat2,axis=1).astype(np.float32).reset_index().to_csv(fnagg2,index=False)
-		vprint(f"Wrote per-assay significance report to: {fnagg2}")
+			#write assay_type significance
+			agg_concat2=[]
+			agg_perf2=(pertask.groupby(['assay_type',f'{p}_significant'])[f'{header_type}_task_id'].agg('count')).reset_index().rename(columns={f'{header_type}_task_id': f'count_{p}_significant'})
+			agg_perf2.loc[:,f'percent_{p}_significant']=agg_perf2.apply(lambda x : x[f'count_{p}_significant'] / (pertask.assay_type==x['assay_type']).sum() ,axis=1).astype('float64')
+			agg_perf2.drop(f'count_{p}_significant',axis=1,inplace=True)
+			agg_concat2.append(agg_perf2.set_index(['assay_type',f'{p}_significant']))
+			fnagg2 = f"{run_name}/{run_type}/deltas/delta_per-assay_{p}_significance.csv"
+			pd.concat(agg_concat2,axis=1).astype(np.float64).reset_index().to_csv(fnagg2,index=False)
+			vprint(f"Wrote per-assay {p} significance report to: {fnagg2}")
 	return
 
 
