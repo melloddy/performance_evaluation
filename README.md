@@ -107,8 +107,8 @@ $ rm model1/export/model.pth && rm model1/pred/pred
 $ rm model2/export/model.pth && rm model2/pred/pred
 ```
 
-#### Step 1.3. Select only 20 epoch reg model.
-Use ONLY the Epoch 20 model for reg.
+#### Step 1.3. Select only 20 epoch reg model for SP & MP.
+Use ONLY the Epoch 20 (SP&MP) models for reg.
 
 I.e: Do NOT select model based on corr (as arbitrated here: https://jjcloud.box.com/s/xrhdrba9ocwz8nq150wdaarib86lr037)
 ```
