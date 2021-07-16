@@ -18,13 +18,15 @@ On your local IT infrastructure you'd need
 ### Evaluate models
 
 ```
-$ python performance_evaluation.py -h
-  
-usage: performance_evaluation.py [-h] [--y_cls Y_CLS] [--y_clsaux Y_CLSAUX] [--y_regr Y_REGR] [--y_censored_regr Y_CENSORED_REGR] [--y_cls_single_partner Y_CLS_SINGLE_PARTNER]
-                                    [--y_clsaux_single_partner Y_CLSAUX_SINGLE_PARTNER] [--y_regr_single_partner Y_REGR_SINGLE_PARTNER] [--y_cls_multi_partner Y_CLS_MULTI_PARTNER]
-                                    [--y_clsaux_multi_partner Y_CLSAUX_MULTI_PARTNER] [--y_regr_multi_partner Y_REGR_MULTI_PARTNER] [--folding_cls FOLDING_CLS] [--folding_clsaux FOLDING_CLSAUX] [--folding_regr FOLDING_REGR]
-                                    [--t8c_cls T8C_CLS] [--t8c_clsaux T8C_CLSAUX] [--t8r_regr T8R_REGR] [--weights_cls WEIGHTS_CLS] [--weights_clsaux WEIGHTS_CLSAUX] [--weights_regr WEIGHTS_REGR] [--run_name RUN_NAME]
-                                    [--significance_analysis {0,1}] [--verbose {0,1}] [--validation_fold {0,1,2,3,4} [{0,1,2,3,4} ...]] [--aggr_binning_scheme_perf AGGR_BINNING_SCHEME_PERF [AGGR_BINNING_SCHEME_PERF ...]]
+$  python performance_evaluation.py -h
+usage: performance_evaluation.py [-h] [--y_cls Y_CLS] [--y_clsaux Y_CLSAUX] [--y_regr Y_REGR] [--y_censored_regr Y_CENSORED_REGR]
+                                    [--y_cls_single_partner Y_CLS_SINGLE_PARTNER] [--y_clsaux_single_partner Y_CLSAUX_SINGLE_PARTNER]
+                                    [--y_regr_single_partner Y_REGR_SINGLE_PARTNER] [--y_cls_multi_partner Y_CLS_MULTI_PARTNER]
+                                    [--y_clsaux_multi_partner Y_CLSAUX_MULTI_PARTNER] [--y_regr_multi_partner Y_REGR_MULTI_PARTNER] [--folding_cls FOLDING_CLS]
+                                    [--folding_clsaux FOLDING_CLSAUX] [--folding_regr FOLDING_REGR] [--t8c_cls T8C_CLS] [--t8c_clsaux T8C_CLSAUX] [--t8r_regr T8R_REGR]
+                                    [--weights_cls WEIGHTS_CLS] [--weights_clsaux WEIGHTS_CLSAUX] [--weights_regr WEIGHTS_REGR] [--run_name RUN_NAME]
+                                    [--significance_analysis {0,1}] [--verbose {0,1}] [--validation_fold {0,1,2,3,4} [{0,1,2,3,4} ...]]
+                                    [--aggr_binning_scheme_perf AGGR_BINNING_SCHEME_PERF [AGGR_BINNING_SCHEME_PERF ...]]
                                     [--aggr_binning_scheme_perf_delta AGGR_BINNING_SCHEME_PERF_DELTA [AGGR_BINNING_SCHEME_PERF_DELTA ...]]
 
 MELLODDY Year 2 Performance Evaluation
@@ -74,17 +76,52 @@ optional arguments:
                         Shared aggregated binning scheme for performances
   --aggr_binning_scheme_perf_delta AGGR_BINNING_SCHEME_PERF_DELTA [AGGR_BINNING_SCHEME_PERF_DELTA ...]
                         Shared aggregated binning scheme for delta performances
+
 ```
 
 
-#### Step 1. Retrieve the MP and SP cls, clsaux & reg output from substra and decompress. E.g. for each model variant do:
+#### Step 1.1. Retrieve the MP and SP cls, clsaux & reg outputs from substra and decompress.
+E.g. for each model type (cls,clsaux and reg) and each variant (different cp's) do:
 ```
-gunzip -c <cls-hash>.tar.gz | tar xvf - && gunzip -c <clsaux-hash>.tar.gz | tar xvf - gunzip -c <reg-hash>.tar.gz | tar xvf -
+gunzip -c <cls-hash>.tar.gz | tar xvf -
+gunzip -c <clsaux-hash>.tar.gz | tar xvf -
+gunzip -c <reg-hash>.tar.gz | tar xvf -
 ```
 
-#### Step 2. Run the performance evaluation code, e.g. for a clsaux model:
+#### Step 1.2. Select the optimal cls & clsaux mp models.
+Identify the optimal performing model based on the AUCPR reported in perf/perf.json.
+
+REMOVE the other models & predictions in pred/pred and export/model.pth folders.
+
+E.g: a very crude example could be:
 ```
-python performance_evaluation_y2.py --y_clsaux <clsaux_dir>/clsaux_T10_y.npz --y_clsaux_single_partner <sp_model>/pred/pred --y_clsaux_multi_partner <mp_model>/pred/pred --folding_clsaux <clsaux_dir>/clsaux_T11_fold_vector.npy --t8c_clsaux <clsaux_dir>/T8c.csv --weights_clsaux <clsaux_dir>/clsaux_weights.csv --validation_fold 0 --run_name slurm_y2_test
+$ head  <clsaux_models_to_compre*>/perf/perf.json
+==> <model1>/perf/perf.json <==
+{"all": 0.6}
+==> <model2>/perf/perf.json <==
+{"all": 0.7}
+==> <model3>/perf/perf.json <==
+{"all": 0.8}    # <==== this would be the model to use in this crude example
+
+$ rm model1/export/model.pth && rm model1/pred/pred
+$ rm model2/export/model.pth && rm model2/pred/pred
+```
+
+#### Step 1.3. Select only 20 epoch reg model.
+Use ONLY the Epoch 20 model for reg.
+
+I.e: Do NOT select model based on corr (as arbitrated here: https://jjcloud.box.com/s/xrhdrba9ocwz8nq150wdaarib86lr037)
+```
+gunzip -c <reg-hash-epoch20>.tar.gz | tar xvf -
+```
+
+#### Step 2. Run the performance evaluation code:
+
+Run the code supplying the best/epoch 20 MP models to the script.
+
+E.g. for a clsaux model:
+```
+python performance_evaluation.py --y_clsaux <clsaux_dir>/clsaux_T10_y.npz --y_clsaux_single_partner <best_sp_model>/pred/pred --y_clsaux_multi_partner <best_mp_model>/pred/pred --folding_clsaux <clsaux_dir>/clsaux_T11_fold_vector.npy --t8c_clsaux <clsaux_dir>/T8c.csv --weights_clsaux <clsaux_dir>/clsaux_weights.csv --validation_fold 0 --run_name slurm_y2_test
 ```
 
 Output should look something like:
@@ -102,6 +139,7 @@ Evaluating clsaux performance
 [INFO]: Loading (pred) output for: <sp_model>/pred/pred
 [INFO]: Loading (pred) output for: <mp_model>/pred/pred
 
+[INFO]: === Calculating significance ===
 [INFO]: === Calculating <sp_model>/pred/pred performance ===
 [INFO]: Wrote per-task report to: slurm_y2_test/clsaux/SP/pred_per-task_performances.csv
 [INFO]: Wrote per-task binned performance report to: slurm_y2_test/clsaux/SP/pred_binned_per-task_performances.csv
@@ -122,6 +160,11 @@ Evaluating clsaux performance
 [INFO]: Wrote binned performance per-assay delta report to: slurm_y2_test/clsaux/deltas/deltas_binned_per-task_performances.csv
 [INFO]: Wrote significance performance report to: slurm_y2_test_cls/clsaux/deltas/delta_significance.csv
 [INFO]: Wrote per-assay significance report to: slurm_y2_test_cls/clsaux/deltas/delta_significance.csv
+[INFO]: Wrote sp significance report to: slurm_y2_test_cls/clsaux/deltas/delta_sp_significance.csv
+[INFO]: Wrote per-assay sp significance report to: slurm_y2_test_cls/clsaux/deltas/delta_per-assay_sp_significance.csv
+[INFO]: Wrote mp significance report to: slurm_y2_test_cls/clsaux/deltas/delta_mp_significance.csv
+[INFO]: Wrote per-assay mp significance report to: slurm_y2_test_cls/clsaux/deltas/delta_per-assay_mp_significance.csv
+
 
 [INFO]: Run name 'slurm_y2_test' is finished.
 [INFO]: Performance evaluation took 482.36725 seconds.
@@ -132,21 +175,23 @@ The following files are created:
 ```
   derisk_test #name of the run (timestamp used if not defined)
   ├── <clsaux>
-  │   ├── deltas
+  │   ├── deltas # the folder for sp vs. mp deltas 
+  │   │   ├── delta_mp_significance.csv #mp significance of deltas between sp & mp // to be reported to WP3
+  │   │   ├── delta_sp_significance.csv #sp significance of deltas between sp & mp // to be reported to WP3
+  │   │   ├── delta_per-assay_mp_significance.csv #mp significance of deltas between sp & mp per-assay type  // to be reported to WP3
+  │   │   ├── delta_per-assay_sp_significance.csv #sp significance of deltas between sp & mp per-assay type  // to be reported to WP3
   │   │   ├── deltas_binned_per-assay_performances.csv	#binned assay aggregated deltas between sp & mp  // to be reported to WP3
   │   │   ├── deltas_binned_per-task_performances.csv	#binned deltas across all tasks between sp & mp // to be reported to WP3
   │   │   ├── deltas_global_performances.csv	#global aggregated deltas between sp & mp  // to be reported to WP3
   │   │   ├── deltas_per-assay_performances.csv	#assay aggregated deltas between sp & mp
-  │   │   ├── deltas_per-task_performances.csv	#deltas between sp & mp
-  │   │   ├── delta_significance.csv #significance of deltas between sp & mp // to be reported to WP3
-  │   │   └── delta_per-assay_significance.csv	#assay aggregated significance of deltas between sp & mp // to be reported to WP3
-  │   ├── sp #e.g. the single-partner prediction results
+  │   │   └── deltas_per-task_performances.csv	#deltas between sp & mp
+  │   ├── sp #e.g. the folder of single-partner prediction results
   │   │   ├── pred_binned_per-assay_performances.csv	#binned sp assay aggregated performances
   │   │   ├── pred_binned_per-task_performances.csv	#binned sp performances
   │   │   ├── pred_global_performances.csv	#sp global performance
   │   │   ├── pred_per-assay_performances.csv	#sp assay aggregated performances
   │   │   └── pred_per-task_performances.csv	#sp performances
-  │   └── mp #e.g. the multi-partner predictions results
+  │   └── mp #e.g. the folder of multi-partner predictions results
   │   │   ├── pred_binned_per-assay_performances.csv	#binned mp assay aggregated performances
   │   │   ├── pred_binned_per-task_performances.csv	#binned mp performances
   │   │   ├── pred_global_performances.csv	#mp global performance
@@ -156,18 +201,39 @@ The following files are created:
 
 ```
 
-The files to be uploaded to the WP3 pharma only box are ONLY:
+#### Step 3. Upload the files to the "Performance metric evaluation" folder in the WP3 pharma only box (https://jjcloud.box.com/s/7k4x3i73c6o9m8sqpe90u636lczjben1):
+
+Expected files are:
 ```
-deltas_binned_per-assay_performances.csv	
-deltas_binned_per-task_performances.csv	
-deltas_global_performances.csv
-delta_significance.csv
-delta_per-assay_significance.csv
+1.) deltas_binned_per-assay_performances.csv	
+2.) deltas_binned_per-task_performances.csv	
+3.) deltas_global_performances.csv
+4.) delta_mp_significance.csv (will not be available for regr / regr_cens)
+5.) delta_sp_significance.csv (will not be available for regr / regr_cens)
+6.) delta_per-assay_mp_significance.csv (will not be available for regr / regr_cens)
+7.) delta_per-assay_sp_significance.csv (will not be available for regr / regr_cens)
 ```
 
+N.B: Ensure you do not upload:
+```
+deltas_per-assay_performances.csv
+deltas_per-task_performances.csv
+```
+
+N.B: Regression will also output both regr and regr_cens folders - please  upload BOTH sets of relevant files to the WP3 pharma only box (https://jjcloud.box.com/s/7k4x3i73c6o9m8sqpe90u636lczjben1).
+
+N.B: Regression does not calculate significance, so expect those files not to be present in regr / regr-cens outputs.
+
+#### Step 4. Update status on Monday.com:
+Please update your status on Monday.com when you have uploaded your files: https://melloddy.monday.com/boards/259897343/pulses/1236182296.
+
+Additional analysis may be run after the D3.8 report to the IMI. 
 
 
-## De-risk 2 epoch MP models (cls/clsaux)
+## === De-risk analysis below here ===
+
+
+## De-risk of 2 epoch MP models (cls/clsaux)
 
 #### Step 1. Retrieve the cls & clsaux output from substra and decompress
 ```
