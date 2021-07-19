@@ -183,7 +183,7 @@ The following files are created:
   │   │   ├── deltas_binned_per-assay_performances.csv	#binned assay aggregated deltas between sp & mp  // to be reported to WP3
   │   │   ├── deltas_binned_per-task_performances.csv	#binned deltas across all tasks between sp & mp // to be reported to WP3
   │   │   ├── deltas_global_performances.csv	#global aggregated deltas between sp & mp  // to be reported to WP3
-  │   │   ├── deltas_per-assay_performances.csv	#assay aggregated deltas between sp & mp
+  │   │   ├── deltas_per-assay_performances.csv	#assay aggregated deltas between sp & mp // to be reported to WP3
   │   │   └── deltas_per-task_performances.csv	#deltas between sp & mp
   │   ├── sp #e.g. the folder of single-partner prediction results
   │   │   ├── pred_binned_per-assay_performances.csv	#binned sp assay aggregated performances
@@ -208,15 +208,15 @@ Expected files are:
 1.) deltas_binned_per-assay_performances.csv	
 2.) deltas_binned_per-task_performances.csv	
 3.) deltas_global_performances.csv
-4.) delta_mp_significance.csv (will not be available for regr / regr_cens)
-5.) delta_sp_significance.csv (will not be available for regr / regr_cens)
-6.) delta_per-assay_mp_significance.csv (will not be available for regr / regr_cens)
-7.) delta_per-assay_sp_significance.csv (will not be available for regr / regr_cens)
+4.) deltas_per-assay_performances.csv
+5.) delta_mp_significance.csv (will not be available for regr / regr_cens)
+6.) delta_sp_significance.csv (will not be available for regr / regr_cens)
+7.) delta_per-assay_mp_significance.csv (will not be available for regr / regr_cens)
+8.) delta_per-assay_sp_significance.csv (will not be available for regr / regr_cens)
 ```
 
 N.B: Ensure you do not upload:
 ```
-deltas_per-assay_performances.csv
 deltas_per-task_performances.csv
 ```
 
