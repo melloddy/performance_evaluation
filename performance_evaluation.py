@@ -209,7 +209,8 @@ def run_significance_calculation(run_type, y_pred0, y_pred1, y_true, task_map):
 	y_pred1 = sparse.csc_matrix(y_pred1)
 	calculated_sig = pd.DataFrame()
 	for col_idx, col in enumerate(range(y_true.shape[1])):
-		task_id = task_map[f"{header_type}_task_id"][task_map[f"cont_{header_type}_task_id"]==col].iloc[0]
+		try: task_id = task_map.query('evaluation_quorum_OK == 1 & is_auxiliary == 0 & aggregation_weight_y == 1')[f"{header_type}_task_id"][task_map[f"cont_{header_type}_task_id"]==col].iloc[0]
+		except: continue
 		y_pred_col0 = (y_pred0.data[y_pred0.indptr[col] : y_pred0.indptr[col+1]]).astype(np.float64)
 		y_pred_col1 = (y_pred1.data[y_pred1.indptr[col] : y_pred1.indptr[col+1]]).astype(np.float64)
 		y_true_col = (y_true.data[y_true.indptr[col] : y_true.indptr[col+1]] == 1).astype(np.uint8)
@@ -434,6 +435,7 @@ def calculate_single_partner_multi_partner_results(run_name, run_type, y_true, f
 	task_map = t8.merge(tw_df,left_on=f'cont_{header_type}_task_id',right_on='task_id',how='left').query('task_id.notna()')
 	y_single_partner_yhat, y_multi_partner_yhat, y_single_partner_ftype, y_multi_partner_ftype = mask_y_hat(single_partner, multi_partner, folding, fold_va, y_true, header_type)
 	if args.significance_analysis: sig = run_significance_calculation(run_type, y_single_partner_yhat, y_multi_partner_yhat, y_true, task_map)
+	else: sig = None
 	y_single_partner_results, _ = run_performance_calculation(run_type, y_single_partner_yhat, y_single_partner_ftype, y_true, tw_df, task_map, run_name, single_partner,'SP', y_true_cens = y_true_cens)
 	del y_single_partner_yhat
 	y_multi_partner_results, sc_columns = run_performance_calculation(run_type, y_multi_partner_yhat, y_multi_partner_ftype, y_true, tw_df, task_map, run_name, multi_partner,'MP', y_true_cens = y_true_cens)
