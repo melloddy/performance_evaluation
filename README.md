@@ -15,6 +15,74 @@ On your local IT infrastructure you'd need
 
 ## Year 2 run analysis (performance_evaluation.py): single- vs. multi-partner evaluation
 
+
+
+
+### CLS vs. CLSAUX comparison
+
+```
+$  python performance_evaluation_cls_clsaux.py -h
+usage: performance_evaluation_cls_clsaux.py [-h] --y_cls Y_CLS --y_clsaux Y_CLSAUX --task_id_mapping TASK_ID_MAPPING --folding_cls FOLDING_CLS --folding_clsaux FOLDING_CLSAUX --weights_cls WEIGHTS_CLS --weights_clsaux
+                                            WEIGHTS_CLSAUX --pred_cls PRED_CLS --pred_clsaux PRED_CLSAUX [--validation_fold VALIDATION_FOLD] --outfile OUTFILE
+
+Computes statistical significance between a cls and a clsaux classification models
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --y_cls Y_CLS         Path to <...>/matrices/cls/cls_T10_y.npz
+  --y_clsaux Y_CLSAUX   Path to <...>/matrices/clsaux/clsaux_T10_y.npz
+  --task_id_mapping TASK_ID_MAPPING
+                        CSV file with headers 'task_id_cls' and 'task_id_clsaux'
+  --folding_cls FOLDING_CLS
+                        Path to <...>/matrices/cls/cls_T11_fold_vector.npy
+  --folding_clsaux FOLDING_CLSAUX
+                        Path to <...>/matrices/clsaux/clsaux_T11_fold_vector.npy
+  --weights_cls WEIGHTS_CLS
+                        Path to <...>/matrices/clsaux/cls_weights.csv
+  --weights_clsaux WEIGHTS_CLSAUX
+                        Path to <...>/matrices/clsaux/clsaux_weights.csv
+  --pred_cls PRED_CLS   Path to the predictions exported from platform of a cls model
+  --pred_clsaux PRED_CLSAUX
+                        Path to the predictions exported from platform of a clsaux model
+  --validation_fold VALIDATION_FOLD
+                        Validation fold to use
+  --outfile OUTFILE     Name of the output file
+```
+
+#### Step 1. Generate the require file for this analysis
+
+Ensure you have generated a CSV file with headers 'task_id_cls' and 'task_id_clsaux' that map identical tasks overlapping between CLS and CLSAUX models.
+
+NB: Tasks that are unique to CLSAUX should not be in this file.
+
+#### Step 2. Run the script, e.g:
+```
+python performance_evaluation_cls_clsaux.py \
+        --y_cls cls_T10_y.npz \
+        --y_clsaux clsaux_T10_y.npz \
+        --folding_cls cls_T11_fold_vector.npy \
+        --folding_clsaux clsaux_T11_fold_vector.npy \
+        --weights_cls cls_weights.csv \
+        --weights_clsaux clsaux_weights.csv \
+        --validation_fold 0 \
+        --pred_cls $cls_preds \
+        --pred_clsaux $clsaux_preds \
+        --task_id_mapping cls_clsaux_mapping.csv \
+        --outfile cls_vs_clsaux
+```
+
+#### Step 3. Report the summary
+
+Only report the file {args.outfile}_summary_to_report.csv to the pharma only box folder here: https://jjcloud.box.com/s/p3jy16qgr5u59w4f3rpzvdjxzmxza37a
+
+#### Step 4. Update Monday.com
+
+Report progress here: https://melloddy.monday.com/boards/259897343/pulses/1526596124
+
+
+------
+
+
 ### Evaluate models
 
 ```
@@ -228,6 +296,8 @@ N.B: Regression does not calculate significance, so expect those files not to be
 Please update your status on Monday.com when you have uploaded your files: https://melloddy.monday.com/boards/259897343/pulses/1236182296.
 
 Additional analysis may be run after the D3.8 report to the IMI. 
+
+------
 
 
 ## === De-risk analysis below here ===
