@@ -210,7 +210,7 @@ def run_significance_calculation(run_type, y_pred0, y_pred1, y_true, task_map):
 	calculated_sig = pd.DataFrame()
 	for col_idx, col in enumerate(range(y_true.shape[1])):
 		try: task_id = task_map.query('evaluation_quorum_OK == 1 & is_auxiliary == 0 & aggregation_weight_y == 1')[f"{header_type}_task_id"][task_map[f"cont_{header_type}_task_id"]==col].iloc[0]
-		except: continue
+		except IndexError: continue
 		y_pred_col0 = (y_pred0.data[y_pred0.indptr[col] : y_pred0.indptr[col+1]]).astype(np.float64)
 		y_pred_col1 = (y_pred1.data[y_pred1.indptr[col] : y_pred1.indptr[col+1]]).astype(np.float64)
 		y_true_col = (y_true.data[y_true.indptr[col] : y_true.indptr[col+1]] == 1).astype(np.uint8)
