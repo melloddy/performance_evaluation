@@ -49,6 +49,14 @@ optional arguments:
   --outfile OUTFILE     Name of the output file
 ```
 
+#### Step 0. Install statsmodels prerequisite 
+
+Load the melloddy_pipeline environment and run, e.g.:
+
+```
+conda install statsmodels==0.12.2
+```
+
 #### Step 1. Generate the require file for this analysis
 
 Ensure you have generated a CSV file with headers 'task_id_cls' and 'task_id_clsaux' that map identical tasks overlapping between CLS and CLSAUX models.
