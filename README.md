@@ -49,13 +49,24 @@ optional arguments:
   --outfile OUTFILE     Name of the output file
 ```
 
-#### Step 0. Install statsmodels prerequisite 
+#### Step 0.1 Create CLS-CLSAUX mapping file
 
-Load the melloddy_pipeline environment and run, e.g.:
+Instructions to create the CLS & CLSAUX mapping file (thanks Lukas & Lina for the suggestions):
 
+1. Read in `cls_weights.csv` and `T10c_cont.csv` (stored in MELLODDY-TUNER output folder  "results" from your cls preparation). Relevant columns in `T10c_cont.csv`: `cont_classification_task_id`, `input_assay_id`, `threshold`
+
+2. Merge both files based on `task_id` and `cont_classification_task_id` 
+
+3. drop duplicates
+
+4. Repeat steps 1-3 with `clsaux_weights.csv` and `T10c_cont.csv` (from clsaux preparation)
+
+5. Merge again the two resulting files (one from cls, one from clsaux) based on `input_assay_id`  and `threshold`. Caution: The threshold col can lead to mismatches due to given decimal places of the values. 
+Recommendation: round thresholds to a given number of decimal places. Add `_cls` and `_clsaux` as suffixes like:
 ```
-conda install statsmodels==0.12.2
+mapping_table = pd.merge(mapping_cls_unique, mapping_clsaux_unique, on=["input_assay_id", "threshold"], suffixes=["_cls", "_clsaux"])
 ```
+
 
 #### Step 1. Generate the require file for this analysis
 
@@ -63,7 +74,16 @@ Ensure you have generated a CSV file with headers 'task_id_cls' and 'task_id_cls
 
 NB: Tasks that are unique to CLSAUX should not be in this file.
 
-#### Step 2. Run the script, e.g:
+#### Step 2. Run the script.
+
+For each of the comparisons (where overlapping epochs between CLS vs. CLSAUX are available - i.e. NOT epoch 20):
+
+1. CLS MP (optimal MP epoch) vs.CLSAUX MP (optimal MP epoch)
+2. CLS SP (optimal SP epoch) vs.CLSAUX SP (optimal SP epoch)
+3. CLS MP (optimal MP epoch) vs.CLSAUX SP (optimal SP epoch)
+4. CLS SP (optimal SP epoch) vs.CLSAUX MP (optimal MP epoch)
+
+To do this, run the script as, e.g:
 ```
 python performance_evaluation_cls_clsaux.py \
         --y_cls cls_T10_y.npz \
@@ -76,8 +96,9 @@ python performance_evaluation_cls_clsaux.py \
         --pred_cls $cls_preds \
         --pred_clsaux $clsaux_preds \
         --task_id_mapping cls_clsaux_mapping.csv \
-        --outfile cls_vs_clsaux
+        --outfile {sp/mp}cls_vs_{sp/mp}clsaux
 ```
+
 
 #### Step 3. Report the summary
 

@@ -9,7 +9,6 @@ import significance_analysis
 import argparse
 import scipy
 from scipy import stats
-from statsmodels.stats.multitest import multipletests
 
 parser = argparse.ArgumentParser(description="Computes statistical significance between a cls and a clsaux classification models")
 parser.add_argument("--y_cls", type=str, help="Path to <...>/matrices/cls/cls_T10_y.npz", required=True)
@@ -53,7 +52,7 @@ foldsx = np.load(args.folding_clsaux)
 
 
 y=y[folds==args.validation_fold].tocsc()
-yx=yx[foldsx==0].tocsc()
+yx=yx[foldsx==args.validation_fold].tocsc()
 
 
 # find out the main compounds
