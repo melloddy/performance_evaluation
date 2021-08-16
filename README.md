@@ -49,7 +49,7 @@ optional arguments:
   --outfile OUTFILE     Name of the output file
 ```
 
-#### Step 0.1 Create CLS-CLSAUX mapping file
+#### Step 0 Create CLS-CLSAUX mapping file
 
 Instructions to create the CLS & CLSAUX mapping file (thanks Lukas & Lina for the suggestions):
 
@@ -70,7 +70,7 @@ mapping_table = pd.merge(mapping_cls_unique, mapping_clsaux_unique, on=["input_a
 
 #### Step 1. Generate the require file for this analysis
 
-Ensure you have generated a CSV file with headers 'task_id_cls' and 'task_id_clsaux' that map identical tasks overlapping between CLS and CLSAUX models.
+Ensure you have generated a CSV file (instructions in Step 0 above) with headers 'task_id_cls' and 'task_id_clsaux' that map identical tasks overlapping between CLS and CLSAUX models.
 
 NB: Tasks that are unique to CLSAUX should not be in this file.
 
