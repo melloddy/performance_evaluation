@@ -6,6 +6,7 @@ import numpy as np
 import torch
 import sklearn.metrics
 from sklearn.metrics._ranking import _binary_clf_curve
+from sklearn.metrics import confusion_matrix
 import json
 import scipy.sparse as sparse
 from scipy.stats import spearmanr
@@ -235,6 +236,7 @@ def run_performance_calculation(run_type, y_pred, pred_or_npy, y_true, tw_df, ta
 	if header_type == 'classification':
 		sc_columns = sc.utils.all_metrics([0],[0]).columns.tolist()  #get the names of reported metrics from the sc utils
 		sc_columns.extend(['s_auc_pr', 'calibrated_auc_pr', 'positive_rate']) # added for calibrated auc_pr
+		sc_columns.extend(['tnr', 'fpr', 'fnr', 'tpr'])
 	else:
 		sc_columns = sc.utils.all_metrics_regr([0],[0]).columns.tolist()  #get the names of reported metrics from the sc utils
 	validate_ytrue_ypred(y_true, y_pred, pred_or_npy) # checks to make sure y_true and y_pred match
@@ -256,9 +258,14 @@ def run_performance_calculation(run_type, y_pred, pred_or_npy, y_true, tw_df, ta
 					positive_rate_for_col = 0
 				s_auc_pr = calculate_s_auc_pr(sc_calculation.auc_pr[0], y_true_col, positive_rate_for_col)
 				c_auc_pr = calculate_calibrated_auc_pr(y_true_col, y_pred_col, pi0=0.5)
+				tn, fp, fn, tp = confusion_matrix(y_true_col,y_pred_col>0.5).ravel()
 				sc_calculation['s_auc_pr'] = [s_auc_pr]
 				sc_calculation['calibrated_auc_pr'] = [c_auc_pr]
 				sc_calculation['positive_rate'] = [positive_rate_for_col]
+				sc_calculation['tnr'] = tn/(tn+fp)
+				sc_calculation['fpr'] = fp/(fp+tn)
+				sc_calculation['fnr'] = fn/(fn+tp)
+				sc_calculation['tpr'] = tp/(tp+fn)
 			else:
 				s_auc_pr = np.nan
 				c_auc_pr = np.nan
