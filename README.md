@@ -112,14 +112,113 @@ python development_performance_evaluation_derisk.py \
 
 Output should look something like this:
 ```
+[INFO]: === WP3 Y3 Performance evaluation de-risk script for npy and pred files ===
+
+[INFO]: Namespace{..}
+[INFO]: Run name is 'derisk_20epoch_regr'
+
+[INFO]: Wrote input params to 'derisk_20epoch_regr/run_params.json'
+
+=======================================================================================================================================
+=======================================================================================================================================
+De-risking regr performance
+=======================================================================================================================================
+=======================================================================================================================================
+
+[INFO]: Loading regr: reg_T10_y.npz
+[INFO]: Loading (pred) predictions for: pred
+[INFO]: Loading (npy) predictions for: derisk_regr/pred-regr.npy
+
+=======================================================================================================================================
+[DERISK-CHECK #1]: PASSED! yhats close between 'pred' and 'pred-regr.npy' (tol:1e-05)
+Spearmanr rank correlation coefficient of the 'pred' and 'pred-regr.npy' yhats = SpearmanrResult(correlation=1.0, pvalue=0.0)
+=======================================================================================================================================
+
+[INFO]: === Calculating pred performance ===
+[INFO]: Wrote per-task report to: derisk_20epoch_regr/regr/pred/pred_per-task_performances.csv
+[INFO]: Wrote per-task binned performance report to: derisk_20epoch_regr/regr/pred/pred_binned_per-task_performances.csv
+[INFO]: Wrote per-assay report to: derisk_20epoch_regr/regr/pred/pred_per-assay_performances.csv
+[INFO]: Wrote per-assay binned report to: derisk_20epoch_regr/regr/pred/pred_binned_per-task_performances.csv
+[INFO]: Wrote global report to: derisk_20epoch_regr/regr/pred/pred_global_performances.csv
+
+[INFO]: === Calculating pred-regr.npy performance ===
+[INFO]: Wrote per-task report to: derisk_20epoch_regr/regr/pred-regr/pred-regr_per-task_performances.csv
+[INFO]: Wrote per-task binned performance report to: derisk_20epoch_regr/regr/pred-regr/pred-regr_binned_per-task_performances.csv
+[INFO]: Wrote per-assay report to: derisk_20epoch_regr/regr/pred-regr/pred-regr_per-assay_performances.csv
+[INFO]: Wrote per-assay binned report to: derisk_20epoch_regr/regr/pred-regr/pred-regr_binned_per-task_performances.csv
+[INFO]: Wrote global report to: derisk_20epoch_regr/regr/pred-regr/pred-regr_global_performances.csv
+
+=======================================================================================================================================
+[DERISK-CHECK #2]: SKIPPED! substra does not report individual task performances
+=======================================================================================================================================
+
+[INFO]: Wrote reported vs. calculated performance delta to: derisk_20epoch_regr/regr/pred_delta-reported_performances.csv
+[INFO]: Wrote global report to: derisk_20epoch_regr/regr/pred-regr/pred-regr_global_performances.csv
+
+=======================================================================================================================================
+[DERISK-CHECK #3]: PASSED! global reported performance metrics and global calculated performance metrics close (tol:1e-05) 					
+=======================================================================================================================================
+
+[INFO]: Wrote per-task delta report to: derisk_20epoch_regr/regr/deltas/deltas_per-task_performances.csv
+[INFO]: Wrote binned performance per-task delta report to: derisk_20epoch_regr/regr/deltas/deltas_binned_per-task_performances.csv
+
+=======================================================================================================================================
+[DERISK-CHECK #4]: PASSED! delta between local calculated assay_type aggregated & substra performances close to 0 across all metrics (tol:0.001)
+Reported:
+                   rmse  rmse_uncen  rsquared  corrcoef
+assay_type                                             
+ADME                0.0         0.0       0.0       0.0
+NON-CATALOG-PANEL   0.0         0.0       0.0       0.0
+OTHER               0.0         0.0       0.0       0.0
+=======================================================================================================================================
+
+[INFO]: Wrote per-assay delta report to: derisk_20epoch_regr/regr/deltas/deltas_per-assay_performances.csv
+[INFO]: Wrote binned performance per-assay delta report to:  derisk_20epoch_regr/regr/deltas/deltas_binned_per-task_performances.csv
+
+=======================================================================================================================================
+[DERISK-CHECK #5]: PASSED! delta performance between calculated global local & global substra performances close to 0 across all metrics (tol:1e-05)
+Reported:
+   rmse  rmse_uncen  rsquared  corrcoef
+0   0.0         0.0       0.0       0.0
+=======================================================================================================================================
+
+[INFO]: Run name ' derisk_20epoch_regr' is finished.
+
+[INFO]: Performance evaluation de-risk took 93.612643 seconds.
+```
+
+The file structure should look like:
+```
+derisk_test #name of the run (timestamp used if not defined)
+  ├── <cls/reg>
+  │   ├── deltas
+  │   │   ├── deltas_binned_per-assay_performances.csv	#binned assay aggregated deltas between pred-onpremise & pred-substra
+  │   │   ├── deltas_binned_per-task_performances.csv	#binned deltas across all tasks between pred-onpremise & pred-substra
+  │   │   ├── deltas_global_performances.csv	#global aggregated deltas between pred-onpremise & pred-substra
+  │   │   ├── deltas_per-assay_performances.csv	#assay aggregated deltas between pred-onpremise & pred-substra
+  │   │   └── deltas_per-task_performances.csv	#deltas between pred-onpremise & pred-substra
+  │   ├── pred-<class/regr> #e.g. the onprmise predictions
+  │   │   ├── pred-onpremise_binned_per-assay_performances.csv	#binned pred-onpremise assay aggregated performances
+  │   │   ├── pred-onpremise_binned_per-task_performances.csv	#binned pred-onpremise performances
+  │   │   ├── pred-onpremise_global_performances.csv	#pred-onpremise global performance
+  │   │   ├── pred-onpremise_per-assay_performances.csv	#pred-onpremise assay aggregated performances
+  │   │   └── pred-onpremise_per-task_performances.csv	#pred-onpremise performances
+  │   └── pred-<class/regr>-copy #e.g. the substra predictions
+  │       ├── pred-substra_binned_per-assay_performances.csv	 #binned pred-substra assay aggregated performances
+  │       ├── pred-substra_binned_per-task_performances.csv	#binned pred-substra performances
+  │       ├── pred-substra_closeto_reported_performances.csv	#clarify when pred-substra is close to reported performances across tasks
+  │       ├── pred-substra_global_performances.csv	#pred-substra global performance
+  │       ├── pred-substra_per-assay_performances.csv	#pred-substra assay aggregated performances
+  │       └── pred-substra_per-task_performances.csv	#pred-substra performance
+  ├── derisk_summary.csv	#summary of which derisks pass/fail - TO BE UPLOADED TO BOX!
+  └── run_params.json #json with the runtime parameters
 ```
 
 The file 'derisk_summary.csv' has a concise summary of de-risk checks
 
-
 #### Step 3. Report the derisk
 
-Report output here: https://jjcloud.box.com/s/ok3k2p6ugbr7nt189b9y2qw2fbmakiqd
+Report output here: https://jjcloud.box.com/s/8vgkicq6ky0vx1sy83a3b6ljge7z7nuu
 
 
 ### 2. Delta between on-premise and substra for identically trained models
@@ -164,8 +263,7 @@ cat derisk_20epoch_cls/cls/pred/pred_global_performances.csv
 
 The aucpr values needs to be compared for cls, or coeff for reg 
 
-Report output here: https://jjcloud.box.com/s/ok3k2p6ugbr7nt189b9y2qw2fbmakiqd
-
+Report output here: https://jjcloud.box.com/s/8vgkicq6ky0vx1sy83a3b6ljge7z7nuu
 
 
 ## CLI
