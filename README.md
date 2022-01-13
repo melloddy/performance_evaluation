@@ -84,7 +84,7 @@ python development_performance_evaluation_derisk.py \
   --y_cls cls/cls_T10_y.npz \
   -folding_cls hyb_T11_fold_vector.npy \
   --perf_json_cls local_hybrid_HP_scan.json \
-  --validation_fold 0
+  --validation_fold 4
   --run_name derisk_20epoch_cls
 ```
 
@@ -106,7 +106,7 @@ python development_performance_evaluation_derisk.py \
   --y_cls cls/cls_T10_y.npz \
   -folding_cls hyb_T11_fold_vector.npy \
   --perf_json_cls local_hybrid_HP_scan.json \
-  --validation_fold 0
+  --validation_fold 4
   --run_name derisk_20epoch_cls_regr
 ```
 
