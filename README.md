@@ -9,7 +9,7 @@ On your local IT infrastructure you'd need
 
 1. Python 3.6 or higher
 2. Local Conda installation (e.g. miniconda)
-3. Data prep (3.0.2) and Sparsechem (suggested 0.9.6) installation
+3. Data prep (3.0.2) and Sparsechem (suggested **0.9.5**) installation
 4. melloddy_tuner environment from WP1 code: https://git.infra.melloddy.eu/wp1/data_prep & Sparsechem installed into that environment
 
 
@@ -35,7 +35,7 @@ sed -i 's/, "model_type": "federated"//g' <2epoch_mp_reg_dir>/export/hyperparame
 mkdir derisk_cls derisk_regr
 ```
 
-##### 2b. Predict the validation fold (4) using the model output from substra (load your conda env), e.g.:
+##### 2b. Predict the validation fold (4) using SparseChem (SC) version 0.9.5 and the model output from substra (load your conda env), e.g.:
 
 for cls:
 ```
