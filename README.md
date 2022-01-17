@@ -35,7 +35,7 @@ sed -i 's/, "model_type": "federated"//g' <2epoch_mp_reg_dir>/export/hyperparame
 mkdir derisk_cls derisk_regr
 ```
 
-##### 2b. Predict the validation fold (4) using SparseChem (SC) version 0.9.5 and the model output from substra (load your conda env), e.g.:
+##### 2b. Predict the validation fold (PH1=4 or PH2=0) using SparseChem (SC) version 0.9.5 and the PH2 model output from substra (load your conda env), e.g.:
 
 for cls:
 ```
@@ -43,7 +43,7 @@ python <sparsechem_dir>/examples/chembl/predict.py \
   --x <cls_dir>/cls_T11_x.npz \
   --y_class <cls_dir>/cls_T10_y.npz \
   --folding <cls_dir>/cls_T11_fold_vector.npy \
-  --predict_fold 4 \
+  --predict_fold 0 \
   --conf <2epoch_derisk_cls_dir>/export/hyperparameters.json \
   --model <2epoch_derisk_cls_dir>/export/model.pth \
   --dev cuda:0 \
@@ -55,7 +55,7 @@ python <sparsechem_dir>/examples/chembl/predict.py \
   --x <reg_dir>/clsaux_T11_x.npz \
   --y_regr <reg_dir>/clsaux_T10_y.npz \
   --folding <reg_dir>/clsaux_T11_fold_vector.npy \
-  --predict_fold 4 \
+  --predict_fold 0 \
   --conf <2epoch_derisk_reg_dir>/export/hyperparameters.json \
   --model <2epoch_derisk_reg_dir>/export/model.pth \
   --dev cuda:0 \
@@ -73,7 +73,7 @@ python development_performance_evaluation_derisk.py \
   --y_regr regr/reg_T10_y.npz \
   --folding_regr regr/reg_T11_fold_vector.npy \
   --perf_json_regr <20epoch_derisk_regr_dir>/perf/perf.json \
-  --validation_fold 4
+  --validation_fold 0
   --run_name derisk_20epoch_regr
 
 python development_performance_evaluation_derisk.py \
@@ -84,7 +84,7 @@ python development_performance_evaluation_derisk.py \
   --y_cls cls/cls_T10_y.npz \
   --folding_cls hyb_T11_fold_vector.npy \
   --perf_json_cls local_hybrid_HP_scan.json \
-  --validation_fold 4
+  --validation_fold 0
   --run_name derisk_20epoch_cls
 ```
 
@@ -106,7 +106,7 @@ python development_performance_evaluation_derisk.py \
   --y_cls cls/cls_T10_y.npz \
   --folding_cls hyb_T11_fold_vector.npy \
   --perf_json_cls local_hybrid_HP_scan.json \
-  --validation_fold 4
+  --validation_fold 0
   --run_name derisk_20epoch_cls_regr
 ```
 
