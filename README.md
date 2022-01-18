@@ -67,6 +67,7 @@ and reg:
 python <sparsechem_dir>/examples/chembl/predict.py \
   --x <reg_dir>/clsaux_T11_x.npz \
   --y_regr <reg_dir>/clsaux_T10_y.npz \
+  --y_censored_regr reg/reg_T10_censor_y.npz \
   --folding <reg_dir>/clsaux_T11_fold_vector.npy \
   --predict_fold 0 \
   --conf <2epoch_derisk_reg_dir>/export/hyperparameters.json \
@@ -75,6 +76,8 @@ python <sparsechem_dir>/examples/chembl/predict.py \
   --inverse_normalization 1 \
   --outprefix "derisk_regr/pred"
 ```
+
+If --y_censored_regr is provided, the script will produce both regr and regr-cens outputs to those folders, respectively.
   
 #### Step 3. Run the derisk script
 ```
@@ -101,7 +104,7 @@ python development_performance_evaluation_derisk.py \
   --run_name derisk_20epoch_cls
 ```
 
-or both cls and reg run together with:
+or both cls and reg run together with, e.g.:
 
 ```
 python development_performance_evaluation_derisk.py \
@@ -110,6 +113,7 @@ python development_performance_evaluation_derisk.py \
   --t8r_regr regr/T8r.csv \
   --weights_regr regr/reg_weights.csv \
   --y_regr regr/reg_T10_y.npz \
+  --y_censored_regr reg/reg_T10_censor_y.npz \
   --folding_regr regr/reg_T11_fold_vector.npy \
   --perf_json_regr <20epoch_derisk_regr_dir>/perf/r_squared-perf.json \
   --y_cls_substra <20epoch_derisk_cls_dir>/pred/pred.json \
