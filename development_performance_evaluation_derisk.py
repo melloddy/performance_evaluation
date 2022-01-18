@@ -67,8 +67,8 @@ def init_arg_parser():
 	assert len(args.aggr_binning_scheme_perf) == 11, f"len of aggr_binning_scheme_perf should be 11, got {len(args.aggr_binning_scheme_perf)}"
 	assert len(args.aggr_binning_scheme_perf_delta) == 9, f"len of aggr_binning_scheme_perf_delta should be 9, got {len(args.aggr_binning_scheme_perf_delta)}"
 	assert Path()
-	args.aggr_binning_scheme_perf=list(map(np.float,args.aggr_binning_scheme_perf))
-	args.aggr_binning_scheme_perf_delta=list(map(np.float,args.aggr_binning_scheme_perf_delta))
+	args.aggr_binning_scheme_perf=list(map(np.float64,args.aggr_binning_scheme_perf))
+	args.aggr_binning_scheme_perf_delta=list(map(np.float64,args.aggr_binning_scheme_perf_delta))
 	return args
 
 
@@ -168,7 +168,7 @@ def yhat_allclose_check(yhat1,yhat2,f1,f2, tol=1e-05):
 	nnz1, nnz2 = yhat1.nonzero(), yhat2.nonzero()
 	try: allclose = np.allclose(yhat1[nnz1], yhat2[nnz2], rtol=tol, atol=tol)
 	except TypeError as e: 
-		vprint(f"np.allclose error - likely SC predict_fold != validation_fold\nException was : {e}", vtype="ERROR")
+		vprint(f"np.allclose TypeError - likely SC predict_fold != validation_fold\nException was : {e}", vtype="ERROR")
 		sys.exit()
 	sprr = spearmanr(yhat1[nnz1],yhat2[nnz2],axis=1)
 	spr=f"Spearmanr rank correlation coefficient of the '{f1}' and '{f2}' yhats = {sprr}"
@@ -185,8 +185,6 @@ def global_allclose_check(globally_calculated,perf_agg,header=None, tol=1e-05):
 	Check globally aggregated performances are close between those calculated & reported
 	"""
 	if not header:
-		global cc
-		cc=perf_agg
 		perf_agg=pd.concat([pd.DataFrame([i[1]], columns=[i[0]]) for i in perf_agg.items()],axis=1)
 		allclose = np.allclose(globally_calculated, perf_agg[globally_calculated.columns.tolist()], rtol=tol, atol=tol)	
 		if not allclose: 
@@ -194,7 +192,8 @@ def global_allclose_check(globally_calculated,perf_agg,header=None, tol=1e-05):
 					\nCalculated:\n{globally_calculated}\nReported:{perf_agg[globally_calculated.columns.tolist()]}\nDifference:{globally_calculated-perf_agg[globally_calculated.columns.tolist()]}",derisk_check=3)
 			return False
 		else:
-			vprint(f"PASSED! global reported performance metrics and global calculated performance metrics close (tol:{tol})",derisk_check=3)
+			vprint(f"PASSED! global reported performance metrics and global calculated performance metrics close (tol:{tol}) \
+								\nCalculated:\n{globally_calculated}\nReported:{perf_agg[globally_calculated.columns.tolist()]}\nDifference:{globally_calculated-perf_agg[globally_calculated.columns.tolist()]}",derisk_check=3)
 			return True
 	else: 
 		if header == 'classification': primary = 'auc_pr'
@@ -202,10 +201,11 @@ def global_allclose_check(globally_calculated,perf_agg,header=None, tol=1e-05):
 		allclose = np.allclose(globally_calculated[primary], perf_agg, rtol=tol, atol=tol)
 		if not allclose: 
 			vprint(f"FAILED! {primary} global reported performance metric and global calculated performance metric NOT close (tol:{tol}) \
-					\nCalculated:\n{globally_calculated[primary].tolist()[0]}\nReported:{perf_agg}\nDifference:{globally_calculated[primary].tolist()[0]-perf_agg}",derisk_check=3)
+					\nCalculated:\n{globally_calculated[primary]}\nReported:{perf_agg}\nDifference:{globally_calculated[primary]-perf_agg}",derisk_check=3)
 			return False
 		else:
-			vprint(f"PASSED! {primary} global reported performance metric and global calculated performance metric close (tol:{tol})",derisk_check=3)
+			vprint(f"PASSED! {primary} global reported performance metric and global calculated performance metric close (tol:{tol}) \
+					\nCalculated:\n{globally_calculated[primary]}\nReported:{perf_agg}\nDifference:{globally_calculated[primary]-perf_agg}",derisk_check=3)
 			return True
 
 
@@ -246,7 +246,7 @@ def load_yhats(input_f, folding, fold_va, y_true):
 		ftype = 'npy'
 	else:
 		vprint(f'Loading (pred) output for: {input_f}') 
-		yhats = torch.load(input_f).astype('float64')
+		yhats = torch.load(input_f).astype('float64').tocsr()
 		ftype = 'pred'
 	# mask validation fold if possible
 	mask=np.array([True if i in fold_va else False for i in folding])
@@ -329,7 +329,7 @@ def substra_global_perf_from_json(performance_report):
 	return reported_performance
 
 
-def run_performance_calculation(run_type, y_pred, pred_or_npy, y_true, tw_df, task_map, run_name, flabel, perf_report=None):
+def run_performance_calculation(run_type, y_pred, pred_or_npy, y_true, tw_df, task_map, run_name, flabel, perf_report=None, y_true_cens = None):
 	"""
 	Calculate performance for one run, bin results and then individual performance reports including aggregation by assay/globally
 	"""
@@ -337,9 +337,9 @@ def run_performance_calculation(run_type, y_pred, pred_or_npy, y_true, tw_df, ta
 	flabel = Path(flabel).stem
 	header_type = getheader(run_type)
 	if header_type == 'classification':
-		sc_columns = sc.utils.all_metrics([0],[0]).columns.tolist()  #get the names of reported metrics from the sc utils
+		sc_columns = sc.utils.all_metrics([0],[0],None).columns.tolist()  #get the names of reported metrics from the sc utils
 	else:
-		sc_columns = sc.utils.all_metrics_regr([0],[0]).columns.tolist()  #get the names of reported metrics from the sc utils
+		sc_columns = sc.utils.all_metrics_regr([0],[0],None).columns.tolist()  #get the names of reported metrics from the sc utils
 	y_pred = sparse.csc_matrix(y_pred)
 	validate_ytrue_ypred(y_true, y_pred, pred_or_npy) # checks to make sure y_true and y_pred match
 	if perf_report:
@@ -359,11 +359,16 @@ def run_performance_calculation(run_type, y_pred, pred_or_npy, y_true, tw_df, ta
 		#setup for classification metrics
 		if header_type == 'classification':
 			y_true_col = (y_true.data[y_true.indptr[col] : y_true.indptr[col+1]] == 1)
-			sc_calculation = sc.utils.all_metrics(y_true_col,y_pred_col)
+			try: positive_rate_for_col = np.sum(y_true_col) / len(y_true_col)
+			except ZeroDivisionError: positive_rate_for_col = 0
+			with np.errstate(divide='ignore'):
+				sc_calculation = sc.utils.all_metrics(y_true_col,y_pred_col,positive_rate_for_col)
 		#setup for regression metrics
 		else:
+			if y_true_cens is not None: y_censor = (y_true_cens.data[y_true_cens.indptr[col] : y_true_cens.indptr[col+1]])
+			else: y_censor = None
 			y_true_col = (y_true.data[y_true.indptr[col] : y_true.indptr[col+1]])
-			sc_calculation = sc.utils.all_metrics_regr(y_true_col,y_pred_col)
+			sc_calculation = sc.utils.all_metrics_regr(y_true_col,y_pred_col, y_censor=y_censor)
 		details = pd.DataFrame({f'{header_type}_task_id': pd.Series(task_id, dtype='int32'),
 								'task_size': pd.Series(len(y_true_col), dtype='int32')})
 
@@ -524,7 +529,7 @@ def write_aggregated_report(run_name, run_type, fname, local_performances, sc_co
 	return
 
 
-def calculate_onpremise_substra_results(run_name, run_type, y_true, folding, fold_va, t8, task_weights, onpremise, substra, performance_report):
+def calculate_onpremise_substra_results(run_name, run_type, y_true, folding, fold_va, t8, task_weights, onpremise, substra, performance_report, y_true_cens=None):
 	"""
 	Calculate cls, clsaux or regr performances for onpremise and substra outputs, then calculate delta, plot outputs along the way
 	"""
@@ -534,13 +539,15 @@ def calculate_onpremise_substra_results(run_name, run_type, y_true, folding, fol
 	tw_df.sort_values("task_id", inplace=True)
 	check_weights(tw_df,y_true,header_type)
 	t8 = pd.read_csv(t8) #read t8c or t8r files
-	if 'regr' in run_type: t8=t8.reset_index().rename(columns={'index': 'regression_task_id'})
-	task_map = t8.merge(tw_df,left_on=f'cont_{header_type}_task_id',right_on='task_id',how='left').query('task_id.notna()')
+	if 'regr' in run_type:
+		t8=t8.reset_index().rename(columns={'index': 'regression_task_id'})
+		if y_true_cens: y_true_cens = mask_ytrue(run_type,y_true_cens,folding,fold_va)
+	task_map = t8.merge(tw_df,left_on=f'cont_{header_type}_task_id',right_on='task_id',how='left').dropna(subset=[f'cont_{header_type}_task_id'])
 	y_onpremise_yhat, y_substra_yhat, y_onpremise_ftype, y_substra_ftype = mask_y_hat(onpremise, substra, folding, fold_va, y_true, header_type)
 	derisk_checks = yhat_allclose_check(y_onpremise_yhat,y_substra_yhat,onpremise.stem,substra.stem) #add derisk #1 & #1spr
-	y_onpremise_results, _ = run_performance_calculation(run_type, y_onpremise_yhat, y_onpremise_ftype, y_true, tw_df, task_map, run_name, onpremise)
+	y_onpremise_results, _ = run_performance_calculation(run_type, y_onpremise_yhat, y_onpremise_ftype, y_true, tw_df, task_map, run_name, onpremise, y_true_cens=y_true_cens)
 	del y_onpremise_yhat
-	y_substra_results, sc_columns, derisk_reported = run_performance_calculation(run_type, y_substra_yhat, y_substra_ftype, y_true, tw_df, task_map, run_name, substra, perf_report=performance_report)
+	y_substra_results, sc_columns, derisk_reported = run_performance_calculation(run_type, y_substra_yhat, y_substra_ftype, y_true, tw_df, task_map, run_name, substra, perf_report=performance_report, y_true_cens=y_true_cens)
 	del y_substra_yhat
 	derisk_checks += derisk_reported + calculate_delta(y_onpremise_results, y_substra_results, run_name, run_type, sc_columns, header_type) #add derisk #2/3 & 4/5
 	return derisk_checks
@@ -594,6 +601,16 @@ def main(args):
 												Path(args.y_regr_onpremise),Path(args.y_regr_substra), \
 												args.perf_json_regr)
 		derisk_df = pd.concat((derisk_df, pd.DataFrame([['regr']+derisked], columns = derisk_df.columns)))
+	if args.y_regr and args.y_censored_regr:
+		folding = np.load(args.folding_regr)
+		os.makedirs(f"{run_name}/regr_cens")
+		vprint(f"De-risking regr_cens performance", model_category=True)
+		derisked = \
+			calculate_onpremise_substra_results(run_name, 'regr_cens' ,args.y_regr, \
+												folding, fold_va, args.t8r_regr, args.weights_regr, \
+												Path(args.y_regr_onpremise),Path(args.y_regr_substra), \
+												args.perf_json_regr, y_true_cens = args.y_censored_regr)
+		derisk_df = pd.concat((derisk_df, pd.DataFrame([['regr_cens']+derisked], columns = derisk_df.columns)))
 	if args.y_hyb_regr:
 		folding = np.load(args.folding_hyb)
 		os.makedirs(f"{run_name}/hyb_regr")
