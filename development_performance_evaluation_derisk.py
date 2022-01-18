@@ -276,6 +276,9 @@ def mask_ytrue(ftype,fname,folding,fold_va):
 	try: y_all = sc.load_sparse(fname)
 	except AttributeError: 
 		y_all = mmread(fname)
+	if 'regr' in ftype: ## convert 0 values to 999 otherwise they can get lost
+		zero_ind = np.where(y_all.data==0)[0]  ###newlines
+		y_all.data[zero_ind] += 999 ###newlines
 	y_all = y_all.tocsc()
 	mask=np.array([True if i in fold_va else False for i in folding])
 	y_all_true = y_all[mask]
@@ -365,9 +368,20 @@ def run_performance_calculation(run_type, y_pred, pred_or_npy, y_true, tw_df, ta
 				sc_calculation = sc.utils.all_metrics(y_true_col,y_pred_col,positive_rate_for_col)
 		#setup for regression metrics
 		else:
-			if y_true_cens is not None: y_censor = (y_true_cens.data[y_true_cens.indptr[col] : y_true_cens.indptr[col+1]])
+			if y_true_cens is not None:
+				y_censor = (y_true_cens.data[y_true_cens.indptr[col] : y_true_cens.indptr[col+1]])
+				print(y_censor)
+				zero_ind = np.where(y_censor==999)[0]
+				global zi1
+				zi1=y_censor.copy()
+				if len(zero_ind) > 0: y_censor[zero_ind]-=999
+				print(y_censor)
+				global zi
+				zi=y_censor.copy()
 			else: y_censor = None
 			y_true_col = (y_true.data[y_true.indptr[col] : y_true.indptr[col+1]])
+			zero_ind = np.where(y_true_col==999)[0]
+			if len(zero_ind) > 0: y_true_col[zero_ind]-=999
 			sc_calculation = sc.utils.all_metrics_regr(y_true_col,y_pred_col, y_censor=y_censor)
 		details = pd.DataFrame({f'{header_type}_task_id': pd.Series(task_id, dtype='int32'),
 								'task_size': pd.Series(len(y_true_col), dtype='int32')})
@@ -490,7 +504,7 @@ def write_aggregated_report(run_name, run_type, fname, local_performances, sc_co
 	"""
 	write performance reports per-task & per-task_assay
 	"""
-	df = local_performances.copy()
+	df = local_performances.query('evaluation_quorum_OK == 1 & is_auxiliary == 0 & aggregation_weight_y == 1').copy()
 	for metric in df.loc[:, sc_columns[0]:sc_columns[-1]].columns:
 		df.loc[:,f'{metric}_percent'] = cut(df[metric].astype('float64'), \
 		args.aggr_binning_scheme_perf,include_lowest=True,right=True,lower_infinite=False, upper_infinite=False)
@@ -616,7 +630,7 @@ def main(args):
 		os.makedirs(f"{run_name}/hyb_regr")
 		vprint(f"De-risking hyb regr performance", model_category=True)
 		derisked = \
-			calculate_onpremise_substra_results(run_name, 'regr' , args.y_hyb_regr, \
+			calculate_onpremise_substra_results(run_name, 'hyb_regr' , args.y_hyb_regr, \
 												folding, fold_va, args.t8r_regr, args.weights_hyb_regr, \
 												Path(args.y_hyb_regr_onpremise),Path(args.y_hyb_regr_substra), \
 												args.perf_json_hyb_regr)
@@ -626,7 +640,7 @@ def main(args):
 		os.makedirs(f"{run_name}/hyb_cls")
 		vprint(f"De-risking hyb cls performance", model_category=True)
 		derisked = \
-			calculate_onpremise_substra_results(run_name, 'cls' , args.y_hyb_cls, \
+			calculate_onpremise_substra_results(run_name, 'hyb_cls' , args.y_hyb_cls, \
 												folding, fold_va, args.t8c_cls, args.weights_hyb_cls, \
 												Path(args.y_hyb_cls_onpremise),Path(args.y_hyb_cls_substra), \
 												args.perf_json_hyb_cls)
