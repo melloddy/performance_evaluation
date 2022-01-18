@@ -25,17 +25,30 @@ On your local IT infrastructure you'd need
 gunzip -c <cls-hash>.tar.gz | tar xvf - && gunzip -c <reg-hash>.tar.gz | tar xvf -
 ```
 
-#### Step 2. Create SparseChem predictions on-premise with the outputted model
+The performance JSONs are not named with their respective metrics. Use the following to create new JSONs with the name of each metric for each of the cls/reg derisk runs:
 
-##### 2a (possibly required?). Fix both cls & reg hyperparameter.json (by removing model_type) & setup dirs:
+```
+import json
+from shutil import copyfile as cp
+import glob
 
-```/
-sed -i 's/, "model_type": "federated"//g' <2epoch_mp_cls_dir>/export/hyperparameters.json 
-sed -i 's/, "model_type": "federated"//g' <2epoch_mp_reg_dir>/export/hyperparameters.json 
-mkdir derisk_cls derisk_regr
+
+for eachrun in glob.glob('*/'):
+
+	with open(f'{eachrun}/metadata.json') as json_data:
+		metadata = json.load(json_data)
+		metrics = metadata["metrics"]
+
+
+	for m in metrics:
+		metric = metadata["metrics"][m]["metadata"]["metrics_name"]
+		cp(f"{eachrun}/perf/%s-perf.json" %m, f"{eachrun}/perf/%s-perf.json" %metric)
 ```
 
-##### 2b. Predict the validation fold (PH1=4 or PH2=0) using SparseChem (SC) version 0.9.5 and the PH2 model output from substra (load your conda env), e.g.:
+
+#### Step 2. Create SparseChem predictions on-premise with the outputted model
+
+Predict the validation fold (PH1=4 or PH2=0) using SparseChem (SC) version 0.9.5 and the PH2 model output from substra (load your conda env), e.g.:
 
 for cls:
 ```
@@ -61,29 +74,29 @@ python <sparsechem_dir>/examples/chembl/predict.py \
   --dev cuda:0 \
   --inverse_normalization 1 \
   --outprefix "derisk_regr/pred"
-  ```
+```
   
 #### Step 3. Run the derisk script
 ```
 python development_performance_evaluation_derisk.py \
-  --y_regr_substra <20epoch_derisk_regr_dir>/pred/pred \
+  --y_regr_substra <20epoch_derisk_regr_dir>/pred/pred.json \
   --y_regr_onpremise derisk_regr/pred-regr.npy \
   --t8r_regr regr/T8r.csv \
   --weights_regr regr/reg_weights.csv \
   --y_regr regr/reg_T10_y.npz \
   --folding_regr regr/reg_T11_fold_vector.npy \
-  --perf_json_regr <20epoch_derisk_regr_dir>/perf/perf.json \
+  --perf_json_regr <20epoch_derisk_regr_dir>/perf/r_squared-perf.json \
   --validation_fold 0
   --run_name derisk_20epoch_regr
 
 python development_performance_evaluation_derisk.py \
-  --y_cls_substra <20epoch_derisk_cls_dir>/pred/pred \
-  --y_cls_onpremise hybpredall-cls.npy \
+  --y_cls_substra <20epoch_derisk_cls_dir>/pred/pred.json \
+  --y_cls_onpremise derisk_cls/predall-cls.npy \
   --t8c_cls cls/T8c.csv \
   --weights_cls cls/cls_weights.csv \
   --y_cls cls/cls_T10_y.npz \
-  --folding_cls hyb_T11_fold_vector.npy \
-  --perf_json_cls local_hybrid_HP_scan.json \
+  --folding_cls cls_T11_fold_vector.npy \
+  --perf_json_cls <20epoch_derisk_cls_dir>/perf/aucpr-perf.json \
   --validation_fold 0
   --run_name derisk_20epoch_cls
 ```
@@ -92,20 +105,20 @@ or both cls and reg run together with:
 
 ```
 python development_performance_evaluation_derisk.py \
-  --y_regr_substra <20epoch_derisk_regr_dir>/pred/pred \
+  --y_regr_substra <20epoch_derisk_regr_dir>/pred/pred.json \
   --y_regr_onpremise derisk_regr/pred-regr.npy \
   --t8r_regr regr/T8r.csv \
   --weights_regr regr/reg_weights.csv \
   --y_regr regr/reg_T10_y.npz \
   --folding_regr regr/reg_T11_fold_vector.npy \
-  --perf_json_regr <20epoch_derisk_regr_dir>/perf/perf.json \
-  --y_cls_substra <20epoch_derisk_cls_dir>/pred/pred \
+  --perf_json_regr <20epoch_derisk_regr_dir>/perf/r_squared-perf.json \
+  --y_cls_substra <20epoch_derisk_cls_dir>/pred/pred.json \
   --y_cls_onpremise hybpredall-cls.npy \
   --t8c_cls cls/T8c.csv \
   --weights_cls cls/cls_weights.csv \
   --y_cls cls/cls_T10_y.npz \
   --folding_cls hyb_T11_fold_vector.npy \
-  --perf_json_cls local_hybrid_HP_scan.json \
+  --perf_json_cls <20epoch_derisk_cls_dir>/perf/aucpr-perf.json \
   --validation_fold 0
   --run_name derisk_20epoch_cls_regr
 ```
@@ -243,7 +256,7 @@ python $train \
   --normalize_loss 100_000 \
   --eval_frequency 1 \
   --batch_ratio 0.02 \
-  --fold_va 4 \
+  --fold_va 0 \
   --verbose 1 \
   --profile 1 \
   --save_model 1
@@ -251,7 +264,7 @@ python $train \
 #### Step 2. check the performance here:
 ```
 import sparsechem as sc
-res = sc.load_results('models/sc_run_h{..}_ldo{..}_wd{..}_lr{..}_lrsteps{..}_ep20_fva4_fteNone.json')
+res = sc.load_results('models/sc_run_h{..}_ldo{..}_wd{..}_lr{..}_lrsteps{..}_ep20_fva0_fteNone.json')
 print(res['validation']['classification_agg'])   
 ```
 
