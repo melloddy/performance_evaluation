@@ -57,8 +57,8 @@ python <sparsechem_dir>/examples/chembl/predict.py \
   --y_class <cls_dir>/cls_T10_y.npz \
   --folding <cls_dir>/cls_T11_fold_vector.npy \
   --predict_fold 0 \
-  --conf <2epoch_derisk_cls_dir>/export/hyperparameters.json \
-  --model <2epoch_derisk_cls_dir>/export/model.pth \
+  --conf <20epoch_derisk_cls_dir>/export/hyperparameters.json \
+  --model <20epoch_derisk_cls_dir>/export/model.pth \
   --dev cuda:0 \
   --outprefix "derisk_cls/pred"
 ```
@@ -70,8 +70,8 @@ python <sparsechem_dir>/examples/chembl/predict.py \
   --y_censored_regr reg/reg_T10_censor_y.npz \
   --folding <reg_dir>/reg_T11_fold_vector.npy \
   --predict_fold 0 \
-  --conf <2epoch_derisk_reg_dir>/export/hyperparameters.json \
-  --model <2epoch_derisk_reg_dir>/export/model.pth \
+  --conf <20epoch_derisk_reg_dir>/export/hyperparameters.json \
+  --model <20epoch_derisk_reg_dir>/export/model.pth \
   --dev cuda:0 \
   --inverse_normalization 1 \
   --outprefix "derisk_regr/pred"
