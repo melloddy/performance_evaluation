@@ -370,14 +370,8 @@ def run_performance_calculation(run_type, y_pred, pred_or_npy, y_true, tw_df, ta
 		else:
 			if y_true_cens is not None:
 				y_censor = (y_true_cens.data[y_true_cens.indptr[col] : y_true_cens.indptr[col+1]])
-				print(y_censor)
 				zero_ind = np.where(y_censor==999)[0]
-				global zi1
-				zi1=y_censor.copy()
 				if len(zero_ind) > 0: y_censor[zero_ind]-=999
-				print(y_censor)
-				global zi
-				zi=y_censor.copy()
 			else: y_censor = None
 			y_true_col = (y_true.data[y_true.indptr[col] : y_true.indptr[col+1]])
 			zero_ind = np.where(y_true_col==999)[0]
@@ -385,7 +379,6 @@ def run_performance_calculation(run_type, y_pred, pred_or_npy, y_true, tw_df, ta
 			sc_calculation = sc.utils.all_metrics_regr(y_true_col,y_pred_col, y_censor=y_censor)
 		details = pd.DataFrame({f'{header_type}_task_id': pd.Series(task_id, dtype='int32'),
 								'task_size': pd.Series(len(y_true_col), dtype='int32')})
-
 		if y_true_col.shape[0] <= 1: continue
 		if (y_true_col[0] == y_true_col).all(): continue
 		sc_metrics = pd.concat([details,sc_calculation],axis=1)
@@ -490,9 +483,6 @@ def write_global_report(run_name, run_type, fname, local_performances, sc_column
 	write performance reports for global aggregation
 	"""
 	df = local_performances.query('evaluation_quorum_OK == 1 & is_auxiliary == 0 & aggregation_weight_y == 1').copy()
-	if 'regr' in run_type:
-		for metric in sc_columns:
-			df[metric]=np.average(df[metric], weights=df.censored_weight_y)
 	df = pd.DataFrame(df[sc_columns].mean(axis=0)).T
 	fn1 = f"{run_name}/{run_type}/{fname}/{fname}_global_performances.csv"
 	df.to_csv(fn1, index= False)
