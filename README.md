@@ -67,7 +67,6 @@ and reg:
 python <sparsechem_dir>/examples/chembl/predict.py \
   --x <reg_dir>/reg_T11_x.npz \
   --y_regr <reg_dir>/reg_T10_y.npz \
-  --y_censored_regr reg/reg_T10_censor_y.npz \
   --folding <reg_dir>/reg_T11_fold_vector.npy \
   --predict_fold 0 \
   --conf <20epoch_derisk_reg_dir>/export/hyperparameters.json \
