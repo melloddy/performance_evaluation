@@ -86,6 +86,7 @@ python development_performance_evaluation_derisk.py \
   --t8r_regr regr/T8r.csv \
   --weights_regr regr/reg_weights.csv \
   --y_regr regr/reg_T10_y.npz \
+  --y_censored_regr reg/reg_T10_censor_y.npz \
   --folding_regr regr/reg_T11_fold_vector.npy \
   --perf_json_regr <20epoch_derisk_regr_dir>/perf/r_squared-perf.json \
   --validation_fold 0
