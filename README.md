@@ -242,7 +242,10 @@ Report output here: https://jjcloud.box.com/s/8vgkicq6ky0vx1sy83a3b6ljge7z7nuu
 
 ### 2. Delta between on-premise and substra for identically trained models
 
-#### Step 1. Train a local model with the exact same hyperparameters as it was trianed on the platform, e.g.:
+#### Step 1. Train a local model with the exact same hyperparameters as it was trianed on the platform
+
+NB: Identify whether the model is Phase 1 (PH1), which requires the run time parameters (fold_va=4, fold_te=4) or Phase 2 (PH2), requiring the fold_va=0 parameter. I.e. the following would be run for a PH2 model:
+
 ```
 python $train \
   --x $data_path/cls/cls_T11_x.npz \
@@ -267,6 +270,35 @@ python $train \
   --profile 1 \
   --save_model 1
 ```
+
+vs PH1 model:
+
+```
+python $train \
+  --x $data_path/cls/cls_T11_x.npz \
+  --y $data_path/cls/cls_T10_y.npz \
+  --folding $data_path/cls/cls_T11_fold_vector.npy \
+  --weights_class $data_path/cls/cls_weights.csv \
+  --hidden_sizes $hidden_sizes \
+  --weight_decay $weight_decay \
+  --dropouts_trunk $middle_dropout \
+  --last_non_linearity relu \
+  --non_linearity relu \
+  --input_transform binarize \
+  --lr $lr \
+  --lr_alpha $lra \
+  --lr_steps $lrs \
+  --epochs 20 \
+  --normalize_loss 100_000 \
+  --eval_frequency 1 \
+  --batch_ratio 0.02 \
+  --fold_va 4 \
+  --fold_te 0 \
+  --verbose 1 \
+  --profile 1 \
+  --save_model 1
+```
+
 #### Step 2. check the performance here:
 ```
 import sparsechem as sc
