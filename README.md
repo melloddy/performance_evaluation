@@ -244,7 +244,11 @@ Report output here: https://jjcloud.box.com/s/8vgkicq6ky0vx1sy83a3b6ljge7z7nuu
 
 #### Step 1. Train a local model with the exact same hyperparameters as it was trianed on the platform
 
-NB: Identify whether the model is Phase 1 (PH1), which requires the run time parameters (fold_va=4, fold_te=4) or Phase 2 (PH2), requiring the fold_va=0 parameter. I.e. the following would be run for a PH2 model:
+NB: Identify whether the model is Phase 1 (PH1), which requires the run time parameters (fold_va=4, fold_te=4) or Phase 2 (PH2), requiring the fold_va=0 parameter.
+
+##### Classification
+
+I.e. the following would be run for a PH2 model:
 
 ```
 python $train \
@@ -298,6 +302,38 @@ python $train \
   --profile 1 \
   --save_model 1
 ```
+
+##### Regression
+
+PH2 regression model would look like, e.g.:
+
+```
+python $train \
+  --x $data_path/reg/reg_T11_x.npz \
+  --y_regr $data_path/reg/reg_T10_y.npz \
+  --y_censor $data_path/reg/reg_T10_censor_y.npz \
+  --weights_regr $data_path/reg/reg_weights.csv \
+  --folding $data_path/reg/reg_T11_fold_vector.npy \
+  --censored_loss 1 \
+  --normalize_regression 1 \
+  --inverse_normalization 1 \
+  --batch_ratio 0.02 \
+  --hidden_sizes $hidden_sizes \
+  --middle_non_linearity tanh \
+  --last_non_linearity tanh \
+  --weight_decay $weight_decay \
+  --dropouts_trunk $last_dropout \
+  --epochs 20 \
+  --lr_steps $lr \
+  --fold_va 0 \
+  --normalize_loss 100_000 \
+  --save_model 1 \
+  --eval_frequency 1 \
+  --eval_train 1 \
+  --verbose 1 \
+  --profile 1
+```
+
 
 #### Step 2. check the performance here:
 ```
