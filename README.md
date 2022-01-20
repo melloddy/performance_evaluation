@@ -77,6 +77,8 @@ python <sparsechem_dir>/examples/chembl/predict.py \
 ```
 
 If --y_censored_regr is provided, the script will produce both regr and regr-cens outputs to those folders, respectively.
+
+* NB: --y_censored_regr is required in order for Check #3 to pass, since the platform is reporting regr_cens metrics
   
 #### Step 3. Run the derisk script
 ```
