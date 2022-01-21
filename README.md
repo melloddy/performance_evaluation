@@ -348,7 +348,7 @@ print(res['validation']['classification_agg'])
 cat derisk_20epoch_cls/cls/pred/pred_global_performances.csv
 ```
 
-The aucpr values needs to be compared for cls, or coeff for reg 
+The aucpr values needs to be compared for cls, or r_squared for reg 
 
 Report output here: https://jjcloud.box.com/s/8vgkicq6ky0vx1sy83a3b6ljge7z7nuu
 
