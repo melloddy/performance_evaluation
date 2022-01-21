@@ -244,7 +244,7 @@ Report output here: https://jjcloud.box.com/s/8vgkicq6ky0vx1sy83a3b6ljge7z7nuu
 
 #### Step 1. Train a local model with the exact same hyperparameters as it was trianed on the platform
 
-NB: Identify whether the model is Phase 1 (PH1), which requires the run time parameters (fold_va=4, fold_te=4) or Phase 2 (PH2), requiring the fold_va=0 parameter.
+NB: Identify whether the model is Phase 1 (PH1), which requires the run time parameters (fold_va=4, fold_te=0) or Phase 2 (PH2), requiring the fold_va=0 parameter.
 
 ##### Classification
 
@@ -339,13 +339,15 @@ python $train \
 ```
 import sparsechem as sc
 res = sc.load_results('models/sc_run_h{..}_ldo{..}_wd{..}_lr{..}_lrsteps{..}_ep20_fva0_fteNone.json')
-print(res['validation']['classification_agg'])   
+print(res['validation']['classification_agg'])
+print(res['validation']['regression_agg'])   ### or for regression
 ```
 
 #### Step 3. Run the derisk workflow as usual and you will get some files in the output folder like:
 
 ```
 cat derisk_20epoch_cls/cls/pred/pred_global_performances.csv
+cat derisk_20epoch_regr/regr_cens/pred/pred_global_performances.csv ## or for regr_cens
 ```
 
 The aucpr values needs to be compared for cls, or r_squared for reg 
