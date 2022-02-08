@@ -30,7 +30,7 @@ On your local IT infrastructure you'd need
 4. melloddy_tuner environment from WP1 code: https://git.infra.melloddy.eu/wp1/data_prep & Sparsechem installed into that environment
 
 ## === CATALOG_PANEL subset analysis ===
-This comparison will be performed with fusion turned on: CP91 epoch 15 (CP91 is stillrunning at the time of writing)  and without (CP42, completed)
+This preliminary comparison will be performed with the PH1 models we currently have access to (08/02/22) with fusion turned on: CP91 epoch 15 (CP91 is stillrunning at the time of writing)  and without (CP42, completed)
 
 #### Step 1. Retrieve the CLS CP91 (epoch 15) & CP42 (N.B ensure this is also epoch 15) output from substra and decompress
 ```
@@ -48,7 +48,7 @@ python performance_evaluation.py \
  --weights_cls <cls_dir>/cls_weights.csv \
  --y_cls <cls_dir>/cls_T10_y.npz \
  --folding_cls <cls_dir>/cls_T11_fold_vector.npy \
- --validation_fold 0 \
+ --validation_fold 4 \
  --run_name CP91_vs_CP42
 ```
 
