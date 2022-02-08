@@ -454,7 +454,7 @@ def calculate_single_partner_multi_partner_results(run_name, run_type, y_true, f
 		if y_true_cens: y_true_cens = mask_ytrue(run_type,y_true_cens,folding,fold_va)
 	task_map = t8.merge(tw_df,left_on=f'cont_{header_type}_task_id',right_on='task_id',how='left').dropna(subset=[f'cont_{header_type}_task_id'])
 	y_single_partner_yhat, y_multi_partner_yhat, y_single_partner_ftype, y_multi_partner_ftype = mask_y_hat(single_partner, multi_partner, folding, fold_va, y_true, header_type)
-	if '--y_cls_cp1' in sys.argv and '--y_cls_cp2' in sys.argv:
+	if '--y_cls_run1' in sys.argv and '--y_cls_run2' in sys.argv:
 		calc_name1='RUN1'
 		calc_name2='RUN2'
 	else:
