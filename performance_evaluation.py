@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 import argparse
 import pandas as pd
@@ -26,15 +27,15 @@ def init_arg_parser():
 	parser.add_argument("--y_hyb_regr", help="Activity file (npz) (e.g. hyb_reg_T10_y.npz)", type=str, default=None)
 	parser.add_argument("--y_censored_hyb", help="Censored activity file (npz) (e.g. hyb_reg_T10_censor_y.npz)", type=str, default=None)
 
-	parser.add_argument("--y_cls_single_partner", help="Yhat cls prediction output from an single-partner run (e.g. <single pharma dir>/<cls_prefix>-class.npy)", type=str, default=None)
-	parser.add_argument("--y_clsaux_single_partner", help="Yhat clsaux prediction from an single-partner run (e.g. <single pharma dir>/<clsaux_prefix>-class.npy)", type=str, default=None)
-	parser.add_argument("--y_regr_single_partner", help="Yhat regr prediction from an single-partner run (e.g. <single pharma dir>/<regr_prefix>-regr.npy)", type=str, default=None)
-	parser.add_argument("--y_hyb_single_partner", help="Yhat hyb prediction from an single-partner run (e.g. <single pharma dir>/<regr_prefix>-regr.npy)", type=str, default=None)
+	parser.add_argument("--y_cls_single_partner", "--y_cls_run1", help="Yhat cls prediction output from an single-partner run (e.g. <single pharma dir>/<cls_prefix>-class.npy)", type=str, default=None)
+	parser.add_argument("--y_clsaux_single_partner", "--y_clsaux_run1", help="Yhat clsaux prediction from an single-partner run (e.g. <single pharma dir>/<clsaux_prefix>-class.npy)", type=str, default=None)
+	parser.add_argument("--y_regr_single_partner", "--y_regr_run1", help="Yhat regr prediction from an single-partner run (e.g. <single pharma dir>/<regr_prefix>-regr.npy)", type=str, default=None)
+	parser.add_argument("--y_hyb_single_partner", "--y_hyb_run1", help="Yhat hyb prediction from an single-partner run (e.g. <single pharma dir>/<regr_prefix>-regr.npy)", type=str, default=None)
 
-	parser.add_argument("--y_cls_multi_partner", help="Classification prediction output for comparison (e.g. pred from the multi-partner run)", type=str, default=None)
-	parser.add_argument("--y_clsaux_multi_partner", help="Classification w/ aux prediction output for comparison (e.g. pred from the multi-partner run)", type=str, default=None)
-	parser.add_argument("--y_regr_multi_partner", help="Regression prediction output for comparison (e.g. pred from the multi-partner run)", type=str, default=None)
-	parser.add_argument("--y_hyb_multi_partner", help="Hybrid prediction output for comparison (e.g. pred from the multi-partner run)", type=str, default=None)
+	parser.add_argument("--y_cls_multi_partner", "--y_cls_run2", help="Classification prediction output for comparison (e.g. pred from the multi-partner run)", type=str, default=None)
+	parser.add_argument("--y_clsaux_multi_partner", "--y_clsaux_run2", help="Classification w/ aux prediction output for comparison (e.g. pred from the multi-partner run)", type=str, default=None)
+	parser.add_argument("--y_regr_multi_partner", "--y_regr_run2", help="Regression prediction output for comparison (e.g. pred from the multi-partner run)", type=str, default=None)
+	parser.add_argument("--y_hyb_multi_partner", "--y_hyb_run2", help="Hybrid prediction output for comparison (e.g. pred from the multi-partner run)", type=str, default=None)
 
 	parser.add_argument("--folding_cls", help="Folding file (npy) (e.g. cls_T11_fold_vector.npy)", type=str, default=None)
 	parser.add_argument("--folding_clsaux", help="Folding file (npy) (e.g. cls_T11_fold_vector.npy)", type=str, default=None)
@@ -61,8 +62,8 @@ def init_arg_parser():
 	assert len(args.aggr_binning_scheme_perf) == 11, f"len of aggr_binning_scheme_perf should be 11, got {len(args.aggr_binning_scheme_perf)}"
 	assert len(args.aggr_binning_scheme_perf_delta) == 9, f"len of aggr_binning_scheme_perf_delta should be 9, got {len(args.aggr_binning_scheme_perf_delta)}"
 	assert Path()
-	args.aggr_binning_scheme_perf=list(map(np.float,args.aggr_binning_scheme_perf))
-	args.aggr_binning_scheme_perf_delta=list(map(np.float,args.aggr_binning_scheme_perf_delta))
+	args.aggr_binning_scheme_perf=list(map(np.float64,args.aggr_binning_scheme_perf))
+	args.aggr_binning_scheme_perf_delta=list(map(np.float64,args.aggr_binning_scheme_perf_delta))
 	return args
 
 
@@ -216,7 +217,7 @@ def check_weights(tw_df, y_true, header_type):
 	assert tw_df.shape[0]==y_true.shape[1], f"The number of task weights ({tw_df.shape[0]}) must be equal to the number of columns in Y ({y_true.shape[1]})."
 	return
 
-def run_significance_calculation(run_type, y_pred0, y_pred1, y_true, task_map):
+def run_significance_calculation(run_type, y_pred0, y_pred1, y_true, task_map, calc1, calc2):
 	"""
 	Calculate significance between runs and bin individual performance reports including aggregation by assay/globally
 	"""
@@ -236,8 +237,8 @@ def run_significance_calculation(run_type, y_pred0, y_pred1, y_true, task_map):
 		if y_true_col.shape[0] <= 1: continue
 		if (y_true_col[0] == y_true_col).all(): continue
 		with np.errstate(divide='ignore',invalid='ignore'):
-			sp_sig = significance_analysis.test_significance(y_true_col, y_pred_col1, y_pred_col0, level=0.05).rename(columns={'significant': 'sp_significant','p_value' : 'sp_pvalue'})
-			mp_sig = significance_analysis.test_significance(y_true_col, y_pred_col0, y_pred_col1, level=0.05).rename(columns={'significant': 'mp_significant','p_value' : 'mp_pvalue'})
+			sp_sig = significance_analysis.test_significance(y_true_col, y_pred_col1, y_pred_col0, level=0.05).rename(columns={'significant': f'{calc1}_significant','p_value' : f'{calc1}_pvalue'})
+			mp_sig = significance_analysis.test_significance(y_true_col, y_pred_col0, y_pred_col1, level=0.05).rename(columns={'significant': f'{calc2}_significant','p_value' : f'{calc2}_pvalue'})
 		sp_mp_sig = pd.concat([details,sp_sig,mp_sig],axis=1)
 		calculated_sig = pd.concat([calculated_sig, sp_mp_sig],axis=0)
 	return calculated_sig
@@ -303,7 +304,7 @@ def run_performance_calculation(run_type, y_pred, pred_or_npy, y_true, tw_df, ta
 	return calculated_performance, sc_columns
 
 
-def calculate_delta(f1_results, f2_results, run_name, run_type, sc_columns, header_type, sig = None):
+def calculate_delta(f1_results, f2_results, run_name, run_type, sc_columns, header_type, calc_name1, calc_name2, sig = None):
 	"""
 	Calculate the delta between the outputs and write to a file
 	"""
@@ -362,7 +363,7 @@ def calculate_delta(f1_results, f2_results, run_name, run_type, sc_columns, head
 
 	#if significance flag was set then perform that analysis here
 	if sig is not None:
-		for p in ['sp','mp']:
+		for p in [calc_name1,calc_name2]:
 			#write binned per-task significance
 			agg_concat=[]
 			agg_perf=(pertask.groupby(f'{p}_significant')[f'{header_type}_task_id'].agg('count')/len(pertask)).reset_index().rename(columns={f'{header_type}_task_id': f'percent_{p}_significant'})
@@ -440,7 +441,7 @@ def write_aggregated_report(run_name, run_type, fname, local_performances, sc_co
 
 def calculate_single_partner_multi_partner_results(run_name, run_type, y_true, folding, fold_va, t8, task_weights, single_partner, multi_partner, y_true_cens=None):
 	"""
-	Calculate cls, clsaux or regr performances for single_partner and multi_partner outputs, then calculate delta, plot outputs along the way
+	Calculate cls, clsaux or regr performances for single_partner and multi_partner outputs, then calculate delta, print outputs along the way
 	"""
 	header_type = getheader(run_type)
 	y_true = mask_ytrue(run_type,y_true,folding,fold_va)
@@ -453,13 +454,19 @@ def calculate_single_partner_multi_partner_results(run_name, run_type, y_true, f
 		if y_true_cens: y_true_cens = mask_ytrue(run_type,y_true_cens,folding,fold_va)
 	task_map = t8.merge(tw_df,left_on=f'cont_{header_type}_task_id',right_on='task_id',how='left').dropna(subset=[f'cont_{header_type}_task_id'])
 	y_single_partner_yhat, y_multi_partner_yhat, y_single_partner_ftype, y_multi_partner_ftype = mask_y_hat(single_partner, multi_partner, folding, fold_va, y_true, header_type)
-	if args.significance_analysis: sig = run_significance_calculation(run_type, y_single_partner_yhat, y_multi_partner_yhat, y_true, task_map)
+	if '--y_cls_cp1' in sys.argv and '--y_cls_cp2' in sys.argv:
+		calc_name1='RUN1'
+		calc_name2='RUN2'
+	else:
+		calc_name1='SP'
+		calc_name2='MP'
+	if args.significance_analysis: sig = run_significance_calculation(run_type, y_single_partner_yhat, y_multi_partner_yhat, y_true, task_map, calc_name1, calc_name2)
 	else: sig = None
-	y_single_partner_results, _ = run_performance_calculation(run_type, y_single_partner_yhat, y_single_partner_ftype, y_true, tw_df, task_map, run_name, single_partner,'SP', y_true_cens = y_true_cens)
+	y_single_partner_results, _ = run_performance_calculation(run_type, y_single_partner_yhat, y_single_partner_ftype, y_true, tw_df, task_map, run_name, single_partner, calc_name1, y_true_cens = y_true_cens)
 	del y_single_partner_yhat
-	y_multi_partner_results, sc_columns = run_performance_calculation(run_type, y_multi_partner_yhat, y_multi_partner_ftype, y_true, tw_df, task_map, run_name, multi_partner,'MP', y_true_cens = y_true_cens)
+	y_multi_partner_results, sc_columns = run_performance_calculation(run_type, y_multi_partner_yhat, y_multi_partner_ftype, y_true, tw_df, task_map, run_name, multi_partner, calc_name2, y_true_cens = y_true_cens)
 	del y_multi_partner_yhat
-	calculate_delta(y_single_partner_results, y_multi_partner_results, run_name, run_type, sc_columns, header_type, sig = sig)
+	calculate_delta(y_single_partner_results, y_multi_partner_results, run_name, run_type, sc_columns, header_type, calc_name1, calc_name2, sig = sig)
 	return
 
 def calculate_s_auc_pr(auc_pr, y_true_col, positive_rate_for_col):
