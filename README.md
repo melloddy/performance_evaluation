@@ -13,6 +13,127 @@ On your local IT infrastructure you'd need
 4. melloddy_tuner environment from WP1 code: https://git.infra.melloddy.eu/wp1/data_prep & Sparsechem installed into that environment
 
 
+
+
+# Year 3 Performance Evaluation Script for the IMI Project MELLODDY
+
+Performance evaluation scripts from the Single- and Multi-pharma outputs.
+These evaluation scripts allow us to verify whether predictions performed using a model generated (referred to as single-pharma model hereafter) during a federated run can be reproduced when executed locally (prediction step) within the pharma partner's IT infrastructure. 
+Second the evaluation assesses whether the predictions from the federated model improve over predictions from the single-pharma model.
+
+## Requirements
+On your local IT infrastructure you'd need 
+
+1. Python 3.6 or higher
+2. Local Conda installation (e.g. miniconda)
+3. Data prep (3.0.2) and Sparsechem (suggested **0.9.5**) installation
+4. melloddy_tuner environment from WP1 code: https://git.infra.melloddy.eu/wp1/data_prep & Sparsechem installed into that environment
+
+## === CATALOG_PANEL subset analysis ===
+This comparison will be performed with fusion turned on: CP91 epoch 15 (CP91 is stillrunning at the time of writing)  and without (CP46, completed)
+
+#### Step 1. Retrieve the CLS CP91 (epoch 15) & CP46 (N.B ensure this is also epoch 15) output from substra and decompress
+```
+gunzip -c <CP91-hash>.tar.gz | tar xvf - && gunzip -c <CP46-hash>.tar.gz | tar xvf -
+```
+
+#### Step 2. Run the performance evaluation script
+The performance evaluation script should be used in the compute plan comparison manner, to compare CP91 vs. CP46:
+
+```
+python performance_evaluation.py \
+ --y_cls_run1 <CP91-epoch15-hash>/pred/pred.json  \
+ --y_cls_run2 <CP46-epoch15-hash>/pred/pred.json  \
+ --t8c_cls <cls_dir>/T8c.csv \
+ --weights_cls <cls_dir>/cls_weights.csv \
+ --y_cls <cls_dir>/cls_T10_y.npz \
+ --folding_cls <cls_dir>/cls_T11_fold_vector.npy \
+ --validation_fold 0 \
+ --run_name CP91_vs_CP46
+```
+
+N.B: When supplied with compute plan names for "--y_cls_run1" and "--y_cls_run2", the script will rename outputs in the "--run_name" folder to "RUN1" & "RUN2", respectively (to avoid confusion when not comparing single- or multi-partner models)... Standard behaviour is otherwise to write to folders with "SP" and "MP" file names, which is not applicable here.
+
+The output should look something like this:
+
+```
+[INFO]: === WP3 Y3 Performance evaluation script for npy and pred files ===
+[INFO]: Run name is 'CP91_vs_CP46'
+[INFO]: Wrote input params to 'CP91_vs_CP46/run_params.json'
+
+=======================================================================================================================================
+Evaluating cls performance
+=======================================================================================================================================
+
+[INFO]: Loading cls: {cls-dir}/cls_T10_y.npz
+[INFO]: Loading (npy) predictions for: {CP91-dir}/pred.json
+[INFO]: Loading (npy) predictions for: {CP46-dir}/pred.json
+
+[INFO]: === Calculating significance ===
+
+[INFO]: === Calculating {CP91-dir}/pred.json performance ===
+
+[INFO]: Wrote per-task report to: CP91_vs_CP46/cls/RUN1/{CP91}_per-task_performances.csv
+[INFO]: Wrote per-task binned performance report to: CP91_vs_CP46/cls/RUN1/{CP91}_binned_per-task_performances.csv
+[INFO]: Wrote per-assay report to: CP91_vs_CP46/cls/RUN1/{CP91}_per-assay_performances.csv
+[INFO]: Wrote per-assay binned report to: CP91_vs_CP46/cls/RUN1/{CP91}_binned_per-task_performances.csv
+[INFO]: Wrote global report to: CP91_vs_CP46/cls/RUN1/{CP91}_global_performances.csv
+
+[INFO]: === Calculating {CP46-dir}/pred.json performance ===
+
+[INFO]: Wrote per-task report to: CP91_vs_CP46/cls/RUN2/{CP46}_per-task_performances.csv
+[INFO]: Wrote per-task binned performance report to: CP91_vs_CP46/cls/RUN2/{CP46}_binned_per-task_performances.csv
+[INFO]: Wrote per-assay report to: CP91_vs_CP46/cls/RUN2/{CP46}_per-assay_performances.csv
+[INFO]: Wrote per-assay binned report to: CP91_vs_CP46/cls/RUN2/{CP46}_binned_per-task_performances.csv
+[INFO]: Wrote global report to: CP91_vs_CP46/cls/RUN2/{CP46}_global_performances.csv
+
+[INFO]: Wrote per-task delta report to: CP91_vs_CP46/cls/deltas/deltas_per-task_performances.csv
+[INFO]: Wrote binned performance per-task delta report to: CP91_vs_CP46/cls/deltas/deltas_binned_per-task_performances.csv
+[INFO]: Wrote per-assay delta report to: CP91_vs_CP46/cls/deltas/deltas_per-assay_performances.csv
+[INFO]: Wrote binned performance per-assay delta report to: CP91_vs_CP46/cls/deltas/deltas_binned_per-task_performances.csv
+
+[INFO]: Wrote sp significance report to: CP91_vs_CP46/cls/deltas/delta_RUN1_significance.csv
+[INFO]: Wrote per-assay sp significance report to: CP91_vs_CP46/cls/deltas/delta_per-assay_RUN1_significance.csv
+[INFO]: Wrote mp significance report to: CP91_vs_CP46/cls/deltas/delta_RUN2_significance.csv
+[INFO]: Wrote per-assay mp significance report to: CP91_vs_CP46/cls/deltas/delta_per-assay_RUN2_significance.csv
+
+[INFO]: Run name 'CP91_vs_CP46' is finished.
+[INFO]: Performance evaluation took 18.615341 seconds.
+```
+
+#### Step 3. Upload results
+
+Upload the following files to Box:
+ ```
+├── RUN1
+│   ├── {CP91}_binned_per-assay_performances.csv
+│   ├── {CP91}_binned_per-task_performances.csv
+│   ├── {CP91}_global_performances.csv
+│   ├── {CP91}_per-assay_performances.csv
+│   └── {CP91}_per-task_performances.csv
+├── RUN2
+│   ├── {CP46}_binned_per-assay_performances.csv
+│   ├── {CP46}_binned_per-task_performances.csv
+│   ├── {CP46}_global_performances.csv
+│   ├── {CP46}_per-assay_performances.csv
+│   └── {CP46}_per-task_performances.csv
+└── deltas
+    ├── delta_RUN1_significance.csv
+    ├── delta_RUN2_significance.csv
+    ├── delta_per-assay_RUN1_significance.csv
+    ├── delta_per-assay_RUN2_significance.csv
+    ├── deltas_binned_per-assay_performances.csv
+    ├── deltas_binned_per-task_performances.csv
+    ├── deltas_global_performances.csv
+    ├── deltas_per-assay_performances.csv
+    └── deltas_per-task_performances.csv
+ ```
+
+ I.e. No files with *_per-task_* should be uploaded to Box
+
+===============
+
+
 ## === De-risk analysis ===
 
 
