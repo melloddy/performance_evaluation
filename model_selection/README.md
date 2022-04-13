@@ -15,5 +15,5 @@ Set of scripts to select the optimal set (phase1, phase2, phase3) of MP models p
 ```
 ./run_model_selection_CLS.bash
 ```
-- Use phase2 models listed in *perf_opt_$DATASET.csv* for further performance evaluation anaylsis
+- Use phase2 models listed in *perf_opt_$DATASET.csv* for further performance evaluation analysis
 
