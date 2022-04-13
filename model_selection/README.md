@@ -5,7 +5,7 @@ Set of scripts to select the optimal set (phase1, phase2, phase3) of MP models p
 **Workflow**:
 - Loops over final model list
 - Selects list of epochs available across all phases
-- Extracts optimal epoch in phase 1 by partial extraction performances from tar files
+- Selects optimal epoch in phase 1 by extracting metrics files from tarball
 - Writes out csv files with optimal epoch per model and overall optimal model
 
 ## Instructions
@@ -14,6 +14,6 @@ Set of scripts to select the optimal set (phase1, phase2, phase3) of MP models p
 - For each dataset, execute the corresponding bash script, e.g.:
 ```
 ./run_model_selection_CLS.bash
-``
-- Use phase2 models listed in perf_opt_*.csv for further performance evaluation anaylsis
+```
+- Use phase2 models listed in *perf_opt_$DATASET.csv* for further performance evaluation anaylsis
 
