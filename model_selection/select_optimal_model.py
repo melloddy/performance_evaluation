@@ -125,16 +125,16 @@ for _, row in df_pivot.iterrows():
 
     # extract corresponding phase2 performance 
     file_tar_PH2 = glob.glob('cp'+ID_PH2+'_'+opt_rank+'_*')[0]
-    perf_PH2 = untar_rename_get_main_metric(file_tar_PH2, main_metric_label)
+    opt_perf_phase2 = untar_rename_get_main_metric(file_tar_PH2, main_metric_label)
     file_tar_PH3 = glob.glob('cp'+ID_PH3+'_'+opt_rank+'_*')[0]
     
     print("\t rank max: %s, rank opt: %s" % (max_rank, opt_rank))
-    print("\t perf phase1: %s, perf phase2: %s" % (perf_PH1, perf_PH2))
+    print("\t perf phase1: %s, perf phase2: %s" % (opt_perf_phase1, opt_perf_phase2))
     
     l_max_rank.append(max_rank)
     l_opt_rank.append(opt_rank)
-    l_opt_perf_phase1.append(perf_PH1)
-    l_opt_perf_phase2.append(perf_PH2)
+    l_opt_perf_phase1.append(opt_perf_phase1)
+    l_opt_perf_phase2.append(opt_perf_phase2)
     l_model_file_phase1.append(opt_file_phase1)
     l_model_file_phase2.append(file_tar_PH2)
     l_model_file_phase3.append(file_tar_PH3)
