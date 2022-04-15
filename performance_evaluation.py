@@ -335,7 +335,7 @@ def calculate_flipped_tasks(f1_results, f2_results, run_name, run_type, header_t
 	assert f1_results.shape[0] == f2_results.shape[0], "the number of tasks are not equal between the outputs for comparison}"
 	assert f1_results.shape[1] == f2_results.shape[1], "the number of reported metrics are not equal between the outputs for comparison"
 	header_type = getheader(run_type)
-	if run_type == 'cls':
+	if run_type in ['cls', 'clsaux']:
 		metric = 'auc_pr'
 	else:
 		metric = 'r_squared'
