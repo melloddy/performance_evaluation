@@ -338,7 +338,7 @@ def calculate_flipped_tasks(f1_results, f2_results, run_name, run_type, header_t
 	if run_type in ['cls', 'clsaux']:
 		metric = 'auc_pr'
 	else:
-		metric = 'r_squared'
+		metric = 'rsquared'
 	columns = [header_type + '_task_id', metric]
 	df = f1_results[columns].merge(f2_results[columns], on = columns[0], how = 'outer',\
 		 suffixes=['_'+calc_name1, '_'+calc_name2])
