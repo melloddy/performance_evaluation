@@ -54,6 +54,7 @@ def init_arg_parser():
 
 	parser.add_argument("--run_name", help="Run name directory for results from this output (timestemp used if not specified)", type=str, default=None)
 	parser.add_argument("--significance_analysis", help="Run significant analysis (1 = Yes, 0 = No sig. analysis", type=int, default=1, choices=[0, 1])
+	parser.add_argument("--significance_analysis_correction", help="Apply Benjamini–Yekutielicorrection to significance analysis (1 = Yes, 0 = No sig. analysis", type=int, default=1, choices=[0, 1])
 	parser.add_argument("--verbose", help="Verbosity level: 1 = Full; 0 = no output", type=int, default=1, choices=[0, 1])
 	parser.add_argument("--validation_fold", help="Validation fold to used to calculate performance", type=int, default=[0], nargs='+', choices=[0, 1, 2, 3, 4])
 	parser.add_argument("--aggr_binning_scheme_perf", help="Shared aggregated binning scheme for performances", type=str, nargs='+', default=[0.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0],required=False)
@@ -217,7 +218,7 @@ def check_weights(tw_df, y_true, header_type):
 	assert tw_df.shape[0]==y_true.shape[1], f"The number of task weights ({tw_df.shape[0]}) must be equal to the number of columns in Y ({y_true.shape[1]})."
 	return
 
-def run_significance_calculation(run_type, y_pred0, y_pred1, y_true, task_map, calc1, calc2):
+def run_significance_calculation(run_type, y_pred0, y_pred1, y_true, task_map, calc1, calc2, correction):
 	"""
 	Calculate significance between runs and bin individual performance reports including aggregation by assay/globally
 	"""
@@ -241,6 +242,28 @@ def run_significance_calculation(run_type, y_pred0, y_pred1, y_true, task_map, c
 			mp_sig = significance_analysis.test_significance(y_true_col, y_pred_col0, y_pred_col1, level=0.05).rename(columns={'significant': f'{calc2}_significant','p_value' : f'{calc2}_pvalue'})
 		sp_mp_sig = pd.concat([details,sp_sig,mp_sig],axis=1)
 		calculated_sig = pd.concat([calculated_sig, sp_mp_sig],axis=0)
+	if correction:
+		c = np.sum([1./i for i in range(1,len(calculated_sig)+1)])*len(calculated_sig)
+		sp_p_values = calculated_sig.SP_pvalue.values
+		sp_p_values = np.sort(sp_p_values)
+		sp_p_values_cor = (sp_p_values*c)/np.arange(1, len(sp_p_values)+1)
+		if len(sp_p_values[sp_p_values_cor<0.05])>0:
+			threshold = sp_p_values[sp_p_values_cor<0.05][-1]
+		else:
+			threshold = -1
+		sp_sign = calculated_sig.SP_pvalue.values <= threshold
+		calculated_sig.loc[:, 'SP_significant'] = sp_sign.astype('int32')
+
+		mp_p_values = calculated_sig.MP_pvalue.values
+		mp_p_values = np.sort(mp_p_values)
+		mp_p_values_cor = (mp_p_values*c)/np.arange(1, len(mp_p_values)+1)
+		if len(mp_p_values[mp_p_values_cor<0.05])>0:
+			threshold = mp_p_values[mp_p_values_cor<0.05][-1]
+		else:
+			threshold = -1
+		mp_sign = calculated_sig.MP_pvalue.values <= threshold
+		calculated_sig.loc[:, 'MP_significant'] = mp_sign.astype('int32')
+		
 	return calculated_sig
 
 def run_performance_calculation(run_type, y_pred, pred_or_npy, y_true, tw_df, task_map, run_name, flabel, rlabel, y_true_cens = None):
@@ -460,7 +483,7 @@ def calculate_single_partner_multi_partner_results(run_name, run_type, y_true, f
 	else:
 		calc_name1='SP'
 		calc_name2='MP'
-	if args.significance_analysis: sig = run_significance_calculation(run_type, y_single_partner_yhat, y_multi_partner_yhat, y_true, task_map, calc_name1, calc_name2)
+	if args.significance_analysis: sig = run_significance_calculation(run_type, y_single_partner_yhat, y_multi_partner_yhat, y_true, task_map, calc_name1, calc_name2, args.significance_analysis_correction)
 	else: sig = None
 	y_single_partner_results, _ = run_performance_calculation(run_type, y_single_partner_yhat, y_single_partner_ftype, y_true, tw_df, task_map, run_name, single_partner, calc_name1, y_true_cens = y_true_cens)
 	del y_single_partner_yhat
