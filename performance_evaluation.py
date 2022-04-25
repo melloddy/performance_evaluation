@@ -54,6 +54,9 @@ def init_arg_parser():
 
 	parser.add_argument("--run_name", help="Run name directory for results from this output (timestemp used if not specified)", type=str, default=None)
 	parser.add_argument("--significance_analysis", help="Run significant analysis (1 = Yes, 0 = No sig. analysis", type=int, default=1, choices=[0, 1])
+	parser.add_argument("--significance_analysis_correction", help="Apply Benjamini–Yekutielicorrection to significance analysis (1 = Yes, 0 = No sig. analysis", type=int, default=1, choices=[0, 1])
+	parser.add_argument("--perf_bins_cls", help="AUCPR performance bins to identify flip tasks", type=str, nargs='+', default=[0.4,0.6,0.8,0.9],required=False)
+	parser.add_argument("--perf_bins_regr", help="R2 performance bins to identify flip tasks", type=str, nargs='+', default=[0.2,0.4,0.6,0.8],required=False)
 	parser.add_argument("--verbose", help="Verbosity level: 1 = Full; 0 = no output", type=int, default=1, choices=[0, 1])
 	parser.add_argument("--validation_fold", help="Validation fold to used to calculate performance", type=int, default=[0], nargs='+', choices=[0, 1, 2, 3, 4])
 	parser.add_argument("--aggr_binning_scheme_perf", help="Shared aggregated binning scheme for performances", type=str, nargs='+', default=[0.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0],required=False)
@@ -217,7 +220,7 @@ def check_weights(tw_df, y_true, header_type):
 	assert tw_df.shape[0]==y_true.shape[1], f"The number of task weights ({tw_df.shape[0]}) must be equal to the number of columns in Y ({y_true.shape[1]})."
 	return
 
-def run_significance_calculation(run_type, y_pred0, y_pred1, y_true, task_map, calc1, calc2):
+def run_significance_calculation(run_type, y_pred0, y_pred1, y_true, task_map, calc1, calc2, correction):
 	"""
 	Calculate significance between runs and bin individual performance reports including aggregation by assay/globally
 	"""
@@ -241,6 +244,28 @@ def run_significance_calculation(run_type, y_pred0, y_pred1, y_true, task_map, c
 			mp_sig = significance_analysis.test_significance(y_true_col, y_pred_col0, y_pred_col1, level=0.05).rename(columns={'significant': f'{calc2}_significant','p_value' : f'{calc2}_pvalue'})
 		sp_mp_sig = pd.concat([details,sp_sig,mp_sig],axis=1)
 		calculated_sig = pd.concat([calculated_sig, sp_mp_sig],axis=0)
+	if correction:
+		c = np.sum([1./i for i in range(1,len(calculated_sig)+1)])*len(calculated_sig)
+		sp_p_values = calculated_sig.SP_pvalue.values
+		sp_p_values = np.sort(sp_p_values)
+		sp_p_values_cor = (sp_p_values*c)/np.arange(1, len(sp_p_values)+1)
+		if len(sp_p_values[sp_p_values_cor<0.05])>0:
+			threshold = sp_p_values[sp_p_values_cor<0.05][-1]
+		else:
+			threshold = -1
+		sp_sign = calculated_sig.SP_pvalue.values <= threshold
+		calculated_sig.loc[:, 'SP_significant'] = sp_sign.astype('int32')
+
+		mp_p_values = calculated_sig.MP_pvalue.values
+		mp_p_values = np.sort(mp_p_values)
+		mp_p_values_cor = (mp_p_values*c)/np.arange(1, len(mp_p_values)+1)
+		if len(mp_p_values[mp_p_values_cor<0.05])>0:
+			threshold = mp_p_values[mp_p_values_cor<0.05][-1]
+		else:
+			threshold = -1
+		mp_sign = calculated_sig.MP_pvalue.values <= threshold
+		calculated_sig.loc[:, 'MP_significant'] = mp_sign.astype('int32')
+		
 	return calculated_sig
 
 def run_performance_calculation(run_type, y_pred, pred_or_npy, y_true, tw_df, task_map, run_name, flabel, rlabel, y_true_cens = None):
@@ -302,6 +327,64 @@ def run_performance_calculation(run_type, y_pred, pred_or_npy, y_true, tw_df, ta
 	##global aggregation:
 	globally_calculated = write_global_report(run_name, run_type, flabel, calculated_performance, sc_columns, rlabel)
 	return calculated_performance, sc_columns
+
+def calculate_flipped_tasks(f1_results, f2_results, run_name, run_type, header_type,calc_name1, calc_name2, a_thresh):
+	
+	f1_results = f1_results.query('evaluation_quorum_OK == 1 & is_auxiliary == 0 & aggregation_weight_y == 1')
+	f2_results = f2_results.query('evaluation_quorum_OK == 1 & is_auxiliary == 0 & aggregation_weight_y == 1')
+	assert f1_results.shape[0] == f2_results.shape[0], "the number of tasks are not equal between the outputs for comparison}"
+	assert f1_results.shape[1] == f2_results.shape[1], "the number of reported metrics are not equal between the outputs for comparison"
+	header_type = getheader(run_type)
+	if run_type in ['cls', 'clsaux']:
+		metric = 'auc_pr'
+	else:
+		metric = 'rsquared'
+	columns = [header_type + '_task_id', metric]
+	df = f1_results[columns].merge(f2_results[columns], on = columns[0], how = 'outer',\
+		 suffixes=['_'+calc_name1, '_'+calc_name2])
+	n_tasks_total = len(df)
+	l = []
+
+	for thresh in a_thresh:
+		n_tasks_1 = len(df[df[metric + '_' + calc_name1] > thresh])
+		n_tasks_2 = len(df[df[metric + '_' + calc_name2] > thresh])    
+		delta_tasks = 100 * (n_tasks_2 - n_tasks_1) / n_tasks_total
+		delta_tasks_percent = 100 * (n_tasks_2 - n_tasks_1) / n_tasks_1
+        
+		l.append(
+				{
+					'thresh': thresh,
+					'n_tasks_'+calc_name1: n_tasks_1,
+					'n_tasks_'+calc_name2: n_tasks_2,
+					'delta_tasks': delta_tasks,
+					'delta_tasks_percent': delta_tasks_percent
+				}
+			)
+    
+	df_task_count = pd.DataFrame(l)	
+	filename = f"{run_name}/{run_type}/deltas/tasks_perf_bin_count.csv"
+	df_task_count.to_csv(filename, index=False)
+	n_tasks_total = len(df)
+	l = []
+
+	for thresh in a_thresh:
+		n_tasks_MP = len(df[df[metric + '_MP'] > thresh])
+		
+		n_task_flipped_to_1 = 100 * (len(df[(df[metric + '_' + calc_name1] > thresh) & (df[metric + '_' + calc_name2] <= thresh)])) / n_tasks_total        
+		n_task_flipped_to_2 = 100 * (len(df[(df[metric + '_' + calc_name1] <= thresh) & (df[metric + '_' + calc_name2] > thresh)])) / n_tasks_total
+			
+		l.append(
+				{
+					'thresh': thresh,
+					'n_task_flipped_to_'+calc_name1: n_task_flipped_to_1,
+					'n_task_flipped_to_'+calc_name2: n_task_flipped_to_2
+				}
+			)
+		
+	df_task_flipped = pd.DataFrame(l)
+	filename = f"{run_name}/{run_type}/deltas/tasks_perf_bin_flipped.csv"
+	df_task_flipped.to_csv(filename, index=False)
+	return
 
 
 def calculate_delta(f1_results, f2_results, run_name, run_type, sc_columns, header_type, calc_name1, calc_name2, sig = None):
@@ -460,13 +543,18 @@ def calculate_single_partner_multi_partner_results(run_name, run_type, y_true, f
 	else:
 		calc_name1='SP'
 		calc_name2='MP'
-	if args.significance_analysis: sig = run_significance_calculation(run_type, y_single_partner_yhat, y_multi_partner_yhat, y_true, task_map, calc_name1, calc_name2)
+	if args.significance_analysis: sig = run_significance_calculation(run_type, y_single_partner_yhat, y_multi_partner_yhat, y_true, task_map, calc_name1, calc_name2, args.significance_analysis_correction)
 	else: sig = None
 	y_single_partner_results, _ = run_performance_calculation(run_type, y_single_partner_yhat, y_single_partner_ftype, y_true, tw_df, task_map, run_name, single_partner, calc_name1, y_true_cens = y_true_cens)
 	del y_single_partner_yhat
 	y_multi_partner_results, sc_columns = run_performance_calculation(run_type, y_multi_partner_yhat, y_multi_partner_ftype, y_true, tw_df, task_map, run_name, multi_partner, calc_name2, y_true_cens = y_true_cens)
 	del y_multi_partner_yhat
 	calculate_delta(y_single_partner_results, y_multi_partner_results, run_name, run_type, sc_columns, header_type, calc_name1, calc_name2, sig = sig)
+	if run_type in ['cls', 'clsaux']:
+		a_thresh = list(map(np.float64,args.perf_bins_cls))
+	else:
+		a_thresh = list(map(np.float64,args.perf_bins_regr))
+	calculate_flipped_tasks(y_single_partner_results, y_multi_partner_results, run_name, run_type, header_type,calc_name1, calc_name2, a_thresh)
 	return
 
 def calculate_s_auc_pr(auc_pr, y_true_col, positive_rate_for_col):
