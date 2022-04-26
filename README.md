@@ -22,7 +22,7 @@ First, determine the correct compute plan (CP) to use for the evaluation report.
 
 2. Consult the *opt* output files, to obtain the optimal PH1-3 models for each of the CLS/HYB/REG/CLSAUX models
 
-3. For each of the models, extract the contents of the tarball and make these easily accessible for step 2 (perf evaluation) 
+3. For each of the models, extract the contents of the PH2 tarballs and make these easily accessible for step 2 (perf evaluation) 
 
 ### Step 2. Run the performance evaluation code
 
