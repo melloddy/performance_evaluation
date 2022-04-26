@@ -28,7 +28,7 @@ First, determine the correct compute plan (CP) to use for the evaluation report.
 
 Run the performance evaluation script (https://git.infra.melloddy.eu/wp3/performance_evaluation/-/blob/year3/performance_evaluation.py) for each of the CLS/HYB/REG/CLSAUX models identified in Step 1 above.
 
-1. CLS/REG/CLSAUX model evaluation
+#### Step 2.1. CLS/REG/CLSAUX model evaluation
 
 Run the performance evaluation script for each of the optimal CLS/REG/CLSAUX models like so:
 
@@ -57,7 +57,7 @@ python performance_evaluation.py \
  --run_name sp_vs_mp__optimal_cls_clsaux_reg
 ```
 
-2a. HYB model evaluation
+#### Step 2.2a. HYB model evaluation (split the pred.json first)
 
 Hybrid models need to be split into CLS/REG portions (we are only interested in the REG portion), using the following code https://(git.infra.melloddy.eu/wp3/performance_evaluation/-/issues/27), thanks to Noe:
 
@@ -84,7 +84,7 @@ np.save("pred_reg.npy", Yhat_reg)
 ```
 
 
-2b. Run the performance evaluation script for the HYB-REG models like so:
+#### Step 2.2b. Run the performance evaluation script on the HYB-REG models like so:
 
 ```
 python performance_evaluation.py \
@@ -99,9 +99,9 @@ python performance_evaluation.py \
  --run_name sp_vs_mp__optimal_hyb
 ```
 
-### Step 3. Report the output and update Monday.compute
+### Step 3. Report the output and update Monday.com
 
-1. Report the output to box: TBD
+#### Step 3.1. Report the output to box: TBD
 
 NB: take care to not upload the files: 
 
@@ -112,6 +112,6 @@ pred_per-task_performances.csv
 
 or any *per-task* RUN1/RUN2 files that may contain your performance on a per-task level. 
 
-2. Update Monday.com task here: https://melloddy.monday.com/boards/259897343/pulses/2592726539
+#### Step 3.2. Update Monday.com task here: https://melloddy.monday.com/boards/259897343/pulses/2592726539
 
 
