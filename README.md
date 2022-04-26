@@ -49,12 +49,12 @@ python performance_evaluation.py \
  --t8r_regr <regr_dir>/T8r.csv \
  --weights_regr <regr_dir>/reg_weights.csv \
  --folding_regr <regr_dir>/reg_T11_fold_vector.npy.npy \
- --y_clsaux <clsaux_dir>/cls_T10_y.npz \
+ --y_clsaux <clsaux_dir>/clsaux_T10_y.npz \
  --y_clsaux_multi_partner <y_clsaux_multi_partner-hash>/pred/pred.json  \
  --y_clsaux_single_partner <y_clsaux_single_partner-hash>/pred/pred.json  \
  --t8c_clsaux <clsaux_dir>/T8c.csv \
- --weights_clsaux <clsaux_dir>/cls_weights.csv \
- --folding_clsaux <clsaux_dir>/cls_T11_fold_vector.npy \
+ --weights_clsaux <clsaux_dir>/clsaux_weights.csv \
+ --folding_clsaux <clsaux_dir>/clsaux_T11_fold_vector.npy \
  --validation_fold 0 \
  --run_name sp_vs_mp__optimal_cls_clsaux_reg
 ```
