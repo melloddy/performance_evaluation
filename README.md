@@ -16,13 +16,15 @@ On your local IT infrastructure you'd need
 
 ### Step 1. Run the model selection code
 
-First, determine the correct compute plan (CP) to use for the evaluation report.
+First, determine the correct compute plans (CPs) to use for the evaluation report.
 
-1. Extract the model_selection scripts (https://git.infra.melloddy.eu/wp3/performance_evaluation/-/tree/year3/model_selection) to the directory of all compute plans and run the bash scripts.
+1. Extract the model_selection scripts (https://git.infra.melloddy.eu/wp3/performance_evaluation/-/tree/year3/model_selection) to the directory contining all *MP* compute plans and run the bash scripts.
 
-2. Consult the *opt* output files, to obtain the optimal PH1-3 models for each of the CLS/HYB/REG/CLSAUX models
+2. Consult the *opt* output files, to obtain the optimal PH1-3 MP CPs for each of the CLS/HYB/REG/CLSAUX models
 
-3. For each of the models, extract the contents of the PH2 tarballs and make these easily accessible for step 2 (perf evaluation) 
+3. For each of the models, extract the contents of the MP PH2 tarballs and ensure these are easily accessible for step 2 (the perf evaluation) 
+
+4. Identify and locate the optimal *SP* models for the CLS/REG/HYB/CLSAUX models (the best HP combination (it was used on the platform))
 
 ### Step 2. Run the performance evaluation code
 
