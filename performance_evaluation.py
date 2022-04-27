@@ -55,6 +55,7 @@ def init_arg_parser():
 	parser.add_argument("--run_name", help="Run name directory for results from this output (timestemp used if not specified)", type=str, default=None)
 	parser.add_argument("--significance_analysis", help="Run significant analysis (1 = Yes, 0 = No sig. analysis", type=int, default=1, choices=[0, 1])
 	parser.add_argument("--significance_analysis_correction", help="Apply Benjamini–Yekutielicorrection to significance analysis (1 = Yes, 0 = No sig. analysis", type=int, default=1, choices=[0, 1])
+	parser.add_argument("--ecdf_analysis", help="Run significant analysis (1 = Yes, 0 = No sig. analysis", type=int, default=1, choices=[0, 1])
 	parser.add_argument("--perf_bins_cls", help="AUCPR performance bins to identify flip tasks", type=str, nargs='+', default=[0.4,0.6,0.8,0.9],required=False)
 	parser.add_argument("--perf_bins_regr", help="R2 performance bins to identify flip tasks", type=str, nargs='+', default=[0.2,0.4,0.6,0.8],required=False)
 	parser.add_argument("--verbose", help="Verbosity level: 1 = Full; 0 = no output", type=int, default=1, choices=[0, 1])
@@ -64,6 +65,9 @@ def init_arg_parser():
 	args = parser.parse_args()
 	assert len(args.aggr_binning_scheme_perf) == 11, f"len of aggr_binning_scheme_perf should be 11, got {len(args.aggr_binning_scheme_perf)}"
 	assert len(args.aggr_binning_scheme_perf_delta) == 9, f"len of aggr_binning_scheme_perf_delta should be 9, got {len(args.aggr_binning_scheme_perf_delta)}"
+	if args.ecdf_analysis:
+		try:  from statsmodels.distributions.empirical_distribution import ECDF
+		except ImportError as e: print(e,': statsmodels needs to be installed for ECDF function... quitting'); quit()
 	assert Path()
 	args.aggr_binning_scheme_perf=list(map(np.float64,args.aggr_binning_scheme_perf))
 	args.aggr_binning_scheme_perf_delta=list(map(np.float64,args.aggr_binning_scheme_perf_delta))
@@ -386,8 +390,29 @@ def calculate_flipped_tasks(f1_results, f2_results, run_name, run_type, header_t
 	df_task_flipped.to_csv(filename, index=False)
 	return
 
+def calculate_ecdf(full_df, sc_columns, pertask_fn=None, perassay_fn=None):
+	from statsmodels.distributions.empirical_distribution import ECDF
+	ecdf_df=pd.DataFrame()
+	ecdf_df_assay_type=pd.DataFrame()
+	for metric_bin in full_df.loc[:, f"{sc_columns[0]}":f"{sc_columns[-1]}"].columns:
+		ecdf=ECDF(full_df[metric_bin])
+		ecdf_df=pd.concat((ecdf_df, \
+			pd.DataFrame({'Cumulative delta':ecdf.x, \
+			'Percentile':ecdf.y, \
+			'Metric':metric_bin})))
 
-def calculate_delta(f1_results, f2_results, run_name, run_type, sc_columns, header_type, calc_name1, calc_name2, sig = None):
+		for assay_type, grouped_df_metric in full_df.groupby('assay_type'):
+			ecdf_at=ECDF(grouped_df_metric[metric_bin])
+			ecdf_df_assay_type=pd.concat((ecdf_df_assay_type, \
+			pd.DataFrame({'Cumulative delta':ecdf.x, \
+				'Percentile':ecdf.y, \
+				'Metric':metric_bin, \
+				'Assay_type':assay_type})))
+	if pertask_fn: ecdf_df.to_csv(pertask_fn, index= False)
+	if perassay_fn: ecdf_df_assay_type.to_csv(perassay_fn, index= False)
+	return
+
+def calculate_delta(f1_results, f2_results, run_name, run_type, sc_columns, header_type, calc_name1, calc_name2, sig = None, cdf = None):
 	"""
 	Calculate the delta between the outputs and write to a file
 	"""
@@ -413,6 +438,13 @@ def calculate_delta(f1_results, f2_results, run_name, run_type, sc_columns, head
 	#write per-task perf aggregated performance delta
 	pertask.to_csv(fn1, index= False)
 	vprint(f"Wrote per-task delta report to: {fn1}")
+
+	#write ecdf performance deltas if this is set at runtime
+	if cdf:
+		pertask_fn = f"{run_name}/{run_type}/deltas/deltas_per-task_cdf.csv"
+		perassay_fn = f"{run_name}/{run_type}/deltas/deltas_per-assay_cdf.csv"
+		calculate_ecdf(pertask,sc_columns,pertask_fn=pertask_fn,perassay_fn=perassay_fn)
+		vprint(f"Wrote cdf delta reports to:\n{pertask_fn}\n{perassay_fn}")
 	
 	#write binned per-task aggregated performance deltas
 	agg_deltas=[]
@@ -549,7 +581,7 @@ def calculate_single_partner_multi_partner_results(run_name, run_type, y_true, f
 	del y_single_partner_yhat
 	y_multi_partner_results, sc_columns = run_performance_calculation(run_type, y_multi_partner_yhat, y_multi_partner_ftype, y_true, tw_df, task_map, run_name, multi_partner, calc_name2, y_true_cens = y_true_cens)
 	del y_multi_partner_yhat
-	calculate_delta(y_single_partner_results, y_multi_partner_results, run_name, run_type, sc_columns, header_type, calc_name1, calc_name2, sig = sig)
+	calculate_delta(y_single_partner_results, y_multi_partner_results, run_name, run_type, sc_columns, header_type, calc_name1, calc_name2, sig = sig, cdf = args.ecdf_analysis)
 	if run_type in ['cls', 'clsaux']:
 		a_thresh = list(map(np.float64,args.perf_bins_cls))
 	else:
