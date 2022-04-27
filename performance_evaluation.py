@@ -55,7 +55,7 @@ def init_arg_parser():
 	parser.add_argument("--run_name", help="Run name directory for results from this output (timestemp used if not specified)", type=str, default=None)
 	parser.add_argument("--significance_analysis", help="Run significant analysis (1 = Yes, 0 = No sig. analysis", type=int, default=1, choices=[0, 1])
 	parser.add_argument("--significance_analysis_correction", help="Apply Benjamini–Yekutielicorrection to significance analysis (1 = Yes, 0 = No sig. analysis", type=int, default=1, choices=[0, 1])
-	parser.add_argument("--ecdf_analysis", help="Run significant analysis (1 = Yes, 0 = No sig. analysis", type=int, default=1, choices=[0, 1])
+	parser.add_argument("--ecdf_analysis", help="Run emprical cumulative distribution function analysis (1 = Yes, 0 = No ecdf analysis", type=int, default=1, choices=[0, 1])
 	parser.add_argument("--perf_bins_cls", help="AUCPR performance bins to identify flip tasks", type=str, nargs='+', default=[0.4,0.6,0.8,0.9],required=False)
 	parser.add_argument("--perf_bins_regr", help="R2 performance bins to identify flip tasks", type=str, nargs='+', default=[0.2,0.4,0.6,0.8],required=False)
 	parser.add_argument("--verbose", help="Verbosity level: 1 = Full; 0 = no output", type=int, default=1, choices=[0, 1])
