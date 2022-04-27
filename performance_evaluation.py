@@ -448,7 +448,7 @@ def calculate_delta(f1_results, f2_results, run_name, run_type, sc_columns, head
 
 	#write ecdf performance deltas if this is set at runtime
 	if cdf:
-		pertask_fn = f"{run_name}/{run_type}/deltas/deltas_per-task_cdf.csv"
+		pertask_fn = f"{run_name}/{run_type}/deltas/deltas_global_cdf.csv"
 		perassay_fn = f"{run_name}/{run_type}/deltas/deltas_per-assay_cdf.csv"
 		calculate_ecdf(pertask,sc_columns,pertask_fn=pertask_fn,perassay_fn=perassay_fn)
 		vprint(f"Wrote cdf delta reports to:\n{pertask_fn}\n{perassay_fn}")
