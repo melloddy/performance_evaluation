@@ -14,6 +14,7 @@ import scipy.sparse as sparse
 from scipy.stats import spearmanr
 from  pathlib import Path
 from scipy.io import mmread
+from scipy.interpolate import interp1d
 import sparsechem as sc
 import significance_analysis
 		
@@ -390,22 +391,28 @@ def calculate_flipped_tasks(f1_results, f2_results, run_name, run_type, header_t
 	df_task_flipped.to_csv(filename, index=False)
 	return
 
+def smooth_ecdf(ecdf):
+	target_percentile = np.linspace(0, 1,100)
+	f = interp1d(ecdf.y, ecdf.x)
+	y_smooth = f(target_percentile)
+	return y_smooth, target_percentile
+
 def calculate_ecdf(full_df, sc_columns, pertask_fn=None, perassay_fn=None):
 	from statsmodels.distributions.empirical_distribution import ECDF
 	ecdf_df=pd.DataFrame()
 	ecdf_df_assay_type=pd.DataFrame()
 	for metric_bin in full_df.loc[:, f"{sc_columns[0]}":f"{sc_columns[-1]}"].columns:
-		ecdf=ECDF(full_df[metric_bin])
+		ecdf=smooth_ecdf(ECDF(full_df[metric_bin]))
 		ecdf_df=pd.concat((ecdf_df, \
-			pd.DataFrame({'Cumulative delta':ecdf.x, \
-			'Percentile':ecdf.y, \
+			pd.DataFrame({'Cumulative delta':ecdf[0], \
+			'Percentile':ecdf[1], \
 			'Metric':metric_bin})))
 
 		for assay_type, grouped_df_metric in full_df.groupby('assay_type'):
-			ecdf_at=ECDF(grouped_df_metric[metric_bin])
+			ecdf_at=smooth_ecdf(ECDF(grouped_df_metric[metric_bin]))
 			ecdf_df_assay_type=pd.concat((ecdf_df_assay_type, \
-			pd.DataFrame({'Cumulative delta':ecdf.x, \
-				'Percentile':ecdf.y, \
+			pd.DataFrame({'Cumulative delta':ecdf_at[0], \
+				'Percentile':ecdf_at[1], \
 				'Metric':metric_bin, \
 				'Assay_type':assay_type})))
 	if pertask_fn: ecdf_df.to_csv(pertask_fn, index= False)
