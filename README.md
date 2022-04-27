@@ -24,7 +24,7 @@ First, determine the correct compute plans (CPs) to use for the evaluation repor
 
 3. For each of the models, extract the contents of the MP PH2 tarballs and ensure these are easily accessible for step 2 (the perf evaluation) 
 
-4. Identify and locate the optimal *SP* models for the CLS/REG/HYB/CLSAUX models (the best HP combination (it was used on the platform))
+4. Identify and locate the optimal *SP* models for the CLS/REG/HYB/CLSAUX models (from the Model fusion analysis)
 
 ### Step 2. Run the performance evaluation code
 
