@@ -92,14 +92,12 @@ np.save("pred_reg.npy", Yhat_reg)
 
 ##### Step 2.2.b Generate local SP HYB predictions for evaluation:
 
-The following should be used to generate the SP prediction:
+The following should be used to generate the SP prediction, e.g:
 
 ```
 python $predict \
   --x $data_path/hyb/hyb_T11_x.npz \
   --y_regr $data_path/hyb/hyb_reg_T10_y.npz \
-  --folding $data_path/hyb/hyb_T11_fold_vector.npy \
-  --predict_fold 0 \
   --inverse_normalization 1 \
   --conf models/hyb_local_phase2.json \
   --model models/hyb_local_phase2.pt \
