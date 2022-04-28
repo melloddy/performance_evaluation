@@ -9,7 +9,7 @@ On your local IT infrastructure you'd need
 
 1. Python 3.6 or higher
 2. Local Conda installation (e.g. miniconda)
-3. Data prep (3.0.2) and Sparsechem (suggested **0.9.5**) installation
+3. Data prep (3.0.2) and Sparsechem (suggested **0.9.5** when using platform derived models, but will also work with **0.9.6** for local runs) installation
 4. melloddy_tuner environment from WP1 code: https://git.infra.melloddy.eu/wp1/data_prep & Sparsechem installed into that environment
 
 ## Instructions for the main (primary performance reporting) Y3 performance evaluation report
