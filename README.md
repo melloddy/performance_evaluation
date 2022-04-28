@@ -12,7 +12,7 @@ On your local IT infrastructure you'd need
 3. Data prep (3.0.2) and Sparsechem (suggested **0.9.5**) installation
 4. melloddy_tuner environment from WP1 code: https://git.infra.melloddy.eu/wp1/data_prep & Sparsechem installed into that environment
 
-## Instructions for the Y3 performance evaluation report
+## Instructions for the main (primary performance reporting) Y3 performance evaluation report
 
 ### Step 1. Run the model selection code
 
@@ -24,7 +24,7 @@ First, determine the correct compute plans (CPs) to use for the evaluation repor
 
 3. For each of the models, extract the contents of the MP PH2 tarballs and ensure these are easily accessible for step 2 (the perf evaluation) 
 
-4. Identify and locate the optimal *SP* models for the CLS/REG/HYB/CLSAUX models (from the Model fusion analysis)
+4. Identify and locate the optimal *SP* models for the CLS/REG/HYB/CLSAUX models as per the SP_model selection procedure here: https://git.infra.melloddy.eu/wp3/performance_evaluation/-/tree/year3/SP_model_selection#performance-evaluation (PH2 SparseChem models trained to the optimal epochs as would be available from platform - i.e. 5,10,15 ... etc)
 
 ### Step 2. Run the performance evaluation code
 
