@@ -57,6 +57,7 @@ def init_arg_parser():
 	parser.add_argument("--significance_analysis", help="Run significant analysis (1 = Yes, 0 = No sig. analysis", type=int, default=1, choices=[0, 1])
 	parser.add_argument("--significance_analysis_correction", help="Apply Benjamini–Yekutielicorrection to significance analysis (1 = Yes, 0 = No sig. analysis", type=int, default=1, choices=[0, 1])
 	parser.add_argument("--ecdf_analysis", help="Run emprical cumulative distribution function analysis (1 = Yes, 0 = No ecdf analysis", type=int, default=1, choices=[0, 1])
+	parser.add_argument("--n_best_assays", help="Number of best assays to consider (100 = default)", type=int, default=100)
 	parser.add_argument("--perf_bins_cls", help="AUCPR performance bins to identify flip tasks", type=str, nargs='+', default=[0.4,0.6,0.8,0.9],required=False)
 	parser.add_argument("--perf_bins_regr", help="R2 performance bins to identify flip tasks", type=str, nargs='+', default=[0.2,0.4,0.6,0.8],required=False)
 	parser.add_argument("--verbose", help="Verbosity level: 1 = Full; 0 = no output", type=int, default=1, choices=[0, 1])
@@ -419,8 +420,18 @@ def calculate_ecdf(full_df, sc_columns, pertask_fn=None, perassay_fn=None):
 	if pertask_fn: ecdf_df.to_csv(pertask_fn, index= False)
 	if perassay_fn: ecdf_df_assay_type.to_csv(perassay_fn, index= False)
 	return
+	
+def calculate_best_assays(full_df, sc_columns, n_best_assays = None, best_fn = None):
+	best_df=pd.DataFrame()
+	for metric_bin in full_df.loc[:, f"{sc_columns[0]}":f"{sc_columns[-1]}"].columns:
+		avg_best=full_df.sort_values(metric_bin,ascending=False).head(n_best_assays)[metric_bin].mean()
+		best_df=pd.concat((best_df, \
+			pd.DataFrame({'Metric':[metric_bin], \
+			'Average':avg_best})))
+	if best_fn: best_df.to_csv(best_fn, index=False)
+	return
 
-def calculate_delta(f1_results, f2_results, run_name, run_type, sc_columns, header_type, calc_name1, calc_name2, sig = None, cdf = None):
+def calculate_delta(f1_results, f2_results, run_name, run_type, sc_columns, header_type, calc_name1, calc_name2, sig = None, cdf = None, n_best_assays = None):
 	"""
 	Calculate the delta between the outputs and write to a file
 	"""
@@ -446,6 +457,11 @@ def calculate_delta(f1_results, f2_results, run_name, run_type, sc_columns, head
 	#write per-task perf aggregated performance delta
 	pertask.to_csv(fn1, index= False)
 	vprint(f"Wrote per-task delta report to: {fn1}")
+
+	#write the avg performances for n best assays
+	best_fn =  f"{run_name}/{run_type}/deltas/delta_best_{n_best_assays}_assays.csv"
+	calculate_best_assays(pertask, sc_columns, n_best_assays = n_best_assays, best_fn = best_fn)
+	vprint(f"Wrote best {n_best_assays} task reports to: {best_fn}")
 
 	#write ecdf performance deltas if this is set at runtime
 	if cdf:
@@ -589,7 +605,7 @@ def calculate_single_partner_multi_partner_results(run_name, run_type, y_true, f
 	del y_single_partner_yhat
 	y_multi_partner_results, sc_columns = run_performance_calculation(run_type, y_multi_partner_yhat, y_multi_partner_ftype, y_true, tw_df, task_map, run_name, multi_partner, calc_name2, y_true_cens = y_true_cens)
 	del y_multi_partner_yhat
-	calculate_delta(y_single_partner_results, y_multi_partner_results, run_name, run_type, sc_columns, header_type, calc_name1, calc_name2, sig = sig, cdf = args.ecdf_analysis)
+	calculate_delta(y_single_partner_results, y_multi_partner_results, run_name, run_type, sc_columns, header_type, calc_name1, calc_name2, sig = sig, cdf = args.ecdf_analysis, n_best_assays = args.n_best_assays)
 	if run_type in ['cls', 'clsaux']:
 		a_thresh = list(map(np.float64,args.perf_bins_cls))
 	else:
