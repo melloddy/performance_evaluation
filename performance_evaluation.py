@@ -274,6 +274,43 @@ def run_significance_calculation(run_type, y_pred0, y_pred1, y_true, task_map, c
 		
 	return calculated_sig
 
+def smooth_ecdf(ecdf):
+	"""
+	Smooths the ECDF for anonymity
+	"""
+	target_percentile = np.linspace(0, 1,100)
+	f = interp1d(ecdf.y, ecdf.x)
+	y_smooth = f(target_percentile)
+	return y_smooth, target_percentile
+
+def calculate_ecdf(full_df, sc_columns, pertask_fn=None, perassay_fn=None):
+	"""
+	Calculate emperical cumulative distribution function (ECDF).
+	Used/calculated in two ways:
+		Calculated for both SP and MP (twice) to produce [Y = CDF1:SP(AUC)  – CDF:MP(AUC)] to be plot as a function of AUC
+		Calculated directly (once) on the distribution of deltas overall delta calculation
+	"""
+	from statsmodels.distributions.empirical_distribution import ECDF
+	ecdf_df=pd.DataFrame()
+	ecdf_df_assay_type=pd.DataFrame()
+	for metric_bin in full_df.loc[:, f"{sc_columns[0]}":f"{sc_columns[-1]}"].columns:
+		ecdf=smooth_ecdf(ECDF(full_df[metric_bin]))
+		ecdf_df=pd.concat((ecdf_df, \
+			pd.DataFrame({'Cumulative delta':ecdf[0], \
+			'Percentile':ecdf[1], \
+			'Metric':metric_bin})))
+
+		for assay_type, grouped_df_metric in full_df.groupby('assay_type'):
+			ecdf_at=smooth_ecdf(ECDF(grouped_df_metric[metric_bin]))
+			ecdf_df_assay_type=pd.concat((ecdf_df_assay_type, \
+			pd.DataFrame({'Cumulative delta':ecdf_at[0], \
+				'Percentile':ecdf_at[1], \
+				'Metric':metric_bin, \
+				'Assay_type':assay_type})))
+	if pertask_fn: ecdf_df.to_csv(pertask_fn, index= False)
+	if perassay_fn: ecdf_df_assay_type.to_csv(perassay_fn, index= False)
+	return ecdf_df, ecdf_df_assay_type
+
 def run_performance_calculation(run_type, y_pred, pred_or_npy, y_true, tw_df, task_map, run_name, flabel, rlabel, y_true_cens = None):
 	"""
 	Calculate performance for one run, bin results and then individual performance reports including aggregation by assay/globally
@@ -332,7 +369,9 @@ def run_performance_calculation(run_type, y_pred, pred_or_npy, y_true, tw_df, ta
 	write_aggregated_report(run_name, run_type, flabel, calculated_performance, sc_columns, header_type, rlabel)
 	##global aggregation:
 	globally_calculated = write_global_report(run_name, run_type, flabel, calculated_performance, sc_columns, rlabel)
-	return calculated_performance, sc_columns
+	#calculate ecdf:
+	calculated_ecdfs = calculate_ecdf(calculated_performance, sc_columns)
+	return calculated_performance, calculated_ecdfs, sc_columns
 
 def calculate_flipped_tasks(f1_results, f2_results, run_name, run_type, header_type,calc_name1, calc_name2, a_thresh):
 	
@@ -392,34 +431,6 @@ def calculate_flipped_tasks(f1_results, f2_results, run_name, run_type, header_t
 	filename = f"{run_name}/{run_type}/deltas/tasks_perf_bin_flipped.csv"
 	df_task_flipped.to_csv(filename, index=False)
 	return
-
-def smooth_ecdf(ecdf):
-	target_percentile = np.linspace(0, 1,100)
-	f = interp1d(ecdf.y, ecdf.x)
-	y_smooth = f(target_percentile)
-	return y_smooth, target_percentile
-
-def calculate_ecdf(full_df, sc_columns, pertask_fn=None, perassay_fn=None):
-	from statsmodels.distributions.empirical_distribution import ECDF
-	ecdf_df=pd.DataFrame()
-	ecdf_df_assay_type=pd.DataFrame()
-	for metric_bin in full_df.loc[:, f"{sc_columns[0]}":f"{sc_columns[-1]}"].columns:
-		ecdf=smooth_ecdf(ECDF(full_df[metric_bin]))
-		ecdf_df=pd.concat((ecdf_df, \
-			pd.DataFrame({'Cumulative delta':ecdf[0], \
-			'Percentile':ecdf[1], \
-			'Metric':metric_bin})))
-
-		for assay_type, grouped_df_metric in full_df.groupby('assay_type'):
-			ecdf_at=smooth_ecdf(ECDF(grouped_df_metric[metric_bin]))
-			ecdf_df_assay_type=pd.concat((ecdf_df_assay_type, \
-			pd.DataFrame({'Cumulative delta':ecdf_at[0], \
-				'Percentile':ecdf_at[1], \
-				'Metric':metric_bin, \
-				'Assay_type':assay_type})))
-	if pertask_fn: ecdf_df.to_csv(pertask_fn, index= False)
-	if perassay_fn: ecdf_df_assay_type.to_csv(perassay_fn, index= False)
-	return
 	
 def calculate_best_assays(full_df, sc_columns, n_best_assays = None, best_fn = None):
 	best_df=pd.DataFrame()
@@ -444,7 +455,6 @@ def calculate_delta(f1_results, f2_results, run_name, run_type, sc_columns, head
 	at = f2_results["assay_type"]
 	delta = (f2_results.loc[:, sc_columns[0]:sc_columns[-1]]-f1_results.loc[:, sc_columns[0]:sc_columns[-1]])
 	tdf = pd.concat([task_id, at, delta], axis = 1)
-	os.makedirs(f"{run_name}/{run_type}/deltas/")
 	fn1 = f"{run_name}/{run_type}/deltas/deltas_per-task_performances.csv"
 	pertask = tdf.copy()
 	pertask.loc[:,f'{header_type}_task_id'] = pertask[f'{header_type}_task_id'].astype('int32')
@@ -601,10 +611,18 @@ def calculate_single_partner_multi_partner_results(run_name, run_type, y_true, f
 		calc_name2='MP'
 	if args.significance_analysis: sig = run_significance_calculation(run_type, y_single_partner_yhat, y_multi_partner_yhat, y_true, task_map, calc_name1, calc_name2, args.significance_analysis_correction)
 	else: sig = None
-	y_single_partner_results, _ = run_performance_calculation(run_type, y_single_partner_yhat, y_single_partner_ftype, y_true, tw_df, task_map, run_name, single_partner, calc_name1, y_true_cens = y_true_cens)
+	y_single_partner_results, sp_calculated_ecdf, _ = run_performance_calculation(run_type, y_single_partner_yhat, y_single_partner_ftype, y_true, tw_df, task_map, run_name, single_partner, calc_name1, y_true_cens = y_true_cens)
 	del y_single_partner_yhat
-	y_multi_partner_results, sc_columns = run_performance_calculation(run_type, y_multi_partner_yhat, y_multi_partner_ftype, y_true, tw_df, task_map, run_name, multi_partner, calc_name2, y_true_cens = y_true_cens)
+	y_multi_partner_results, mp_calculated_ecdf, sc_columns = run_performance_calculation(run_type, y_multi_partner_yhat, y_multi_partner_ftype, y_true, tw_df, task_map, run_name, multi_partner, calc_name2, y_true_cens = y_true_cens)
 	del y_multi_partner_yhat
+
+	os.makedirs(f"{run_name}/{run_type}/deltas/")
+	ecdf_fns = [f"{run_name}/{run_type}/deltas/deltas_mp-sp_ecdf.csv", f"{run_name}/{run_type}/deltas/deltas_mp-sp_assay_type_ecdf.csv"]
+	for ecdf_idx, ecdf_merge_cols in enumerate([['Percentile','Metric'], ['Percentile','Metric','Assay_type']]):
+		ecdf_out = sp_calculated_ecdf[ecdf_idx].merge(mp_calculated_ecdf[ecdf_idx],left_on= ecdf_merge_cols,right_on=ecdf_merge_cols,how='left', suffixes=[' SP',' MP'])
+		ecdf_out['MP-SP_CDF'] = ecdf_out['Cumulative delta MP'] - ecdf_out['Cumulative delta SP']
+		ecdf_out.to_csv(ecdf_fns[ecdf_idx],index=False)
+
 	calculate_delta(y_single_partner_results, y_multi_partner_results, run_name, run_type, sc_columns, header_type, calc_name1, calc_name2, sig = sig, cdf = args.ecdf_analysis, n_best_assays = args.n_best_assays)
 	if run_type in ['cls', 'clsaux']:
 		a_thresh = list(map(np.float64,args.perf_bins_cls))
