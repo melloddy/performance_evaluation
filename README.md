@@ -28,9 +28,9 @@ First, determine the correct compute plans (CPs) to use for the evaluation repor
 
 ### Step 2. Run the performance evaluation code
 
-Run the performance evaluation script (https://git.infra.melloddy.eu/wp3/performance_evaluation/-/blob/year3/performance_evaluation.py) for each of the CLS/HYB/REG/CLSAUX models identified in Step 1 above.
+Follow the following sections to run the performance evaluation script (https://git.infra.melloddy.eu/wp3/performance_evaluation/-/blob/year3/performance_evaluation.py) for each of the CLS/HYB/REG/CLSAUX models identified in Step 1 above. In more detail:
 
-#### Step 2.1. CLS/REG/CLSAUX model evaluation
+#### Step 2.1. SP vs. MP CLS/REG/CLSAUX model evaluation
 
 Run the performance evaluation script for each of the optimal CLS/REG/CLSAUX models like so:
 
@@ -59,9 +59,14 @@ python performance_evaluation.py \
  --run_name sp_vs_mp__optimal_cls_clsaux_reg
 ```
 
-#### Step 2.2a. HYB model evaluation (split the pred.json first)
+#### Step 2.2. SP vs. MP HYB model evaluation
 
-Hybrid models need to be split into CLS/REG portions (we are only interested in the REG portion), using the following code https://(git.infra.melloddy.eu/wp3/performance_evaluation/-/issues/27), thanks to Noe:
+NB: The HYB command line arguments are only useful for comparing MP pred.json files. 
+I.e. when comparing HYB models with locally generated predictions the following steps MUST be follwed.
+
+##### Step 2.2.a Prepare MP HYB pred.json preds for evaluation (split the MP pred.json first)
+
+We are comparing MP models to SP, so the MP Hybrid models need to be split into CLS/REG portions (we are only interested in the REG portion), using the following code https://(git.infra.melloddy.eu/wp3/performance_evaluation/-/issues/27), thanks to Noe:
 
 ```
 import pandas as pd
@@ -85,15 +90,41 @@ np.save("pred_cls.npy", Yhat_cls)
 np.save("pred_reg.npy", Yhat_reg)
 ```
 
+##### Step 2.2.b Generate local SP HYB predictions for evaluation:
 
-#### Step 2.2b. Run the performance evaluation script on the HYB-REG models like so:
+The following should be used to generate the SP prediction:
+
+```
+python $predict \
+  --x $data_path/hyb/hyb_T11_x.npz \
+  --y_regr $data_path/hyb/hyb_reg_T10_y.npz \
+  --folding $data_path/hyb/hyb_T11_fold_vector.npy \
+  --predict_fold 0 \
+  --inverse_normalization 1 \
+  --conf models/hyb_local_phase2.json \
+  --model models/hyb_local_phase2.pt \
+  --dev cpu \
+  --outprefix yhats_ph2_fva0
+```
+
+This produces the following files:
+
+```
+pred-class.npy
+pred-reg.npy ### this file only
+```
+
+We use only the pred-reg.npy in the next step...
+
+
+##### Step 2.2.c. Run the performance evaluation script on the HYB-REG models like so:
 
 ```
 python performance_evaluation.py \
  --y_regr <regr_dir>/reg_T10_y.npz \ 
  --y_censored_regr <regr_dir>/reg_T10_censor_y.npz.npz \
  --y_regr_multi_partner <mp_dir_output_from_step2a>/pred_reg.npy  \
- --y_regr_single_partner <sp_dir_output_from_step2a>/pred_reg.npy  \
+ --y_regr_single_partner <sp_dir_output_from_step2b>/pred_reg.npy  \
  --t8r_regr <regr_dir>/T8r.csv \
  --weights_regr <reg_dir>/reg_weights.csv \
  --folding_regr <reg_dir>/reg_T11_fold_vector.npy \
@@ -112,7 +143,7 @@ deltas_per-task_performances.csv
 pred_per-task_performances.csv
 ```
 
-or any *per-task* RUN1/RUN2 files that may contain your performance on a per-task level. 
+i.e. any *per-task* RUN1/RUN2 files that may contain your performance on a per-task level. 
 
 #### Step 3.2. Update Monday.com task here: https://melloddy.monday.com/boards/259897343/pulses/2592726539
 
