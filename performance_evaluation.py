@@ -354,7 +354,8 @@ def calculate_flipped_tasks(f1_results, f2_results, run_name, run_type, header_t
 		n_tasks_1 = len(df[df[metric + '_' + calc_name1] > thresh])
 		n_tasks_2 = len(df[df[metric + '_' + calc_name2] > thresh])    
 		delta_tasks = 100 * (n_tasks_2 - n_tasks_1) / n_tasks_total
-		delta_tasks_percent = 100 * (n_tasks_2 - n_tasks_1) / n_tasks_1
+		try: delta_tasks_percent = 100 * (n_tasks_2 - n_tasks_1) / n_tasks_1
+		except ZeroDivisionError: delta_tasks_percent = 0
         
 		l.append(
 				{
