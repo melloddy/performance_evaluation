@@ -150,7 +150,7 @@ python performance_evaluation.py \
 
 ### Step 3. Report status
 
-#### Step 3.1. Report the output to box: https://az.app.box.com/folder/160809892275
+#### Step 3.1. Report the output to Box: https://jjcloud.box.com/s/usumy2oedamyu5xbcengmqc7eds5retk (note different to initial testing Box folder)
 
 * Now we need to upload the output (*minus the files revealing task level information*) to Box
 * N.B: Running the latest code with ```--output_task_sensitive_files 0``` (also the default setting) means that no sensitive performance evaluation files are produced -> all contents of delta folder can be uploaded
