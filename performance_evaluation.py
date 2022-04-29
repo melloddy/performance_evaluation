@@ -58,6 +58,7 @@ def init_arg_parser():
 	parser.add_argument("--significance_analysis_correction", help="Apply Benjamini–Yekutielicorrection to significance analysis (1 = Yes, 0 = No sig. analysis", type=int, default=1, choices=[0, 1])
 	parser.add_argument("--ecdf_analysis", help="Run emprical cumulative distribution function analysis (1 = Yes, 0 = No ecdf analysis", type=int, default=1, choices=[0, 1])
 	parser.add_argument("--n_best_assays", help="Number of best assays to consider (100 = default)", type=int, default=100)
+	parser.add_argument("--use_venn_abers", help="Toggle to turn on Venn-ABERs code", action='store_true', default=False)
 	parser.add_argument("--perf_bins_cls", help="AUCPR performance bins to identify flip tasks", type=str, nargs='+', default=[0.4,0.6,0.8,0.9],required=False)
 	parser.add_argument("--perf_bins_regr", help="R2 performance bins to identify flip tasks", type=str, nargs='+', default=[0.2,0.4,0.6,0.8],required=False)
 	parser.add_argument("--verbose", help="Verbosity level: 1 = Full; 0 = no output", type=int, default=1, choices=[0, 1])
@@ -322,6 +323,9 @@ def run_performance_calculation(run_type, y_pred, pred_or_npy, y_true, tw_df, ta
 	if header_type == 'classification':
 		sc_columns = sc.utils.all_metrics([0],[0],None).columns.tolist()  #get the names of reported metrics from the sc utils
 		sc_columns.extend(['brier','s_auc_pr', 'positive_rate','tnr', 'fpr', 'fnr', 'tpr']) # added for calibrated auc_pr
+		if args.use_venn_abers:
+			from VennABERS import get_median_VA_margin_cross
+			sc_columns.extend(['vam'])
 	else:
 		sc_columns = sc.utils.all_metrics_regr([0],[0]).columns.tolist()  #get the names of reported metrics from the sc utils
 	validate_ytrue_ypred(y_true, y_pred, pred_or_npy) # checks to make sure y_true and y_pred match
@@ -350,6 +354,7 @@ def run_performance_calculation(run_type, y_pred, pred_or_npy, y_true, tw_df, ta
 				sc_calculation['fpr'] = fp/(fp+tn)
 				sc_calculation['fnr'] = fn/(fn+tp)
 				sc_calculation['tpr'] = tp/(tp+fn)
+				if args.use_venn_abers: sc_calculation['vam'] = get_median_VA_margin_cross(y_pred_col, y_true_col)
 		#setup for regression metrics
 		else:
 			y_true_col = (y_true.data[y_true.indptr[col] : y_true.indptr[col+1]])
@@ -617,10 +622,10 @@ def calculate_single_partner_multi_partner_results(run_name, run_type, y_true, f
 	del y_multi_partner_yhat
 
 	os.makedirs(f"{run_name}/{run_type}/deltas/")
-	ecdf_fns = [f"{run_name}/{run_type}/deltas/deltas_mp-sp_ecdf.csv", f"{run_name}/{run_type}/deltas/deltas_mp-sp_assay_type_ecdf.csv"]
+	ecdf_fns = [f"{run_name}/{run_type}/deltas/deltas_cdf{calc_name2}-cdf{calc_name1}.csv", f"{run_name}/{run_type}/deltas/deltas_cdf{calc_name2}-cdf{calc_name1}_assay_type.csv"]
 	for ecdf_idx, ecdf_merge_cols in enumerate([['Percentile','Metric'], ['Percentile','Metric','Assay_type']]):
-		ecdf_out = sp_calculated_ecdf[ecdf_idx].merge(mp_calculated_ecdf[ecdf_idx],left_on= ecdf_merge_cols,right_on=ecdf_merge_cols,how='left', suffixes=[' SP',' MP'])
-		ecdf_out['MP-SP_CDF'] = ecdf_out['Cumulative delta MP'] - ecdf_out['Cumulative delta SP']
+		ecdf_out = sp_calculated_ecdf[ecdf_idx].merge(mp_calculated_ecdf[ecdf_idx],left_on= ecdf_merge_cols,right_on=ecdf_merge_cols,how='left', suffixes=[f' {calc_name1}',f' {calc_name2}'])
+		ecdf_out[f'{calc_name2}-{calc_name1}_CDF'] = ecdf_out[f'Cumulative delta {calc_name2}'] - ecdf_out[f'Cumulative delta {calc_name1}']
 		ecdf_out.to_csv(ecdf_fns[ecdf_idx],index=False)
 
 	calculate_delta(y_single_partner_results, y_multi_partner_results, run_name, run_type, sc_columns, header_type, calc_name1, calc_name2, sig = sig, cdf = args.ecdf_analysis, n_best_assays = args.n_best_assays)
