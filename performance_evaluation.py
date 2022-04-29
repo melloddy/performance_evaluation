@@ -58,8 +58,8 @@ def init_arg_parser():
 	parser.add_argument("--significance_analysis_correction", help="Apply Benjamini–Yekutielicorrection to significance analysis (1 = Yes, 0 = No sig. analysis", type=int, default=1, choices=[0, 1])
 	parser.add_argument("--ecdf_analysis", help="Run emprical cumulative distribution function analysis (1 = Yes, 0 = No ecdf analysis", type=int, default=1, choices=[0, 1])
 	parser.add_argument("--n_best_assays", help="Number of best assays to consider (100 = default)", type=int, default=100)
-	parser.add_argument("--perf_bins_cls", help="AUCPR performance bins to identify flip tasks", type=str, nargs='+', default=[0.4,0.6,0.8,0.9],required=False)
-	parser.add_argument("--perf_bins_regr", help="R2 performance bins to identify flip tasks", type=str, nargs='+', default=[0.2,0.4,0.6,0.8],required=False)
+	parser.add_argument("--perf_bins_cls", help="calibrated AUCPR/ROCAUC performance bins to identify flip tasks", type=str, nargs='+', default=[0.5,0.6,0.7,0.8,0.9],required=False)
+	parser.add_argument("--perf_bins_regr", help="R2/corrcoef performance bins to identify flip tasks", type=str, nargs='+', default=[0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9],required=False)
 	parser.add_argument("--verbose", help="Verbosity level: 1 = Full; 0 = no output", type=int, default=1, choices=[0, 1])
 	parser.add_argument("--validation_fold", help="Validation fold to used to calculate performance", type=int, default=[0], nargs='+', choices=[0, 1, 2, 3, 4])
 	parser.add_argument("--aggr_binning_scheme_perf", help="Shared aggregated binning scheme for performances", type=str, nargs='+', default=[0.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0],required=False)
@@ -381,31 +381,33 @@ def calculate_flipped_tasks(f1_results, f2_results, run_name, run_type, header_t
 	assert f1_results.shape[1] == f2_results.shape[1], "the number of reported metrics are not equal between the outputs for comparison"
 	header_type = getheader(run_type)
 	if run_type in ['cls', 'clsaux']:
-		metric = 'auc_pr'
+		metrics = ['auc_pr_cal', 'roc_auc_score']
 	else:
-		metric = 'rsquared'
-	columns = [header_type + '_task_id', metric]
+		metrics = ['rsquared', 'corrcoef']
+	columns = [header_type + '_task_id'] + metrics
 	df = f1_results[columns].merge(f2_results[columns], on = columns[0], how = 'outer',\
 		 suffixes=['_'+calc_name1, '_'+calc_name2])
 	n_tasks_total = len(df)
 	l = []
 
-	for thresh in a_thresh:
-		n_tasks_1 = len(df[df[metric + '_' + calc_name1] > thresh])
-		n_tasks_2 = len(df[df[metric + '_' + calc_name2] > thresh])    
-		delta_tasks = 100 * (n_tasks_2 - n_tasks_1) / n_tasks_total
-		try: delta_tasks_percent = 100 * (n_tasks_2 - n_tasks_1) / n_tasks_1
-		except ZeroDivisionError: delta_tasks_percent = 0
-        
-		l.append(
-				{
-					'thresh': thresh,
-					'n_tasks_'+calc_name1: n_tasks_1,
-					'n_tasks_'+calc_name2: n_tasks_2,
-					'delta_tasks': delta_tasks,
-					'delta_tasks_percent': delta_tasks_percent
-				}
-			)
+	for metric in metrics:
+		for thresh in a_thresh:
+			n_tasks_1 = len(df[df[metric + '_' + calc_name1] > thresh])
+			n_tasks_2 = len(df[df[metric + '_' + calc_name2] > thresh])    
+			delta_tasks = 100 * (n_tasks_2 - n_tasks_1) / n_tasks_total
+			try: delta_tasks_percent = 100 * (n_tasks_2 - n_tasks_1) / n_tasks_1
+			except ZeroDivisionError: delta_tasks_percent = 0
+			
+			l.append(
+					{
+						'metric': metric,
+						'thresh': thresh,
+						'n_tasks_'+calc_name1: n_tasks_1,
+						'n_tasks_'+calc_name2: n_tasks_2,
+						'delta_tasks': delta_tasks,
+						'delta_tasks_percent': delta_tasks_percent
+					}
+				)
     
 	df_task_count = pd.DataFrame(l)	
 	filename = f"{run_name}/{run_type}/deltas/tasks_perf_bin_count.csv"
@@ -413,19 +415,21 @@ def calculate_flipped_tasks(f1_results, f2_results, run_name, run_type, header_t
 	n_tasks_total = len(df)
 	l = []
 
-	for thresh in a_thresh:
-		n_tasks_MP = len(df[df[metric + '_MP'] > thresh])
-		
-		n_task_flipped_to_1 = 100 * (len(df[(df[metric + '_' + calc_name1] > thresh) & (df[metric + '_' + calc_name2] <= thresh)])) / n_tasks_total        
-		n_task_flipped_to_2 = 100 * (len(df[(df[metric + '_' + calc_name1] <= thresh) & (df[metric + '_' + calc_name2] > thresh)])) / n_tasks_total
+	for metric in metrics:
+		for thresh in a_thresh:
+			n_tasks_MP = len(df[df[metric + '_MP'] > thresh])
 			
-		l.append(
-				{
-					'thresh': thresh,
-					'n_task_flipped_to_'+calc_name1: n_task_flipped_to_1,
-					'n_task_flipped_to_'+calc_name2: n_task_flipped_to_2
-				}
-			)
+			n_task_flipped_to_1 = 100 * (len(df[(df[metric + '_' + calc_name1] > thresh) & (df[metric + '_' + calc_name2] <= thresh)])) / n_tasks_total        
+			n_task_flipped_to_2 = 100 * (len(df[(df[metric + '_' + calc_name1] <= thresh) & (df[metric + '_' + calc_name2] > thresh)])) / n_tasks_total
+				
+			l.append(
+					{
+						'metric': metric,
+						'thresh': thresh,
+						'n_task_flipped_to_'+calc_name1: n_task_flipped_to_1,
+						'n_task_flipped_to_'+calc_name2: n_task_flipped_to_2
+					}
+				)
 		
 	df_task_flipped = pd.DataFrame(l)
 	filename = f"{run_name}/{run_type}/deltas/tasks_perf_bin_flipped.csv"
