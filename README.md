@@ -61,7 +61,7 @@ python performance_evaluation.py \
  --y_regr_single_partner <y_regr_single_partner-hash>/pred/pred.json  \
  --t8r_regr <regr_dir>/T8r.csv \
  --weights_regr <regr_dir>/reg_weights.csv \
- --folding_regr <regr_dir>/reg_T11_fold_vector.npy.npy \
+ --folding_regr <regr_dir>/reg_T11_fold_vector.npy \
  --y_clsaux <clsaux_dir>/clsaux_T10_y.npz \
  --y_clsaux_multi_partner <y_clsaux_multi_partner-hash>/pred/pred.json  \
  --y_clsaux_single_partner <y_clsaux_single_partner-hash>/pred/pred.json  \
