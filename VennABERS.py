@@ -195,13 +195,15 @@ author: lewis.mervin1@astrazeneca.com
 def get_median_VA_margin_cross(yhat, ytrue):
 	ytrue=ytrue.astype(np.uint8)
 	margins = np.full(yhat.shape[0], np.nan)
-	skf = StratifiedKFold(n_splits=2, shuffle=True, random_state=10)
-	for cal_index, test_index in skf.split(ytrue, yhat):
-		yhat_cal, yhat_test = yhat[cal_index], yhat[test_index]
-		y_cal = ytrue[cal_index]
-		calibrPts = np.vstack((yhat_cal, y_cal)).T
-		calibrPts = [tuple(i) for i in calibrPts]
-		p0,p1 = va2.ScoresToMultiProbs(calibrPts, yhat_test)
-		margin = p1-p0
-		margins[test_index]=margin
-	return np.median(margins)
+	try:
+		skf = StratifiedKFold(n_splits=2, shuffle=True, random_state=10)
+		for cal_index, test_index in skf.split(yhat, ytrue):
+			yhat_cal, yhat_test = yhat[cal_index], yhat[test_index]
+			y_cal = ytrue[cal_index]
+			calibrPts = np.vstack((yhat_cal, y_cal)).T
+			calibrPts = [tuple(i) for i in calibrPts]
+			p0,p1 = ScoresToMultiProbs(calibrPts, yhat_test)
+			margin = p1-p0
+			margins[test_index]=margin
+		return np.median(margins)
+	except ValueError: return float('nan')
