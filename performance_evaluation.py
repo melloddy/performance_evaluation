@@ -8,6 +8,8 @@ import torch
 import sklearn.metrics
 from sklearn.metrics._ranking import _binary_clf_curve
 from sklearn.metrics import confusion_matrix, brier_score_loss
+import rdkit
+from rdkit.ML.Scoring.Scoring import CalcBEDROC
 
 import json
 import scipy.sparse as sparse
@@ -297,14 +299,14 @@ def calculate_ecdf(full_df, sc_columns, pertask_fn=None, perassay_fn=None):
 	for metric_bin in full_df.loc[:, f"{sc_columns[0]}":f"{sc_columns[-1]}"].columns:
 		ecdf=smooth_ecdf(ECDF(full_df[metric_bin]))
 		ecdf_df=pd.concat((ecdf_df, \
-			pd.DataFrame({'Cumulative delta':ecdf[0], \
+			pd.DataFrame({'Cumulative proportion':ecdf[0], \
 			'Percentile':ecdf[1], \
 			'Metric':metric_bin})))
 
 		for assay_type, grouped_df_metric in full_df.groupby('assay_type'):
 			ecdf_at=smooth_ecdf(ECDF(grouped_df_metric[metric_bin]))
 			ecdf_df_assay_type=pd.concat((ecdf_df_assay_type, \
-			pd.DataFrame({'Cumulative delta':ecdf_at[0], \
+			pd.DataFrame({'Cumulative proportion':ecdf_at[0], \
 				'Percentile':ecdf_at[1], \
 				'Metric':metric_bin, \
 				'Assay_type':assay_type})))
@@ -322,7 +324,7 @@ def run_performance_calculation(run_type, y_pred, pred_or_npy, y_true, tw_df, ta
 	y_pred = sparse.csc_matrix(y_pred)
 	if header_type == 'classification':
 		sc_columns = sc.utils.all_metrics([0],[0],None).columns.tolist()  #get the names of reported metrics from the sc utils
-		sc_columns.extend(['brier','s_auc_pr', 'positive_rate','tnr', 'fpr', 'fnr', 'tpr']) # added for calibrated auc_pr
+		sc_columns.extend(['brier','s_auc_pr', 'positive_rate','tnr', 'fpr', 'fnr', 'tpr', 'bedroc']) # added for calibrated auc_pr
 		if args.use_venn_abers:
 			from VennABERS import get_median_VA_margin_cross
 			sc_columns.extend(['vam'])
@@ -354,6 +356,7 @@ def run_performance_calculation(run_type, y_pred, pred_or_npy, y_true, tw_df, ta
 				sc_calculation['fpr'] = fp/(fp+tn)
 				sc_calculation['fnr'] = fn/(fn+tp)
 				sc_calculation['tpr'] = tp/(tp+fn)
+				sc_calculation['bedroc'] = rdkit.ML.Scoring.Scoring.CalcBEDROC(sorted(zip(y_pred_col,y_true_col)),1,20)
 				if args.use_venn_abers: sc_calculation['vam'] = get_median_VA_margin_cross(y_pred_col, y_true_col)
 		#setup for regression metrics
 		else:
@@ -634,7 +637,7 @@ def calculate_single_partner_multi_partner_results(run_name, run_type, y_true, f
 	ecdf_fns = [f"{run_name}/{run_type}/deltas/deltas_cdf{calc_name2}-cdf{calc_name1}.csv", f"{run_name}/{run_type}/deltas/deltas_cdf{calc_name2}-cdf{calc_name1}_assay_type.csv"]
 	for ecdf_idx, ecdf_merge_cols in enumerate([['Percentile','Metric'], ['Percentile','Metric','Assay_type']]):
 		ecdf_out = sp_calculated_ecdf[ecdf_idx].merge(mp_calculated_ecdf[ecdf_idx],left_on= ecdf_merge_cols,right_on=ecdf_merge_cols,how='left', suffixes=[f' {calc_name1}',f' {calc_name2}'])
-		ecdf_out[f'{calc_name2}-{calc_name1}_CDF'] = ecdf_out[f'Cumulative delta {calc_name2}'] - ecdf_out[f'Cumulative delta {calc_name1}']
+		ecdf_out[f'{calc_name1}-{calc_name2}_CDF'] = ecdf_out[f'Cumulative proportion {calc_name2}'] - ecdf_out[f'Cumulative proportion {calc_name1}']
 		ecdf_out.to_csv(ecdf_fns[ecdf_idx],index=False)
 
 	calculate_delta(y_single_partner_results, y_multi_partner_results, run_name, run_type, sc_columns, header_type, calc_name1, calc_name2, sig = sig, cdf = args.ecdf_analysis, n_best_assays = args.n_best_assays)
