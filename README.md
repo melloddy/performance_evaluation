@@ -14,21 +14,34 @@ On your local IT infrastructure you'd need
 
 ## Instructions for the main (primary performance reporting) Y3 performance evaluation report
 
+The following instructions are required to complete the task: https://melloddy.monday.com/boards/259897343/pulses/2592726539 
+
 ### Step 1. Run the model selection code
 
 First, determine the correct compute plans (CPs) to use for the evaluation report.
 
-1. Extract the model_selection scripts (https://git.infra.melloddy.eu/wp3/performance_evaluation/-/tree/year3/model_selection) to the directory contining all *MP* compute plans and run the bash scripts.
+#### 1.1. Extract the model_selection scripts
 
-2. Consult the *opt* output files, to obtain the optimal PH1-3 MP CPs for each of the CLS/HYB/REG/CLSAUX models
+* Extract the scripts located here:https://git.infra.melloddy.eu/wp3/performance_evaluation/-/tree/year3/model_selection) to the directory contining all compute plans (or at least all *MP* plans)
+* Run the bash scripts
 
-3. For each of the models, extract the contents of the MP PH2 tarballs and ensure these are easily accessible for step 2 (the perf evaluation) 
+#### 1.2. Locate optimal PH2 MP CPs for this analysis
 
-4. Identify and locate the optimal *SP* models for the CLS/REG/HYB/CLSAUX models as per the SP_model selection procedure here: https://git.infra.melloddy.eu/wp3/performance_evaluation/-/tree/year3/SP_model_selection#performance-evaluation (PH2 SparseChem models trained to the optimal epochs as would be available from platform - i.e. 5,10,15 ... etc)
+* Consult the *opt* output files, which can be used to obtain the optimal PH1-3 MP CPs for each of the CLS/HYB/REG/CLSAUX models.
+* *N.B: we are only interested in PH2 for this specific task*
+
+#### 1.3. Decompress the MP models
+
+* For each of the models, extract the contents of the MP *PH2* tarballs and ensure these are easily accessible for step 2 (the perf evaluation) 
+
+#### 1.4. Prepare SP models
+
+* Identify and locate the optimal *SP* models for the CLS/REG/HYB/CLSAUX models as per the SP_model selection procedure here: https://git.infra.melloddy.eu/wp3/performance_evaluation/-/tree/year3/SP_model_selection#performance-evaluation
+* The PH2 SparseChem models should be trained to the optimal epochs as would be available from platform - i.e. 5,10,15 ... etc)
 
 ### Step 2. Run the performance evaluation code
 
-Follow the following sections to run the performance evaluation script (https://git.infra.melloddy.eu/wp3/performance_evaluation/-/blob/year3/performance_evaluation.py) for each of the CLS/HYB/REG/CLSAUX models identified in Step 1 above. In more detail:
+In the following sections we will run the performance evaluation script (https://git.infra.melloddy.eu/wp3/performance_evaluation/-/blob/year3/performance_evaluation.py) for each of the *CLS/REG/CLSAUX* models and the *HYB* models identified in Step 1 above. In more detail:
 
 #### Step 2.1. SP vs. MP CLS/REG/CLSAUX model evaluation
 
@@ -56,13 +69,14 @@ python performance_evaluation.py \
  --weights_clsaux <clsaux_dir>/clsaux_weights.csv \
  --folding_clsaux <clsaux_dir>/clsaux_T11_fold_vector.npy \
  --validation_fold 0 \
+ --use_venn_abers \
  --run_name sp_vs_mp__optimal_cls_clsaux_reg
 ```
 
 #### Step 2.2. SP vs. MP HYB model evaluation
 
-NB: The HYB command line arguments are only useful for comparing MP pred.json files. 
-I.e. when comparing HYB models with locally generated predictions the following steps MUST be follwed.
+* NB: The HYB command line arguments are only useful for comparing MP pred.json files. 
+* I.e. when comparing HYB models with locally generated predictions (as required for this task) the following steps MUST be follwed.
 
 ##### Step 2.2.a Prepare MP HYB pred.json preds for evaluation (split the MP pred.json first)
 
@@ -90,6 +104,8 @@ np.save("pred_cls.npy", Yhat_cls)
 np.save("pred_reg.npy", Yhat_reg)
 ```
 
+Note the location of the new *MP* pred_reg.npy which will provided to the performance evaluation code in *Step 2.2.c*
+
 ##### Step 2.2.b Generate local SP HYB predictions for evaluation:
 
 The following should be used to generate the SP prediction, e.g:
@@ -112,7 +128,7 @@ pred-class.npy
 pred-reg.npy ### this file only
 ```
 
-We use only the pred-reg.npy in the next step...
+Note the location of the new *SP* pred-reg.npy which will provided to the performance evaluation code in *Step 2.2.c*
 
 
 ##### Step 2.2.c. Run the performance evaluation script on the HYB-REG models like so:
@@ -130,18 +146,18 @@ python performance_evaluation.py \
  --run_name sp_vs_mp__optimal_hyb
 ```
 
-### Step 3. Report the output and update Monday.com
+### Step 3. Report status
 
 #### Step 3.1. Report the output to box: https://az.app.box.com/folder/160809892275
 
-NB: take care to not upload the files: 
+• NB: take care to not upload the files: 
 
 ```
 deltas_per-task_performances.csv
 pred_per-task_performances.csv
 ```
 
-i.e. any *per-task* RUN1/RUN2 files that may contain your performance on a per-task level. 
+• i.e. any *per-task* RUN1/RUN2 files that may contain your performance on a per-task level. 
 
 #### Step 3.2. Update Monday.com task here: https://melloddy.monday.com/boards/259897343/pulses/2592726539
 
