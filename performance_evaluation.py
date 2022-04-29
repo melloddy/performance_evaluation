@@ -54,7 +54,8 @@ def init_arg_parser():
 	parser.add_argument("--weights_hyb_regr", help="CSV file with columns task_id and weight (e.g. hyb_reg_weights.csv)", type=str, default=None)
 
 	parser.add_argument("--run_name", help="Run name directory for results from this output (timestemp used if not specified)", type=str, default=None)
-	parser.add_argument("--significance_analysis", help="Run significant analysis (1 = Yes, 0 = No sig. analysis", type=int, default=1, choices=[0, 1])
+	parser.add_argument("--output_task_sensitive_files", help="Output files with task level sensitive information (1 = Yes, 0 = No sensitive files", type=int, default=0, choices=[0, 1])
+	parser.add_argument("--significance_analysis", help="Run significance analysis (1 = Yes, 0 = No sig. analysis", type=int, default=1, choices=[0, 1])
 	parser.add_argument("--significance_analysis_correction", help="Apply Benjamini–Yekutielicorrection to significance analysis (1 = Yes, 0 = No sig. analysis", type=int, default=1, choices=[0, 1])
 	parser.add_argument("--ecdf_analysis", help="Run emprical cumulative distribution function analysis (1 = Yes, 0 = No ecdf analysis", type=int, default=1, choices=[0, 1])
 	parser.add_argument("--n_best_assays", help="Number of best assays to consider (100 = default)", type=int, default=100)
@@ -272,7 +273,6 @@ def run_significance_calculation(run_type, y_pred0, y_pred1, y_true, task_map, c
 			threshold = -1
 		mp_sign = calculated_sig.MP_pvalue.values <= threshold
 		calculated_sig.loc[:, 'MP_significant'] = mp_sign.astype('int32')
-		
 	return calculated_sig
 
 def smooth_ecdf(ecdf):
@@ -415,8 +415,10 @@ def calculate_flipped_tasks(f1_results, f2_results, run_name, run_type, header_t
 				)
     
 	df_task_count = pd.DataFrame(l)	
-	filename = f"{run_name}/{run_type}/deltas/tasks_perf_bin_count_NOUPLOAD.csv"
-	df_task_count.to_csv(filename, index=False)
+	if args.output_task_sensitive_files:
+		filename = f"{run_name}/{run_type}/deltas/tasks_perf_bin_count_NOUPLOAD.csv"
+		df_task_count.to_csv(filename, index=False)
+		vprint(f"Wrote flipped tasks perf count report to: {filename}")
 	n_tasks_total = len(df)
 	l = []
 
@@ -439,6 +441,7 @@ def calculate_flipped_tasks(f1_results, f2_results, run_name, run_type, header_t
 	df_task_flipped = pd.DataFrame(l)
 	filename = f"{run_name}/{run_type}/deltas/tasks_perf_bin_flipped.csv"
 	df_task_flipped.to_csv(filename, index=False)
+	vprint(f"Wrote flipped tasks perf bin report to: {filename}")
 	return
 	
 def calculate_best_assays(full_df, sc_columns, n_best_assays = None, best_fn = None):
@@ -464,7 +467,6 @@ def calculate_delta(f1_results, f2_results, run_name, run_type, sc_columns, head
 	at = f2_results["assay_type"]
 	delta = (f2_results.loc[:, sc_columns[0]:sc_columns[-1]]-f1_results.loc[:, sc_columns[0]:sc_columns[-1]])
 	tdf = pd.concat([task_id, at, delta], axis = 1)
-	fn1 = f"{run_name}/{run_type}/deltas/deltas_per-task_performances_NOUPLOAD.csv"
 	pertask = tdf.copy()
 	pertask.loc[:,f'{header_type}_task_id'] = pertask[f'{header_type}_task_id'].astype('int32')
 	#add per-task perf aggregated performance delta bins to output
@@ -474,8 +476,10 @@ def calculate_delta(f1_results, f2_results, run_name, run_type, sc_columns, head
 	#merge calculated significances (if set) with the calculated performances
 	if sig is not None: pertask = pertask.merge(sig, left_on=f'{header_type}_task_id', right_on=f'{header_type}_task_id',how='left')
 	#write per-task perf aggregated performance delta
-	pertask.to_csv(fn1, index= False)
-	vprint(f"Wrote per-task delta report to: {fn1}")
+	if args.output_task_sensitive_files:
+		fn1 = f"{run_name}/{run_type}/deltas/deltas_per-task_performances_NOUPLOAD.csv"
+		pertask.to_csv(fn1, index= False)
+		vprint(f"Wrote per-task delta report to: {fn1}")
 
 	#write the avg performances for n best assays
 	best_fn =  f"{run_name}/{run_type}/deltas/delta_best_{n_best_assays}_assays.csv"
@@ -564,10 +568,11 @@ def write_aggregated_report(run_name, run_type, fname, local_performances, sc_co
 		args.aggr_binning_scheme_perf,include_lowest=True,right=True,lower_infinite=False, upper_infinite=False)
 	df.loc[:,f'{header_type}_task_id'] = df[f'{header_type}_task_id'].astype('float').astype('int32')
 	os.makedirs(f"{run_name}/{run_type}/{rlabel}/")
-	fn1 = f"{run_name}/{run_type}/{rlabel}/{fname}_per-task_performances_NOUPLOAD.csv"
-	df.to_csv(fn1, index=False)
-	vprint(f"Wrote per-task report to: {fn1}")
-
+	if args.output_task_sensitive_files:
+		fn1 = f"{run_name}/{run_type}/{rlabel}/{fname}_per-task_performances_NOUPLOAD.csv"
+		df.to_csv(fn1, index=False)
+		vprint(f"Wrote per-task report to: {fn1}")
+		
 	#write binned per-task performances
 	agg_concat=[]
 	for metric_bin in df.loc[:, f"{sc_columns[0]}_percent":f"{sc_columns[-1]}_percent"].columns:
