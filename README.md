@@ -150,11 +150,27 @@ python performance_evaluation.py \
 
 #### Step 3.1. Report the output to box: https://az.app.box.com/folder/160809892275
 
-• NB: take care to not upload the files: 
+• NB: report the output of the delta folder to box (*minus the files revealing task level information*), I.e: 
 
 ```
-deltas_per-task_performances.csv
-pred_per-task_performances.csv
+deltas_cdfMP-cdfSP.csv
+deltas_cdfMP-cdfSP_assay_type.csv
+delta_best_100_assays.csv
+deltas_global_cdf.csv
+deltas_per-assay_cdf.csv
+deltas_binned_per-task_performances.csv
+deltas_per-assay_performances.csv
+deltas_binned_per-assay_performances.csv
+deltas_global_performances.csv
+tasks_perf_bin_flipped.csv
+```
+
+• NB: take care to *NOT* upload the files: 
+
+```
+deltas_per-task_performances_NOUPLOAD.csv
+tasks_perf_bin_count_NOUPLOAD.csv
+pred_per-task_performances_NOUPLOAD.csv
 ```
 
 • i.e. any *per-task* RUN1/RUN2 files that may contain your performance on a per-task level. 
