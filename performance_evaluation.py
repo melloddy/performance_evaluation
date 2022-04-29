@@ -415,7 +415,7 @@ def calculate_flipped_tasks(f1_results, f2_results, run_name, run_type, header_t
 				)
     
 	df_task_count = pd.DataFrame(l)	
-	filename = f"{run_name}/{run_type}/deltas/tasks_perf_bin_count.csv"
+	filename = f"{run_name}/{run_type}/deltas/tasks_perf_bin_count_NOUPLOAD.csv"
 	df_task_count.to_csv(filename, index=False)
 	n_tasks_total = len(df)
 	l = []
@@ -464,7 +464,7 @@ def calculate_delta(f1_results, f2_results, run_name, run_type, sc_columns, head
 	at = f2_results["assay_type"]
 	delta = (f2_results.loc[:, sc_columns[0]:sc_columns[-1]]-f1_results.loc[:, sc_columns[0]:sc_columns[-1]])
 	tdf = pd.concat([task_id, at, delta], axis = 1)
-	fn1 = f"{run_name}/{run_type}/deltas/deltas_per-task_performances.csv"
+	fn1 = f"{run_name}/{run_type}/deltas/deltas_per-task_performances_NOUPLOAD.csv"
 	pertask = tdf.copy()
 	pertask.loc[:,f'{header_type}_task_id'] = pertask[f'{header_type}_task_id'].astype('int32')
 	#add per-task perf aggregated performance delta bins to output
@@ -564,7 +564,7 @@ def write_aggregated_report(run_name, run_type, fname, local_performances, sc_co
 		args.aggr_binning_scheme_perf,include_lowest=True,right=True,lower_infinite=False, upper_infinite=False)
 	df.loc[:,f'{header_type}_task_id'] = df[f'{header_type}_task_id'].astype('float').astype('int32')
 	os.makedirs(f"{run_name}/{run_type}/{rlabel}/")
-	fn1 = f"{run_name}/{run_type}/{rlabel}/{fname}_per-task_performances.csv"
+	fn1 = f"{run_name}/{run_type}/{rlabel}/{fname}_per-task_performances_NOUPLOAD.csv"
 	df.to_csv(fn1, index=False)
 	vprint(f"Wrote per-task report to: {fn1}")
 
