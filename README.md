@@ -109,7 +109,7 @@ Note the location of the new *MP* pred_reg.npy which will provided to the perfor
 
 ##### Step 2.2.b Generate local SP HYB predictions for evaluation:
 
-The following should be used to generate the SP prediction, e.g:
+The following should be used to generate the SP prediction, e.g (in a SparseChem 0.9.6 environment):
 
 ```
 python $predict \
