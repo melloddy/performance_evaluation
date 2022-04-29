@@ -70,6 +70,7 @@ python performance_evaluation.py \
  --folding_clsaux <clsaux_dir>/clsaux_T11_fold_vector.npy \
  --validation_fold 0 \
  --use_venn_abers \
+ --output_task_sensitive_files 0 \
  --run_name sp_vs_mp__optimal_cls_clsaux_reg
 ```
 
@@ -143,6 +144,7 @@ python performance_evaluation.py \
  --weights_regr <reg_dir>/reg_weights.csv \
  --folding_regr <reg_dir>/reg_T11_fold_vector.npy \
  --validation_fold 0 \
+ --output_task_sensitive_files 0 \
  --run_name sp_vs_mp__optimal_hyb
 ```
 
@@ -150,7 +152,9 @@ python performance_evaluation.py \
 
 #### Step 3.1. Report the output to box: https://az.app.box.com/folder/160809892275
 
-• NB: report the output of the delta folder to box (*minus the files revealing task level information*), I.e: 
+* Now we need to upload the output (*minus the files revealing task level information*) to Box
+* N.B: Running the latest code with ```--output_task_sensitive_files 0``` (also the default setting) means that no sensitive performance evaluation files are produced -> all contents of delta folder can be uploaded
+* If you used ```--output_task_sensitive_files 1```, you need to ensure to only upload the following files to box:  
 
 ```
 deltas_cdfMP-cdfSP.csv
@@ -165,7 +169,7 @@ deltas_global_performances.csv
 tasks_perf_bin_flipped.csv
 ```
 
-• NB: take care to *NOT* upload the files: 
+• I.e.: take care to *NOT* upload the *_NOUPLOAD.csv files: 
 
 ```
 deltas_per-task_performances_NOUPLOAD.csv
@@ -173,7 +177,6 @@ tasks_perf_bin_count_NOUPLOAD.csv
 pred_per-task_performances_NOUPLOAD.csv
 ```
 
-• i.e. any *per-task* RUN1/RUN2 files that may contain your performance on a per-task level. 
 
 #### Step 3.2. Update Monday.com task here: https://melloddy.monday.com/boards/259897343/pulses/2592726539
 
