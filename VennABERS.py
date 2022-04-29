@@ -192,7 +192,8 @@ author: lewis.mervin1@astrazeneca.com
 """
 
 # inefficient but clear implementation
-def get_VA_margin_cross(yhat, ytrue):
+def get_median_VA_margin_cross(yhat, ytrue):
+	ytrue=ytrue.astype(np.uint8)
 	margins = np.full(yhat.shape[0], np.nan)
 	skf = StratifiedKFold(n_splits=2, shuffle=True, random_state=10)
 	for cal_index, test_index in skf.split(ytrue, yhat):
@@ -203,4 +204,4 @@ def get_VA_margin_cross(yhat, ytrue):
 		p0,p1 = va2.ScoresToMultiProbs(calibrPts, yhat_test)
 		margin = p1-p0
 		margins[test_index]=margin
-	return margins
+	return np.median(margins)
