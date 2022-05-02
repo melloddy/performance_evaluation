@@ -42,7 +42,17 @@ First, determine the correct compute plans (CPs) to use for the evaluation repor
 
 ### Step 2. Run the performance evaluation code
 
-In the following sections we will run the performance evaluation script (https://git.infra.melloddy.eu/wp3/performance_evaluation/-/blob/year3/performance_evaluation.py) for each of the *CLS/REG/CLSAUX* models and the *HYB* models identified in Step 1 above. In more detail:
+In the following sections we will run the performance evaluation script (https://git.infra.melloddy.eu/wp3/performance_evaluation/-/blob/year3/performance_evaluation.py) for each of the *CLS/REG/CLSAUX* models and the *HYB* models identified in Step 1 above. 
+
+Run the performance evaluation script on six combinations of SP and MP models:
+1. SP CLS vs MP CLS
+2. SP CLSAUX vs MP CLSAUX
+3. Optimal Classification model: SP opt(CLS,CLSAUX) vs MP opt(CLS,CLSAUX)
+4. SP REG vs MP REG
+5. SP HYB vs MP HYB
+6. Optimal Regression model: SP opt(REG,HYB) vs MP opt(REG,HYB)
+
+In more detail:
 
 #### Step 2.1. SP vs. MP CLS/REG/CLSAUX model evaluation
 
