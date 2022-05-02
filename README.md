@@ -52,7 +52,9 @@ Run the performance evaluation script on six combinations of SP and MP models:
 5. SP HYB vs MP HYB
 6. Optimal Regression model: SP opt(REG,HYB) vs MP opt(REG,HYB)
 
-In more detail:
+Note: SP opt(CLS,CLSAUX) would be the overall best SP model for classification out of all available CLS and CLSAUX models.
+
+Intstructions in more detail:
 
 #### Step 2.1. SP vs. MP CLS/REG/CLSAUX model evaluation
 
