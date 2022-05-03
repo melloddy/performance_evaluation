@@ -59,7 +59,6 @@ def init_arg_parser():
 	parser.add_argument("--output_task_sensitive_files", help="Output files with task level sensitive information (1 = Yes, 0 = No sensitive files", type=int, default=0, choices=[0, 1])
 	parser.add_argument("--significance_analysis", help="Run significance analysis (1 = Yes, 0 = No sig. analysis", type=int, default=1, choices=[0, 1])
 	parser.add_argument("--significance_analysis_correction", help="Apply Benjamini–Yekutielicorrection to significance analysis (1 = Yes, 0 = No sig. analysis", type=int, default=1, choices=[0, 1])
-	parser.add_argument("--ecdf_analysis", help="Run emprical cumulative distribution function analysis (1 = Yes, 0 = No ecdf analysis", type=int, default=1, choices=[0, 1])
 	parser.add_argument("--n_best_assays", help="Number of best assays to consider (100 = default)", type=int, default=100)
 	parser.add_argument("--use_venn_abers", help="Toggle to turn on Venn-ABERs code", action='store_true', default=False)
 	parser.add_argument("--perf_bins_cls", help="calibrated AUCPR/ROCAUC performance bins to identify flip tasks", type=str, nargs='+', default=[0.5,0.6,0.7,0.8,0.9],required=False)
@@ -68,12 +67,12 @@ def init_arg_parser():
 	parser.add_argument("--validation_fold", help="Validation fold to used to calculate performance", type=int, default=[0], nargs='+', choices=[0, 1, 2, 3, 4])
 	parser.add_argument("--aggr_binning_scheme_perf", help="Shared aggregated binning scheme for performances", type=str, nargs='+', default=[0.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0],required=False)
 	parser.add_argument("--aggr_binning_scheme_perf_delta", help="Shared aggregated binning scheme for delta performances", type=str, nargs='+', default=[-0.2,-0.15,-0.1,-0.05,0.0,0.05,0.1,0.15,0.2],required=False)
+	parser.add_argument("--version", help="Version of this script", type=str, default="0.1.5", choices=["0.1.5"])
 	args = parser.parse_args()
 	assert len(args.aggr_binning_scheme_perf) == 11, f"len of aggr_binning_scheme_perf should be 11, got {len(args.aggr_binning_scheme_perf)}"
 	assert len(args.aggr_binning_scheme_perf_delta) == 9, f"len of aggr_binning_scheme_perf_delta should be 9, got {len(args.aggr_binning_scheme_perf_delta)}"
-	if args.ecdf_analysis:
-		try:  from statsmodels.distributions.empirical_distribution import ECDF
-		except ImportError as e: print(e,': statsmodels needs to be installed for ECDF function... quitting'); quit()
+	try:  from statsmodels.distributions.empirical_distribution import ECDF
+	except ImportError as e: print(e,': statsmodels needs to be installed for ECDF function... quitting'); quit()
 	assert Path()
 	args.aggr_binning_scheme_perf=list(map(np.float64,args.aggr_binning_scheme_perf))
 	args.aggr_binning_scheme_perf_delta=list(map(np.float64,args.aggr_binning_scheme_perf_delta))
@@ -277,14 +276,14 @@ def run_significance_calculation(run_type, y_pred0, y_pred1, y_true, task_map, c
 		calculated_sig.loc[:, 'MP_significant'] = mp_sign.astype('int32')
 	return calculated_sig
 
-def smooth_ecdf(ecdf):
+def interpolate_ecdf(distribution,metric=None):
 	"""
-	Smooths the ECDF for anonymity
+	Interpolate the ECDF
 	"""
-	target_percentile = np.linspace(0, 1,100)
-	f = interp1d(ecdf.y, ecdf.x)
-	y_smooth = f(target_percentile)
-	return y_smooth, target_percentile
+	from statsmodels.distributions.empirical_distribution import ECDF
+	ecdf = ECDF(distribution.values)
+	return_values = np.linspace(-1,1,100)
+	return ecdf(return_values).round(4), return_values
 
 def calculate_ecdf(full_df, sc_columns, pertask_fn=None, perassay_fn=None):
 	"""
@@ -293,21 +292,20 @@ def calculate_ecdf(full_df, sc_columns, pertask_fn=None, perassay_fn=None):
 		Calculated for both SP and MP (twice) to produce [Y = CDF1:SP(AUC)  – CDF:MP(AUC)] to be plot as a function of AUC
 		Calculated directly (once) on the distribution of deltas overall delta calculation
 	"""
-	from statsmodels.distributions.empirical_distribution import ECDF
 	ecdf_df=pd.DataFrame()
 	ecdf_df_assay_type=pd.DataFrame()
 	for metric_bin in full_df.loc[:, f"{sc_columns[0]}":f"{sc_columns[-1]}"].columns:
-		ecdf=smooth_ecdf(ECDF(full_df[metric_bin]))
+		ecdf=interpolate_ecdf(full_df[metric_bin], metric=metric_bin)
 		ecdf_df=pd.concat((ecdf_df, \
-			pd.DataFrame({'Cumulative proportion':ecdf[0], \
-			'Percentile':ecdf[1], \
+			pd.DataFrame({'Density':ecdf[0], \
+			'Metric Value':ecdf[1], \
 			'Metric':metric_bin})))
 
 		for assay_type, grouped_df_metric in full_df.groupby('assay_type'):
-			ecdf_at=smooth_ecdf(ECDF(grouped_df_metric[metric_bin]))
+			ecdf_at=interpolate_ecdf(grouped_df_metric[metric_bin], metric=metric_bin)
 			ecdf_df_assay_type=pd.concat((ecdf_df_assay_type, \
-			pd.DataFrame({'Cumulative proportion':ecdf_at[0], \
-				'Percentile':ecdf_at[1], \
+			pd.DataFrame({'Density':ecdf_at[0], \
+				'Metric Value':ecdf_at[1], \
 				'Metric':metric_bin, \
 				'Assay_type':assay_type})))
 	if pertask_fn: ecdf_df.to_csv(pertask_fn, index= False)
@@ -457,7 +455,7 @@ def calculate_best_assays(full_df, sc_columns, n_best_assays = None, best_fn = N
 	if best_fn: best_df.to_csv(best_fn, index=False)
 	return
 
-def calculate_delta(f1_results, f2_results, run_name, run_type, sc_columns, header_type, calc_name1, calc_name2, sig = None, cdf = None, n_best_assays = None):
+def calculate_delta(f1_results, f2_results, run_name, run_type, sc_columns, header_type, calc_name1, calc_name2, sig = None, n_best_assays = None):
 	"""
 	Calculate the delta between the outputs and write to a file
 	"""
@@ -488,13 +486,6 @@ def calculate_delta(f1_results, f2_results, run_name, run_type, sc_columns, head
 	best_fn =  f"{run_name}/{run_type}/deltas/delta_best_{n_best_assays}_assays.csv"
 	calculate_best_assays(pertask, sc_columns, n_best_assays = n_best_assays, best_fn = best_fn)
 	vprint(f"Wrote best {n_best_assays} task reports to: {best_fn}")
-
-	#write ecdf performance deltas if this is set at runtime
-	if cdf:
-		pertask_fn = f"{run_name}/{run_type}/deltas/deltas_global_cdf.csv"
-		perassay_fn = f"{run_name}/{run_type}/deltas/deltas_per-assay_cdf.csv"
-		calculate_ecdf(pertask,sc_columns,pertask_fn=pertask_fn,perassay_fn=perassay_fn)
-		vprint(f"Wrote cdf delta reports to:\n{pertask_fn}\n{perassay_fn}")
 	
 	#write binned per-task aggregated performance deltas
 	agg_deltas=[]
@@ -548,7 +539,6 @@ def calculate_delta(f1_results, f2_results, run_name, run_type, sc_columns, head
 			vprint(f"Wrote per-assay {p} significance report to: {fnagg2}")
 	return
 
-
 def write_global_report(run_name, run_type, fname, local_performances, sc_columns, rlabel):
 	"""
 	write performance reports for global aggregation
@@ -559,7 +549,6 @@ def write_global_report(run_name, run_type, fname, local_performances, sc_column
 	df.to_csv(fn1, index= False)
 	vprint(f"Wrote global report to: {fn1}")
 	return df
-
 
 def write_aggregated_report(run_name, run_type, fname, local_performances, sc_columns, header_type, rlabel):
 	"""
@@ -604,7 +593,6 @@ def write_aggregated_report(run_name, run_type, fname, local_performances, sc_co
 	vprint(f"Wrote per-assay binned report to: {fnagg}")
 	return
 
-
 def calculate_single_partner_multi_partner_results(run_name, run_type, y_true, folding, fold_va, t8, task_weights, single_partner, multi_partner, y_true_cens=None):
 	"""
 	Calculate cls, clsaux or regr performances for single_partner and multi_partner outputs, then calculate delta, print outputs along the way
@@ -632,15 +620,14 @@ def calculate_single_partner_multi_partner_results(run_name, run_type, y_true, f
 	del y_single_partner_yhat
 	y_multi_partner_results, mp_calculated_ecdf, sc_columns = run_performance_calculation(run_type, y_multi_partner_yhat, y_multi_partner_ftype, y_true, tw_df, task_map, run_name, multi_partner, calc_name2, y_true_cens = y_true_cens)
 	del y_multi_partner_yhat
-
 	os.makedirs(f"{run_name}/{run_type}/deltas/")
 	ecdf_fns = [f"{run_name}/{run_type}/deltas/deltas_cdf{calc_name2}-cdf{calc_name1}.csv", f"{run_name}/{run_type}/deltas/deltas_cdf{calc_name2}-cdf{calc_name1}_assay_type.csv"]
-	for ecdf_idx, ecdf_merge_cols in enumerate([['Percentile','Metric'], ['Percentile','Metric','Assay_type']]):
+	for ecdf_idx, ecdf_merge_cols in enumerate([['Metric Value','Metric'], ['Metric Value','Metric','Assay_type']]):
 		ecdf_out = sp_calculated_ecdf[ecdf_idx].merge(mp_calculated_ecdf[ecdf_idx],left_on= ecdf_merge_cols,right_on=ecdf_merge_cols,how='left', suffixes=[f' {calc_name1}',f' {calc_name2}'])
-		ecdf_out[f'{calc_name1}-{calc_name2}_CDF'] = ecdf_out[f'Cumulative proportion {calc_name2}'] - ecdf_out[f'Cumulative proportion {calc_name1}']
+		ecdf_out[f'{calc_name2}-{calc_name1}_CDF'] = ecdf_out[f'Density {calc_name2}'] - ecdf_out[f'Density {calc_name1}']
 		ecdf_out.to_csv(ecdf_fns[ecdf_idx],index=False)
 
-	calculate_delta(y_single_partner_results, y_multi_partner_results, run_name, run_type, sc_columns, header_type, calc_name1, calc_name2, sig = sig, cdf = args.ecdf_analysis, n_best_assays = args.n_best_assays)
+	calculate_delta(y_single_partner_results, y_multi_partner_results, run_name, run_type, sc_columns, header_type, calc_name1, calc_name2, sig = sig, n_best_assays = args.n_best_assays)
 	if run_type in ['cls', 'clsaux']:
 		a_thresh = list(map(np.float64,args.perf_bins_cls))
 	else:
