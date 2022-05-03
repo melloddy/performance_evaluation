@@ -23,6 +23,7 @@ parser.add_argument("--t10c_clsaux", type=str, help="Path to <...>/matrices/clsa
 parser.add_argument("--pred_cls", type=str, help="Path to the predictions exported from platform of a cls model", required=True)
 parser.add_argument("--pred_clsaux", type=str, help="Path to the predictions exported from platform of a clsaux model", required=True)
 parser.add_argument("--validation_fold", type=int, help="Validation fold to use", default=0)
+parser.add_argument("--version", help="Version of this script", type=str, default="0.1.2", choices=["0.1.2"])
 parser.add_argument("--outfile", type=str, help="Name of the output file", required=True)
 args = parser.parse_args()
 
