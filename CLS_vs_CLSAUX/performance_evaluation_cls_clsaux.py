@@ -76,13 +76,13 @@ for k, task_id in enumerate(tqdm(task2consid)):
     yscore_cls     = yhat_cls[:, task_id].data
     
     with np.errstate(divide='ignore',invalid='ignore'):
-        significance1 = significance_analysis.test_significance(ytrue, yscore_clsaux, yscore_cls, level=0.05)
+        significance1 = significance_analysis.test_significance(ytrue, yscore_cls, yscore_clsaux, level=0.05)
         significance1['task_id'] = task_id
         significance1['auroc_cls'] = roc_auc_score(ytrue, yscore_cls)
         significance1['auroc_clsaux'] = roc_auc_score(ytrue, yscore_clsaux)
         significance1.rename(columns={'p_value':'p_value clsaux > cls', 'significant': 'significant clsaux > cls'}, inplace=True)
     
-        significance2 = significance_analysis.test_significance(ytrue, yscore_cls, yscore_clsaux, level=0.05)
+        significance2 = significance_analysis.test_significance(ytrue, yscore_clsaux, yscore_cls, level=0.05)
         significance2.rename(columns={'p_value':'p_value cls > clsaux', 'significant': 'significant cls > clsaux'}, inplace=True)
     
         signif = significance1.join(significance2)[['task_id',
