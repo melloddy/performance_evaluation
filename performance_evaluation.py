@@ -67,7 +67,7 @@ def init_arg_parser():
 	parser.add_argument("--validation_fold", help="Validation fold to used to calculate performance", type=int, default=[0], nargs='+', choices=[0, 1, 2, 3, 4])
 	parser.add_argument("--aggr_binning_scheme_perf", help="Shared aggregated binning scheme for performances", type=str, nargs='+', default=[0.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0],required=False)
 	parser.add_argument("--aggr_binning_scheme_perf_delta", help="Shared aggregated binning scheme for delta performances", type=str, nargs='+', default=[-0.2,-0.15,-0.1,-0.05,0.0,0.05,0.1,0.15,0.2],required=False)
-	parser.add_argument("--version", help="Version of this script", type=str, default="0.1.5", choices=["0.1.5"])
+	parser.add_argument("--version", help="Version of this script", type=str, default="0.1.6", choices=["0.1.6"])
 	args = parser.parse_args()
 	assert len(args.aggr_binning_scheme_perf) == 11, f"len of aggr_binning_scheme_perf should be 11, got {len(args.aggr_binning_scheme_perf)}"
 	assert len(args.aggr_binning_scheme_perf_delta) == 9, f"len of aggr_binning_scheme_perf_delta should be 9, got {len(args.aggr_binning_scheme_perf_delta)}"
@@ -376,7 +376,7 @@ def run_performance_calculation(run_type, y_pred, pred_or_npy, y_true, tw_df, ta
 	##global aggregation:
 	globally_calculated = write_global_report(run_name, run_type, flabel, calculated_performance, sc_columns, rlabel)
 	#calculate ecdf:
-	calculated_ecdfs = calculate_ecdf(calculated_performance, sc_columns)
+	calculated_ecdfs = calculate_ecdf(calculated_performance.query('evaluation_quorum_OK == 1 & is_auxiliary == 0 & aggregation_weight_y == 1'), sc_columns)
 	return calculated_performance, calculated_ecdfs, sc_columns
 
 def calculate_flipped_tasks(f1_results, f2_results, run_name, run_type, header_type,calc_name1, calc_name2, a_thresh):
