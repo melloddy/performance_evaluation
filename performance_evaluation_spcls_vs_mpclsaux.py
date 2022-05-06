@@ -52,7 +52,7 @@ def init_arg_parser():
 	parser.add_argument("--validation_fold", help="Validation fold to used to calculate performance", type=int, default=[0], nargs='+', choices=[0, 1, 2, 3, 4])
 	parser.add_argument("--aggr_binning_scheme_perf", help="Shared aggregated binning scheme for performances", type=str, nargs='+', default=[0.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0],required=False)
 	parser.add_argument("--aggr_binning_scheme_perf_delta", help="Shared aggregated binning scheme for delta performances", type=str, nargs='+', default=[-0.2,-0.15,-0.1,-0.05,0.0,0.05,0.1,0.15,0.2],required=False)
-	parser.add_argument("--version", help="Version of this script", type=str, default="0.1.6", choices=["0.1.6"])
+	parser.add_argument("--version", help="Version of this script", type=str, default="0.1.7", choices=["0.1.7"])
 	args = parser.parse_args()
 	assert len(args.aggr_binning_scheme_perf) == 11, f"len of aggr_binning_scheme_perf should be 11, got {len(args.aggr_binning_scheme_perf)}"
 	assert len(args.aggr_binning_scheme_perf_delta) == 9, f"len of aggr_binning_scheme_perf_delta should be 9, got {len(args.aggr_binning_scheme_perf_delta)}"
@@ -410,7 +410,9 @@ def calculate_delta(f1_results, f2_results, run_name, run_type, sc_columns, head
 	delta = (f2_results.loc[:, sc_columns[0]:sc_columns[-1]]-f1_results.loc[:, sc_columns[0]:sc_columns[-1]])
 	tdf = pd.concat([task_id, at, delta], axis = 1)
 	pertask = tdf.copy()
-	pertask.loc[:,f'{header_type}_task_id'] = pertask[f'{header_type}_task_id'].astype('int32')
+	pertask=pertask.dropna(subset=['{header_type}_task_id'])
+	try: pertask.loc[:,f'{header_type}_task_id'] = pertask[f'{header_type}_task_id'].astype('int32')
+	except: pass
 	#add per-task perf aggregated performance delta bins to output
 	for metric in pertask.loc[:, sc_columns[0]:sc_columns[-1]].columns:
 		pertask.loc[:,f'{metric}_percent'] = cut(pertask[metric].astype('float64'), \
