@@ -29,5 +29,16 @@ python relative_deltas.py --type baseline \
                           --outdir clsaux/deltas_relative_SPCLS 
 ```
 
+## Outputs
+
+```
+deltas_relative_SPCLS
+├── deltas_global_performances.csv             # global relative deltas (for each metrics)
+├── deltas_per-assay_performances.csv          # per assay type relative deltas (for each metrics)
+└── deltas_per-task_performances_NOUPLOAD.csv  # per task relative deltas (for each metrics)
+
+```
+
+
 
 # NEEDED: Full list of command line calls needed for partners to run. 
