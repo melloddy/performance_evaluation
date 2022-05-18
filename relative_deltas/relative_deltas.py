@@ -7,7 +7,6 @@ class SmartFormatter(argparse.HelpFormatter):
     def _split_lines(self, text, width):
         if text.startswith('R|'):
             return text[2:].splitlines()  
-        # this is the RawTextHelpFormatter._split_lines
         return argparse.HelpFormatter._split_lines(self, text, width)
 
 parser = argparse.ArgumentParser(description="Computes (absolute and) relative deltas", formatter_class=SmartFormatter)
@@ -15,9 +14,9 @@ parser.add_argument("--type",
                     type=str,
                     help="R|type of relative delta to compute:\n"
                     "absolute: (compared - baseline)\n"
-                    "baseline: (compared - baseline)/baseline\n"
-                    "perfection:(compared - baseline)/(perfect_val - baseline)",
-                    choices=["baseline", "perfection", "absolute"],
+                    "relative_improve: (compared - baseline)/baseline\n"
+                    "improve_to_perfect:(compared - baseline)/(perfect_val - baseline)",
+                    choices=["relative_improve", "improve_to_perfect", "absolute"],
                     required=True)
 
 parser.add_argument("--baseline",
@@ -105,11 +104,11 @@ def compute_task_deltas(df_, metrics):
         for m in metrics:
             df[m] = (df[f'{m}_compared'] - df[f'{m}_baseline'])
     
-    elif args.type == 'baseline':
+    elif args.type == 'relative_improve':
         for m in metrics:
             df[m] = (df[f'{m}_compared'] - df[f'{m}_baseline']) / df[f'{m}_baseline']
             
-    elif args.type == 'perfection':
+    elif args.type == 'improve_to_perfect':
         for m in metrics:
             perfect_val = 1
             if 'rmse' in m: 
