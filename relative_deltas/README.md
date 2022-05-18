@@ -25,6 +25,9 @@ optional arguments:
 | relative_improve | (compared - baseline) / baseline  |
 | improve_to_perfect | (compared - baseline) / (perfect_value - baseline)  | 
 
+Convention applied for delta improvement to perfection: <br>
+ - if compared and baseline are both = perfect performance, delta improve_to_perfect = 0
+ - if baseline has perfect perforance and compared has worst performance, delta improve_to_perfect = compared - baseline (i.e. identic to absolute delta)
 
 ## Example using SPCLS as baseline and SPCLSAUX as compared
 

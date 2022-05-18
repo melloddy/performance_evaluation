@@ -89,7 +89,7 @@ def load_task_perfs():
         cols2use = ['input_assay_id', 'threshold', f'cont_classification_task_id', 'assay_type'] + metrics
         
         # verif that tasks can match (i.e. cls vs clsaux situation)
-        merged = baseline_task_perf[cols2use].merge(compared_task_perf[cols2use], on=['input_assay_id', 'threshold', 'assay_type'], suffixes=('_baseline', '_compared'))
+        merged = baseline_task_perf[cols2use].merge(compared_task_perf[cols2use], on=['input_assay_id', 'threshold', 'assay_type'], suffixes=('_baseline', '_compared')).reset_index(drop=True)
         assert merged.shape[0] == baseline_task_perf.shape[0], "Not able to match tasks between baseline and compared... Are your input_assay_ids consistent between both?"
     
     return merged, metrics
@@ -102,20 +102,39 @@ def compute_task_deltas(df_, metrics):
     
     if args.type == 'absolute':
         for m in metrics:
-            df[m] = (df[f'{m}_compared'] - df[f'{m}_baseline'])
+            df[m] = df[f'{m}_compared'] - df[f'{m}_baseline']
     
     elif args.type == 'relative_improve':
         for m in metrics:
             df[m] = (df[f'{m}_compared'] - df[f'{m}_baseline']) / df[f'{m}_baseline']
+            assert ~df[m].isna().all(), f"detected NaN in relative_improve delta of {m}"
             
     elif args.type == 'improve_to_perfect':
         for m in metrics:
             perfect_val = 1
             if 'rmse' in m: 
                 perfect_val = 0
-                
+    
             df[m] = (df[f'{m}_compared'] - df[f'{m}_baseline']) / ( perfect_val - df[f'{m}_baseline'] )
         
+            # deal with cases where baseline or compared has perfect perf
+            
+            # baseline and compared have perfect perf -> delta = 0
+            both_perfect_ind = df.loc[(df[f'{m}_compared']==perfect_val)&(df[f'{m}_baseline']==perfect_val)].index
+            if both_perfect_ind.shape[0] > 0: 
+                df.at[both_perfect_ind, m] = 0
+            
+            # baseline has perfect perf and compared is worst -> delta is the absolute delta
+            base_perfect_compared_worst_ind = df.loc[(df[f'{m}_compared']!=perfect_val)&(df[f'{m}_baseline']==perfect_val)].index
+            if base_perfect_compared_worst_ind.shape[0] > 0:
+                df_1 = df.loc[~df.index.isin(base_perfect_compared_worst_ind)]
+                df_2 = df.loc[df.index.isin(base_perfect_compared_worst_ind)]
+                df_2[m] = df[f'{m}_compared'] - df[f'{m}_baseline']
+                
+                df = pd.concat([df_1, df_2], ignore_index=False).sort_index()
+
+            assert ~df[m].isna().all(), f"detected NaN in improve_to_perfect delta of {m}"
+            
     return df
 
 
