@@ -1,6 +1,7 @@
 import os
 import argparse
 import pandas as pd
+import numpy as np
 
 class SmartFormatter(argparse.HelpFormatter):
 
@@ -28,6 +29,12 @@ parser.add_argument("--compared",
                     type=str,
                     help="*per-task_performances_NOUPLOAD.csv file containing task level performances of model to compare: produced by WP3 performance_evaluation.py code",
                     required=True)
+
+parser.add_argument("--subset",
+                    type=str,
+                    help="selection of csv files (w/ header: input_assay_id) containing the subsets of input assays IDs for which to calculate performances, e.g. 'alive', or 'virtual safety panel' lists",
+                    default=[],
+                    nargs='+')
 
 parser.add_argument("--outdir",
                     type=str,
@@ -57,12 +64,25 @@ def load_task_perfs():
     
     assert baseline_task_perf.shape[0] > 1, f"There seems to be only one record in {args.baseline}, need task level performances from *per-task_performances_NOUPLOAD.csv"
     assert compared_task_perf.shape[0] > 1, f"There seems to be only one record in {args.baseline}, need task level performances from *per-task_performances_NOUPLOAD.csv"
-    
+        
     if args.verbose:
         print(f"Loaded baseline  : {args.baseline}")
         print(f"Loaded comparison: {args.compared}")
     
     assert baseline_task_perf.shape[0] == compared_task_perf.shape[0], "baseline and compared do not have the same number of tasks..."
+    
+    if args.subset:
+        for filename in args.subset:
+            sub = pd.read_csv(filename)
+            if args.verbose: 
+                subset_in_perf = np.unique(np.isin(sub['input_assay_id'].unique(), baseline_task_perf['input_assay_id'].unique()), return_counts=True)
+                counts = {subset_in_perf[0][i]:subset_in_perf[1][i] for i in range(len(subset_in_perf[0]))}
+                print(f"\nSubset : {filename.split(os.sep)[-1]}")
+                print(f"{counts[True]:>8} assays w/ performance")
+                print(f"{counts[False]:>8} assays w/o performance\n")
+                
+            assert counts[True] > 0, f"Could not identify any input_assay_ids in task perf from subset {filename}"
+            
     
     if 'rsquared' in baseline_task_perf.columns: 
         assert 'rsquared' in compared_task_perf.columns, "compared task performance does not contain regression performance metrics"
@@ -95,10 +115,12 @@ def load_task_perfs():
     return merged, metrics
 
 
-def compute_task_deltas(df_, metrics):
-    """ from the merged dataframe returned above, """
+def compute_task_deltas(df_, metrics, subset=None):
+    """ from the merged dataframe returned above, computes the relative (or absolute) task deltas"""
     
     df = df_.copy()
+    if subset is not None: 
+        df=df.query('input_assay_id in @subset').copy()
     
     if args.type == 'absolute':
         for m in metrics:
@@ -133,7 +155,7 @@ def compute_task_deltas(df_, metrics):
                 
                 df = pd.concat([df_1, df_2], ignore_index=False).sort_index()
 
-            assert ~df[m].isna().all(), f"detected NaN in improve_to_perfect delta of {m}"
+            assert df[m].notna().all(), f"detected NaN in improve_to_perfect delta of {m}"
             
     return df
 
@@ -143,25 +165,42 @@ def main():
     assert not os.path.isdir(args.outdir), "specified output directory already exists"
     
     task_perf, metrics = load_task_perfs()
-    task_deltas = compute_task_deltas( task_perf, metrics )
     
-    # aggregate
-    means = task_deltas[metrics].mean()
-    delta_global = pd.DataFrame([means.values], columns=means.index)
-    delta_assay_type = task_deltas.groupby('assay_type').mean()[metrics].reset_index()
+    # if subset(s) are provided, then add an entity so that we also perform a no (default) subset analysis
+    args.subset.append(None)
+
+    if args.verbose: 
+        print(f"Save relative deltas under : {args.outdir}")
+        
+    for subset_name in args.subset:
+        subset = None
+        suffix=''
+        if subset_name is not None: 
+            if args.verbose: 
+                print(f"Subset {subset_name.split(os.sep)[-1]}")
+            subset=pd.read_csv(subset_name)['input_assay_id'].unique()
+            suffix='_'+subset_name.split(os.sep)[-1].replace('.csv','')
+        elif args.verbose: 
+            print(f"Full set")
+            
+        task_deltas = compute_task_deltas( task_perf, metrics, subset=subset )
+
+        # aggregate
+        means = task_deltas[metrics].mean()
+        delta_global = pd.DataFrame([means.values], columns=means.index)
+        delta_assay_type = task_deltas.groupby('assay_type').mean()[metrics].reset_index()
     
-    # save
-    os.makedirs(args.outdir)
+        # save
+        if not os.path.isdir(args.outdir): 
+            os.makedirs(args.outdir)
+        task_deltas.to_csv(os.path.join(args.outdir, f'deltas_per-task_performances_NOUPLOAD{suffix}.csv'), index=None)
+        delta_assay_type.to_csv(os.path.join(args.outdir, f'deltas_per-assay_performances{suffix}.csv'), index=None)
+        delta_global.to_csv(os.path.join(args.outdir, f'deltas_global_performances{suffix}.csv'), index=None)
     
-    task_deltas.to_csv(os.path.join(args.outdir, 'deltas_per-task_performances_NOUPLOAD.csv'), index=None)
-    delta_assay_type.to_csv(os.path.join(args.outdir, 'deltas_per-assay_performances.csv'), index=None)
-    delta_global.to_csv(os.path.join(args.outdir, 'deltas_global_performances.csv'), index=None)
-    
-    if args.verbose:
-        print(f"Saved relative deltas under : {args.outdir}")
-        print(f" > deltas_per-task_performances_NOUPLOAD.csv")
-        print(f" > deltas_per-assay_performances.csv")
-        print(f" > deltas_global_performances.csv")
+        if args.verbose:
+            print(f" > deltas_per-task_performances_NOUPLOAD{suffix}.csv")
+            print(f" > deltas_per-assay_performances{suffix}.csv")
+            print(f" > deltas_global_performances{suffix}.csv\n")
 
 if __name__ == '__main__':
 	main()
