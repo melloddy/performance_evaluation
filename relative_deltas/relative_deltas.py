@@ -2,13 +2,22 @@ import os
 import argparse
 import pandas as pd
 
+class SmartFormatter(argparse.HelpFormatter):
 
-parser = argparse.ArgumentParser(description="Computes relative deltas")
+    def _split_lines(self, text, width):
+        if text.startswith('R|'):
+            return text[2:].splitlines()  
+        # this is the RawTextHelpFormatter._split_lines
+        return argparse.HelpFormatter._split_lines(self, text, width)
 
+parser = argparse.ArgumentParser(description="Computes (absolute and) relative deltas", formatter_class=SmartFormatter)
 parser.add_argument("--type",
                     type=str,
-                    help="type of relative delta to compute",
-                    choices=["baseline", "perfection"],
+                    help="R|type of relative delta to compute:\n"
+                    "absolute: (compared - baseline)\n"
+                    "baseline: (compared - baseline)/baseline\n"
+                    "perfection:(compared - baseline)/(perfect_val - baseline)",
+                    choices=["baseline", "perfection", "absolute"],
                     required=True)
 
 parser.add_argument("--baseline",
@@ -92,17 +101,21 @@ def compute_task_deltas(df_, metrics):
     
     df = df_.copy()
     
-    if args.type == 'baseline':
+    if args.type == 'absolute':
+        for m in metrics:
+            df[m] = (df[f'{m}_compared'] - df[f'{m}_baseline'])
+    
+    elif args.type == 'baseline':
         for m in metrics:
             df[m] = (df[f'{m}_compared'] - df[f'{m}_baseline']) / df[f'{m}_baseline']
             
     elif args.type == 'perfection':
         for m in metrics:
-            max_val = 1
+            perfect_val = 1
             if 'rmse' in m: 
-                max_val = 0
+                perfect_val = 0
                 
-            df[m] = (df[f'{m}_compared'] - df[f'{m}_baseline']) / ( max_val - df[f'{m}_baseline'] )
+            df[m] = (df[f'{m}_compared'] - df[f'{m}_baseline']) / ( perfect_val - df[f'{m}_baseline'] )
         
     return df
 
