@@ -30,7 +30,7 @@ optional arguments:
 
 ```bash
 
-python relative_deltas.py --type baseline \
+python relative_deltas.py --type relative_improve \
                           --baseline cls/SP/pred_per-task_performances_NOUPLOAD.csv \
                           --compared clsaux/SP/pred_per-task_performances_NOUPLOAD.csv \
                           --outdir clsaux/deltas_relative_SPCLS 
