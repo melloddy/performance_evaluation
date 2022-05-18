@@ -1,22 +1,26 @@
 ```
-usage: relative_deltas.py [-h] --type {baseline,perfection} --baseline BASELINE --compared COMPARED --outdir OUTDIR [-v]
+usage: relative_deltas.py [-h] --type {baseline,perfection,normal} --baseline BASELINE --compared COMPARED --outdir OUTDIR [-v]
 
-Computes relative deltas
+Computes (normal and) relative deltas
 
 optional arguments:
   -h, --help            show this help message and exit
-  --type {baseline,perfection}
-                        type of relative delta to compute
+  --type {baseline,perfection,normal}
+                        type of relative delta to compute:
+                        normal: (compared - baseline)
+                        baseline: (compared - baseline)/baseline
+                        perfection:(compared - baseline)/(perfect_val - baseline)
   --baseline BASELINE   *per-task_performances_NOUPLOAD.csv file containing task level performances of baseline: produced by WP3 performance_evaluation.py code
   --compared COMPARED   *per-task_performances_NOUPLOAD.csv file containing task level performances of model to compare: produced by WP3 performance_evaluation.py code
   --outdir OUTDIR       output directory into which the resultig files will be saved.
   -v, --verbose         verbosity
 
+
 ```
 ## Types of relative deltas
 
-- baseline : ```delta (compared - baseline) / (baseline performance)```. <br>
-- perfection : ```delta (compared - baseline) / (max_value - baseline performance)```, where max_value = 0 if metrics is rmse and max_value = 1 otherwise. <br>
+- baseline : ```delta (compared - baseline) / (baseline)```. <br>
+- perfection : ```delta (compared - baseline) / (perfect_value - baseline)```, where perfect_value = 0 if metrics is rmse and perfect_value = 1 otherwise. <br>
 
 
 ## Example using SPCLS as baseline and SPCLSAUX as compared
