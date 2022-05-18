@@ -21,7 +21,7 @@ optional arguments:
 
 - baseline : ```delta = (compared - baseline) / (baseline)```. <br>
 - perfection : ```delta = (compared - baseline) / (perfect_value - baseline)```, where perfect_value = 0 if metrics is rmse and perfect_value = 1 otherwise. <br>
-- absolute: ```delta = (compared - baseline)
+- absolute: ```delta = (compared - baseline)```
 
 
 ## Example using SPCLS as baseline and SPCLSAUX as compared
@@ -32,6 +32,9 @@ python relative_deltas.py --type baseline \
                           --baseline cls/SP/pred_per-task_performances_NOUPLOAD.csv \
                           --compared clsaux/SP/pred_per-task_performances_NOUPLOAD.csv \
                           --outdir clsaux/deltas_relative_SPCLS 
+
+# Note : the input task level performances are the actual performance metrics, not the deltas
+
 ```
 
 ## Outputs
