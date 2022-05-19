@@ -74,9 +74,10 @@ def load_task_perfs():
     if args.subset:
         for filename in args.subset:
             sub = pd.read_csv(filename)
-            if args.verbose: 
-                subset_in_perf = np.unique(np.isin(sub['input_assay_id'].unique(), baseline_task_perf['input_assay_id'].unique()), return_counts=True)
-                counts = {subset_in_perf[0][i]:subset_in_perf[1][i] for i in range(len(subset_in_perf[0]))}
+            subset_in_perf = np.unique(np.isin(sub['input_assay_id'].unique(), baseline_task_perf['input_assay_id'].unique()), return_counts=True)
+            counts = {subset_in_perf[0][i]:subset_in_perf[1][i] for i in range(len(subset_in_perf[0]))}
+            
+            if args.verbose:     
                 print(f"\nSubset : {filename.split(os.sep)[-1]}")
                 print(f"{counts[True]:>8} assays w/ performance")
                 print(f"{counts[False]:>8} assays w/o performance\n")
