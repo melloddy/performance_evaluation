@@ -31,33 +31,39 @@ Convention applied for delta improvement to perfection: <br>
  - if compared and baseline are both = perfect performance, delta improve_to_perfect = 0
  - if baseline has perfect perforance and compared has worst performance, delta improve_to_perfect = compared - baseline (i.e. identic to absolute delta)
 
-## Example using SPCLS as baseline and SPCLSAUX as compared , using a subset of alive assays
+## An example to run the code in which SPCLS and SPCLSAUX are chosen as baseline and compared respectively
 
 ```bash
-
+#In this example, subset results on alive assay will be also computed 
 python relative_deltas.py --type relative_improve \
                           --baseline cls/SP/pred_per-task_performances_NOUPLOAD.csv \
                           --compared clsaux/SP/pred_per-task_performances_NOUPLOAD.csv \
-                          --subset alive_assays.csv \
+                          --subset alive_assay.csv \
                           --outdir clsaux/deltas_relative_SPCLS 
 
 # Note : the input task level performances are the actual performance metrics, not the deltas
 
 ```
 
-## Outputs
+## Outputs for the example above
 
 ```
 deltas_relative_SPCLS
-├── deltas_global_performances_alive_assays.csv             # global relative deltas (for each metrics) for alive assay subset
-├── deltas_per-assay_performances_alive_assays.csv          # per assay type relative deltas (for each metrics) for alive assay subset
-└── deltas_per-task_performances_NOUPLOAD_alive_assays.csv  # per task relative deltas (for each metrics) for alive assay subset
+├── deltas_global_performances_alive_assay.csv             # global relative deltas (for each metrics) for alive assay subset
+├── deltas_per-assay_performances_alive_assay.csv          # per assay type relative deltas (for each metrics) for alive assay subset
+└── deltas_per-task_performances_NOUPLOAD_alive_assay.csv  # per task relative deltas (for each metrics) for alive assay subset
 ├── deltas_global_performances.csv             # global relative deltas (for each metrics)
 ├── deltas_per-assay_performances.csv          # per assay type relative deltas (for each metrics)
 └── deltas_per-task_performances_NOUPLOAD.csv  # per task relative deltas (for each metrics)
 
 ```
 
+# The usage of pipeline for the final performance evaluation
+To calculate deltas for 6 settings for classification and 6 settings for regression, relative_deltas.py has been integrated in to a pipeline. Below, we will explain how this pipeline works and what it does.
+## Pre-requisite
+The user of the pipeline need to run both conformal prediction efficiency codes [year-3](https://git.infra.melloddy.eu/wp1/entropy_cp_ad/-/tree/master/year3) and performance evaluation codes, performance_evaluation.py [year-3](https://git.infra.melloddy.eu/wp3/performance_evaluation). For latter, we need output task level performances by setting --output_task_sensitive_files 1.
 
+## Step 1: Extraction of the taskids and conformal prediction efficiency (cpe) values
+This will be done by running the ipynb put [here](https://git.infra.melloddy.eu/wp1/entropy_cp_ad/-/blob/master/year3/setup/analysis/ad_result_gathering.ipynb).To run this ipynb, using the same environment as the one used for the main conformal prediction efficiency codes will be nice. The resulting file will have 6 columns containing task_id_cls, task_id_clsaux, cpe_sp_cls, cpe_sp_clsaux, cpe_mp_cls, cpe_mp_clsaux.
 
-# NEEDED: Full list of command line calls needed for partners to run etc. 
+## Step 2: Joining of conformal prediction efficiencies to task level performance evaluation
