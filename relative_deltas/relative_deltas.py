@@ -37,13 +37,13 @@ parser.add_argument("--subset",
                     nargs='+')
 
 parser.add_argument("--baseline_topn",
-                    type=str,
+                    type=float,
                     help="",
                     default=[],
                     nargs='+')
 
 parser.add_argument("--delta_topn",
-                    type=str,
+                    type=float,
                     help="",
                     default=[],
                     nargs='+')
@@ -213,13 +213,16 @@ def run_(task_perf, metrics, baseline_n):
             print(f"Full set")
             
         if baseline_n is not None:
-            nrows=int(len(task_perf)*baseline_n)
+            if subset_name is not None: 
+                nrows=int(len(subset)*baseline_n)
+            else:
+                nrows=int(len(task_perf)*baseline_n)
             for metric in metrics:
                 if args.verbose: 
                     print(f"Baseline top {baseline_n} for metric {metric}")
                 baseline_suffix=suffix+f'_baseline-topn_{baseline_n}_{metric}'
-                task_deltas = compute_task_deltas(task_perf.sort_values(f'{metric}_baseline').head(nrows), metrics, subset=subset)
-                aggregate(task_deltas,metrics,baseline_suffix)
+                bl_task_deltas = compute_task_deltas(task_perf.sort_values(f'{metric}_baseline').head(nrows), metrics, subset=subset)
+                aggregate(bl_task_deltas,metrics,baseline_suffix)
         else:
             task_deltas = compute_task_deltas( task_perf, metrics, subset=subset )     
             aggregate(task_deltas,metrics,suffix)
@@ -230,9 +233,12 @@ def run_(task_perf, metrics, baseline_n):
                         if args.verbose: 
                             print(f"Delta top {delta_topn} for metric {metric}")
                         topn_suffix=suffix+f'_delta-topn_{delta_topn}_{metric}'
-                        nrows=int(len(task_deltas)*delta_topn)
-                        task_deltas=task_deltas.sort_values(metric,ascending=False).head(nrows)
-                        aggregate(task_deltas,metrics,topn_suffix)
+                        if subset_name is not None: 
+                            nrows=int(len(subset)*delta_topn)
+                        else:
+                            nrows=int(len(task_deltas)*delta_topn)
+                        dtopn_task_deltas=task_deltas.sort_values(metric,ascending=False).head(nrows)
+                        aggregate(dtopn_task_deltas,metrics,topn_suffix)
 
 
 
@@ -251,7 +257,7 @@ def main():
     task_perf, metrics = load_task_perfs()
 
     for baseline_n in args.baseline_topn:
-        run_(task_perf, metrics, baseline_n)
+        run_(task_perf.copy(), metrics, baseline_n)
 
 
 if __name__ == '__main__':
