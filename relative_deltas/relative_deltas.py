@@ -71,6 +71,11 @@ def load_task_perfs():
     
     assert baseline_task_perf.shape[0] == compared_task_perf.shape[0], "baseline and compared do not have the same number of tasks..."
     
+    if 'efficiency_overall' in baseline_task_perf.columns and 'efficiency_overall' in compared_task_perf.columns: 
+        cls_metrics.append('efficiency_overall')
+    elif args.verbose:
+        print("\nWARNING: the metric 'efficiency_overall' was not found in both compared and baseline task performance: it will be ignored")
+    
     if args.subset:
         for filename in args.subset:
             sub = pd.read_csv(filename)
@@ -130,7 +135,9 @@ def compute_task_deltas(df_, metrics, subset=None):
     elif args.type == 'relative_improve':
         for m in metrics:
             df[m] = (df[f'{m}_compared'] - df[f'{m}_baseline']) / df[f'{m}_baseline']
-            assert ~df[m].isna().all(), f"detected NaN in relative_improve delta of {m}"
+            
+            if m != 'efficiency_overall':
+                assert ~df[m].isna().all(), f"detected NaN in relative_improve delta of {m}"
             
     elif args.type == 'improve_to_perfect':
         for m in metrics:
@@ -156,7 +163,8 @@ def compute_task_deltas(df_, metrics, subset=None):
                 
                 df = pd.concat([df_1, df_2], ignore_index=False).sort_index()
 
-            assert df[m].notna().all(), f"detected NaN in improve_to_perfect delta of {m}"
+            if m != 'efficiency_overall':
+                assert df[m].notna().all(), f"detected NaN in improve_to_perfect delta of {m}"
             
     return df
 
