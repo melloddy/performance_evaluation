@@ -36,6 +36,18 @@ parser.add_argument("--subset",
                     default=[],
                     nargs='+')
 
+parser.add_argument("--baseline_topn",
+                    type=str,
+                    help="",
+                    default=[],
+                    nargs='+')
+
+parser.add_argument("--delta_topn",
+                    type=str,
+                    help="",
+                    default=[],
+                    nargs='+')
+
 parser.add_argument("--outdir",
                     type=str,
                     help="output directory into which the resultig files will be saved.",
@@ -78,16 +90,17 @@ def load_task_perfs():
     
     if args.subset:
         for filename in args.subset:
-            sub = pd.read_csv(filename)
-            subset_in_perf = np.unique(np.isin(sub['input_assay_id'].unique(), baseline_task_perf['input_assay_id'].unique()), return_counts=True)
-            counts = {subset_in_perf[0][i]:subset_in_perf[1][i] for i in range(len(subset_in_perf[0]))}
+            if filename is not None:
+                sub = pd.read_csv(filename)
+                subset_in_perf = np.unique(np.isin(sub['input_assay_id'].unique(), baseline_task_perf['input_assay_id'].unique()), return_counts=True)
+                counts = {subset_in_perf[0][i]:subset_in_perf[1][i] for i in range(len(subset_in_perf[0]))}
             
-            if args.verbose:     
-                print(f"\nSubset : {filename.split(os.sep)[-1]}")
-                print(f"{counts[True]:>8} assays w/ performance")
-                print(f"{counts[False]:>8} assays w/o performance\n")
-                
-            assert counts[True] > 0, f"Could not identify any input_assay_ids in task perf from subset {filename}"
+                if args.verbose:     
+                    print(f"\nSubset : {filename.split(os.sep)[-1]}")
+                    print(f"{counts[True]:>8} assays w/ performance")
+                    try: print(f"{counts[False]:>8} assays w/o performance\n")
+                    except KeyError: pass 
+                assert counts[True] > 0, f"Could not identify any input_assay_ids in task perf from subset {filename}"
             
     
     if 'rsquared' in baseline_task_perf.columns: 
@@ -168,19 +181,26 @@ def compute_task_deltas(df_, metrics, subset=None):
             
     return df
 
+def aggregate(task_deltas,metrics,suffix):
+    # aggregate
+    means = task_deltas[metrics].mean()
+    delta_global = pd.DataFrame([means.values], columns=means.index)
+    delta_assay_type = task_deltas.groupby('assay_type').mean()[metrics].reset_index()
 
-def main():
+    # save
+    if not os.path.isdir(args.outdir): 
+        os.makedirs(args.outdir)
+    task_deltas.to_csv(os.path.join(args.outdir, f'deltas_per-task_performances_NOUPLOAD{suffix}.csv'), index=None)
+    delta_assay_type.to_csv(os.path.join(args.outdir, f'deltas_per-assay_performances{suffix}.csv'), index=None)
+    delta_global.to_csv(os.path.join(args.outdir, f'deltas_global_performances{suffix}.csv'), index=None)
+    if args.verbose:
+        print(f" > deltas_per-task_performances_NOUPLOAD{suffix}.csv")
+        print(f" > deltas_per-assay_performances{suffix}.csv")
+        print(f" > deltas_global_performances{suffix}.csv\n")
+    return
 
-    assert not os.path.isdir(args.outdir), "specified output directory already exists"
-    
-    task_perf, metrics = load_task_perfs()
-    
-    # if subset(s) are provided, then add an entity so that we also perform a no (default) subset analysis
-    args.subset.append(None)
+def run_(task_perf, metrics, baseline_n):
 
-    if args.verbose: 
-        print(f"Save relative deltas under : {args.outdir}")
-        
     for subset_name in args.subset:
         subset = None
         suffix=''
@@ -192,24 +212,47 @@ def main():
         elif args.verbose: 
             print(f"Full set")
             
-        task_deltas = compute_task_deltas( task_perf, metrics, subset=subset )
+        if baseline_n is not None:
+            nrows=int(len(task_perf)*baseline_n)
+            for metric in metrics:
+                if args.verbose: 
+                    print(f"Baseline top {baseline_n} for metric {metric}")
+                baseline_suffix=suffix+f'_baseline-topn_{baseline_n}_{metric}'
+                task_deltas = compute_task_deltas(task_perf.sort_values(f'{metric}_baseline').head(nrows), metrics, subset=subset)
+                aggregate(task_deltas,metrics,baseline_suffix)
+        else:
+            task_deltas = compute_task_deltas( task_perf, metrics, subset=subset )     
+            aggregate(task_deltas,metrics,suffix)
 
-        # aggregate
-        means = task_deltas[metrics].mean()
-        delta_global = pd.DataFrame([means.values], columns=means.index)
-        delta_assay_type = task_deltas.groupby('assay_type').mean()[metrics].reset_index()
+            for delta_topn in args.delta_topn:
+                if delta_topn is not None:
+                    for metric in metrics:
+                        if args.verbose: 
+                            print(f"Delta top {delta_topn} for metric {metric}")
+                        topn_suffix=suffix+f'_delta-topn_{delta_topn}_{metric}'
+                        nrows=int(len(task_deltas)*delta_topn)
+                        task_deltas=task_deltas.sort_values(metric,ascending=False).head(nrows)
+                        aggregate(task_deltas,metrics,topn_suffix)
+
+
+
+def main():
+
+    assert not os.path.isdir(args.outdir), "specified output directory already exists"
+        
+    # if subset(s) are provided, then add an entity so that we also perform a no (default) subset analysis
+    args.subset.append(None)
+    args.baseline_topn.append(None)
+    args.delta_topn.append(None)
     
-        # save
-        if not os.path.isdir(args.outdir): 
-            os.makedirs(args.outdir)
-        task_deltas.to_csv(os.path.join(args.outdir, f'deltas_per-task_performances_NOUPLOAD{suffix}.csv'), index=None)
-        delta_assay_type.to_csv(os.path.join(args.outdir, f'deltas_per-assay_performances{suffix}.csv'), index=None)
-        delta_global.to_csv(os.path.join(args.outdir, f'deltas_global_performances{suffix}.csv'), index=None)
-    
-        if args.verbose:
-            print(f" > deltas_per-task_performances_NOUPLOAD{suffix}.csv")
-            print(f" > deltas_per-assay_performances{suffix}.csv")
-            print(f" > deltas_global_performances{suffix}.csv\n")
+    if args.verbose: 
+        print(f"Save relative deltas under : {args.outdir}")
+
+    task_perf, metrics = load_task_perfs()
+
+    for baseline_n in args.baseline_topn:
+        run_(task_perf, metrics, baseline_n)
+
 
 if __name__ == '__main__':
-	main()
+    main()
