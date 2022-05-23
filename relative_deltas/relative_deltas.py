@@ -38,13 +38,13 @@ parser.add_argument("--subset",
 
 parser.add_argument("--baseline_topn",
                     type=float,
-                    help="",
+                    help="List of floats (0.0-1.0) for the percent top ranking tasks from the baseline to use in the comparison",
                     default=[],
                     nargs='+')
 
 parser.add_argument("--delta_topn",
                     type=float,
-                    help="",
+                    help="List of floats (0.0-1.0) for the percent top ranking tasks from the delta to use in the comparison",
                     default=[],
                     nargs='+')
 
