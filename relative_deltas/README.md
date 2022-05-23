@@ -60,4 +60,4 @@ deltas_relative_SPCLS
 
 
 
-# NEEDED: Full list of command line calls needed for partners to run etc. 
+# NEEDED: Full list of command line calls needed for partners to run
