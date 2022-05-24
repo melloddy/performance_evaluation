@@ -1,11 +1,11 @@
 ```
-usage: relative_deltas.py [-h] --type {baseline,perfection,normal} --baseline BASELINE --compared COMPARED [--subset SUBSET [SUBSET ...]] --outdir OUTDIR [-v]
+usage: relative_deltas.py [-h] --type {relative_improve,improve_to_perfect,absolute} --baseline BASELINE --compared COMPARED [--subset SUBSET [SUBSET ...]] [--baseline_topn BASELINE_TOPN [BASELINE_TOPN ...]] [--delta_topn DELTA_TOPN [DELTA_TOPN ...]] --outdir OUTDIR [-v]
 
 Computes (absolute and) relative deltas
 
 optional arguments:
   -h, --help            show this help message and exit
-  --type {baseline,perfection,absolute}
+  --type {relative_improve,improve_to_perfect,absolute}
                         type of relative delta to compute:
                         absolute: (compared - baseline)
                         relative_improve: (compared - baseline)/baseline
@@ -14,10 +14,10 @@ optional arguments:
   --compared COMPARED   *per-task_performances_NOUPLOAD.csv file containing task level performances of model to compare: produced by WP3 performance_evaluation.py code
   --subset SUBSET [SUBSET ...]
                         selection of csv files (w/ header: input_assay_id) containing the subsets of input assays IDs for which to calculate performances, e.g. 'alive', or 'virtual safety panel' lists
+  --baseline_topn BASELINE_TOPN [BASELINE_TOPN ...]
+  --delta_topn DELTA_TOPN [DELTA_TOPN ...]
   --outdir OUTDIR       output directory into which the resultig files will be saved.
   -v, --verbose         verbosity
-
-
 ```
 ## Types of deltas
 
@@ -31,7 +31,13 @@ Convention applied for delta improvement to perfection: <br>
  - if compared and baseline are both = perfect performance, delta improve_to_perfect = 0
  - if baseline has perfect perforance and compared has worst performance, delta improve_to_perfect = compared - baseline (i.e. identic to absolute delta)
 
-## An example to run the code in which SPCLS and SPCLSAUX are chosen as baseline and compared respectively
+## An example code execution
+
+In this example we will compare SPCLSAUX to the baseline SPCLS.<br>
+Here we also request for the aggregate/CDF perfs to be computed over three subsets: 
+ - subset of assays (alive_assay.csv)
+ - TOP 10% subset of tasks relative to the baseline
+ - TOP 10% subset of tasks relative to the delta (defined by `--type`)
 
 ```bash
 #In this example, subset results on alive assay will be also computed 
@@ -39,7 +45,9 @@ python relative_deltas.py --type relative_improve \
                           --baseline cls/SP/pred_per-task_performances_NOUPLOAD.csv \
                           --compared clsaux/SP/pred_per-task_performances_NOUPLOAD.csv \
                           --subset alive_assay.csv \
-                          --outdir clsaux/deltas_relative_SPCLS 
+                          --delta_topn 0.1 \
+                          --baseline_topn 0.1 \
+                          --outdir spcls_mpclsaux/relative_improve
 
 # Note : the input task level performances are the actual performance metrics, not the deltas
 
@@ -48,13 +56,7 @@ python relative_deltas.py --type relative_improve \
 ## Outputs for the example above
 
 ```
-deltas_relative_SPCLS
-├── deltas_global_performances_alive_assay.csv             # global relative deltas (for each metrics) for alive assay subset
-├── deltas_per-assay_performances_alive_assay.csv          # per assay type relative deltas (for each metrics) for alive assay subset
-└── deltas_per-task_performances_NOUPLOAD_alive_assay.csv  # per task relative deltas (for each metrics) for alive assay subset
-├── deltas_global_performances.csv             # global relative deltas (for each metrics)
-├── deltas_per-assay_performances.csv          # per assay type relative deltas (for each metrics)
-└── deltas_per-task_performances_NOUPLOAD.csv  # per task relative deltas (for each metrics)
+WIP
 
 ```
 
