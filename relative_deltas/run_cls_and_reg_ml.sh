@@ -3,40 +3,26 @@
 
 #### EDIT HERE
 
-relative_deltas_script=/db/melloddy/repos/performance_evaluation/relative_deltas/relative_deltas.py
-
-# -- Pathes to task performance files outputs from WP3 performance_evaluation.py
-# cls task level perf files after joining ADCP results
-spcls_file=/pathto/cls/SP/pred_per-task_performances_NOUPLOAD_wADCP.csv
-mpcls_file=pathto/cls/MP/pred_per-task_performances_NOUPLOAD_wADCP.csv
-spclsaux_file=/pathto/clsaux/SP/pred_per-task_performances_NOUPLOAD_wADCP.csv
-mpclsaux_file=/pathto/clsaux/MP/pred_per-task_performances_NOUPLOAD_wADCP.csv
-
-#reg task level perf files
-# ! hybrid task pef files may vary
-spreg_file=/pathto/regr_cens/SP/pred_per-task_performances_NOUPLOAD.csv
-mpreg_file=/pathto/regr_cens/MP/pred_per-task_performances_NOUPLOAD.csv
-sphyb_file=/pathto/regr_cens/SP/sp_pred_reg_per-task_performances_NOUPLOAD.csv
-mphyb_file=/pathto/regr_cens/MP/mp_pred_reg_per-task_performances_NOUPLOAD.csv
-
-# assay subset files
-alive_assay=/pathto/alive_assay.csv
-first_line_safety_panel=/pathto/first_line_safety_panel.csv
+# -- pyscript and file pathes
+relative_deltas_script=/pathto/repo/performance_evaluation/relative_deltas/relative_deltas.py
+fileloc=file_locations.sh
 
 # -- Define path to OUTPUTs directory , needs to be absolute path
 master_outdir=$PWD/results
 mkdir -p $master_outdir
 
-# -- environment related 
+# -- Environment related 
 
-# submissionse specify the your submission prefix here
-# if singularity in use: 
+# submission prefix if singularity in use: 
 # prefix="singularity exec $SINGULARITY_PATH" 
 
 # else
 prefix=""
 
 #### END EDITS do not edit below
+
+# load in all file pathes
+source $fileoc
 
 
 # set  dictionary
