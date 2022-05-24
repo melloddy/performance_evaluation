@@ -83,11 +83,6 @@ def load_task_perfs():
     
     assert baseline_task_perf.shape[0] == compared_task_perf.shape[0], "baseline and compared do not have the same number of tasks..."
     
-    if 'efficiency_overall' in baseline_task_perf.columns and 'efficiency_overall' in compared_task_perf.columns: 
-        cls_metrics.append('efficiency_overall')
-    elif args.verbose:
-        print("\nWARNING: the metric 'efficiency_overall' was not found in both compared and baseline task performance: it will be ignored")
-    
     if args.subset:
         for filename in args.subset:
             if filename is not None:
@@ -123,7 +118,12 @@ def load_task_perfs():
         
     else:
         assert 'auc_pr' in compared_task_perf.columns, "compared task performance does not contain classification performance metrics"
-        
+    
+        if 'efficiency_overall' in baseline_task_perf.columns and 'efficiency_overall' in compared_task_perf.columns: 
+            cls_metrics.append('efficiency_overall')
+        else:
+            print("\nWARNING: the metric 'efficiency_overall' was not found in both compared and baseline task performance: it will be ignored")    
+    
         metrics = cls_metrics
         cols2use = ['input_assay_id', 'threshold', f'cont_classification_task_id', 'assay_type'] + metrics
         
@@ -147,32 +147,67 @@ def compute_task_deltas(df_, metrics, subset=None):
     
     elif args.type == 'relative_improve':
         for m in metrics:
-            df[m] = (df[f'{m}_compared'] - df[f'{m}_baseline']) / df[f'{m}_baseline']
+            # epsilon = 1e-6 # avoid division by zero
+            base_metric_colname = f'{m}_baseline'
+            comp_metric_colname = f'{m}_compared'
+            if m=='rsquared':
+                df[f'{m}_baseline_clipped'] = np.clip(df[f'{m}_baseline'], -1, 1)
+                df[f'{m}_compared_clipped'] = np.clip(df[f'{m}_compared'], -1, 1)
+                df[f'{m}_baseline_clipped_frac_range_achieved'] = (df[f'{m}_baseline_clipped'] + 1)/2
+                df[f'{m}_compared_clipped_frac_range_achieved'] = (df[f'{m}_compared_clipped'] + 1)/2
+                df[f'{m}_native'] = (df[comp_metric_colname] - df[base_metric_colname]) / df[base_metric_colname] 
+                
+                base_metric_colname = f'{m}_baseline_clipped_frac_range_achieved'
+                comp_metric_colname = f'{m}_compared_clipped_frac_range_achieved'
+                
+            df[m] = (df[comp_metric_colname] - df[base_metric_colname]) / df[base_metric_colname]
             
+            # convention: if baseline = 0, use the absolute delta (frac range achieved on R2 scale if R2 used)
+            zero_baseline_ind = df.loc[df[base_metric_colname]==0].index
+            if zero_baseline_ind.shape[0] > 0:
+                df_1 = df.loc[~df.index.isin(zero_baseline_ind)]
+                df_2 = df.loc[df.index.isin(zero_baseline_ind)].copy()
+                df_2[m] = df[comp_metric_colname] - df[base_metric_colname]
+                
+                df = pd.concat([df_1, df_2], ignore_index=False).sort_index()
+            
+
             if m != 'efficiency_overall':
                 assert ~df[m].isna().all(), f"detected NaN in relative_improve delta of {m}"
             
     elif args.type == 'improve_to_perfect':
         for m in metrics:
+            base_metric_colname = f'{m}_baseline'
+            comp_metric_colname = f'{m}_compared'
             perfect_val = 1
             if 'rmse' in m: 
                 perfect_val = 0
-    
-            df[m] = (df[f'{m}_compared'] - df[f'{m}_baseline']) / ( perfect_val - df[f'{m}_baseline'] )
+
+            elif m=='rsquared':
+                df[f'{m}_baseline_clipped'] = np.clip(df[f'{m}_baseline'], -1, 1)
+                df[f'{m}_compared_clipped'] = np.clip(df[f'{m}_compared'], -1, 1)
+                df[f'{m}_baseline_clipped_frac_range_achieved'] = (df[f'{m}_baseline_clipped'] + 1)/2
+                df[f'{m}_compared_clipped_frac_range_achieved'] = (df[f'{m}_compared_clipped'] + 1)/2
+                df[f'{m}_native'] = (df[comp_metric_colname] - df[base_metric_colname]) / df[base_metric_colname] 
+                
+                base_metric_colname = f'{m}_baseline_clipped_frac_range_achieved'
+                comp_metric_colname = f'{m}_compared_clipped_frac_range_achieved'
+
+            df[m] = (df[comp_metric_colname] - df[base_metric_colname]) / ( perfect_val - df[base_metric_colname] )
         
             # deal with cases where baseline or compared has perfect perf
             
             # baseline and compared have perfect perf -> delta = 0
-            both_perfect_ind = df.loc[(df[f'{m}_compared']==perfect_val)&(df[f'{m}_baseline']==perfect_val)].index
+            both_perfect_ind = df.loc[(df[comp_metric_colname]==perfect_val)&(df[base_metric_colname]==perfect_val)].index
             if both_perfect_ind.shape[0] > 0: 
                 df.at[both_perfect_ind, m] = 0
             
-            # baseline has perfect perf and compared is worst -> delta is the absolute delta
-            base_perfect_compared_worst_ind = df.loc[(df[f'{m}_compared']!=perfect_val)&(df[f'{m}_baseline']==perfect_val)].index
+            # baseline has perfect perf and compared is worst -> delta is the absolute delta, (frac range achieved on R2 scale if R2 used)
+            base_perfect_compared_worst_ind = df.loc[(df[comp_metric_colname]!=perfect_val)&(df[base_metric_colname]==perfect_val)].index
             if base_perfect_compared_worst_ind.shape[0] > 0:
                 df_1 = df.loc[~df.index.isin(base_perfect_compared_worst_ind)]
                 df_2 = df.loc[df.index.isin(base_perfect_compared_worst_ind)].copy()
-                df_2[m] = df[f'{m}_compared'] - df[f'{m}_baseline']
+                df_2[m] = df[comp_metric_colname] - df[base_metric_colname]
                 
                 df = pd.concat([df_1, df_2], ignore_index=False).sort_index()
 
@@ -184,8 +219,14 @@ def compute_task_deltas(df_, metrics, subset=None):
 def aggregate(task_deltas,metrics,suffix):
     # aggregate
     means = task_deltas[metrics].mean()
-    delta_global = pd.DataFrame([means.values], columns=means.index)
-    delta_assay_type = task_deltas.groupby('assay_type').mean()[metrics].reset_index()
+    medians = task_deltas[metrics].median()
+    delta_global_means = pd.DataFrame([means.values], columns=means.index).add_suffix("_mean")
+    delta_global_medians = pd.DataFrame([means.values], columns=medians.index).add_suffix("_median")
+    delta_global = delta_global_means.join(delta_global_medians)
+    
+    delta_assay_type_mean = task_deltas.groupby('assay_type').mean()[metrics].add_suffix("_mean")
+    delta_assay_type_median = task_deltas.groupby('assay_type').median()[metrics].add_suffix("_median")
+    delta_assay_type = delta_assay_type_mean.join(delta_assay_type_median).reset_index()
 
     # save
     if not os.path.isdir(args.outdir): 
