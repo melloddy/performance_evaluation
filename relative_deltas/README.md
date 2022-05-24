@@ -27,14 +27,19 @@ optional arguments:
 | relative_improve | (compared - baseline) / baseline  |
 | improve_to_perfect | (compared - baseline) / (perfect_value - baseline)  | 
 
+Convention applied for delta relative to baseline: <br>
+ - if baseline performance = 0, delta relative to baseline = compared (or fraction range [-1,+1] achieved by compared if R2)
+
 Convention applied for delta improvement to perfection: <br>
  - if compared and baseline are both = perfect performance, delta improve_to_perfect = 0
  - if baseline has perfect perforance and compared has worst performance, delta improve_to_perfect = compared - baseline (i.e. identic to absolute delta)
 
 Convention applied to relative delta calculation over R2 metrics: <br>
 - R2 values clipped to [-1, +1] to compute relative deltas
-- `relative_improve = ( (compared+1) - (baseline+1)  ) / (baseline+1)`
-- `relative_perfection = ( (compared+1) - (baseline+1)  ) / (perfect_value - (baseline+1) , where perfect_value = 2`
+- The fraction of the range [-1, +1] achieved by baseline and compare are computed (e.g. 0.5 represents R2=0)
+- The fraction of the range achieved becomes the value in use
+- `relative_improve = ( compared - baseline ) / (baseline)`
+- `relative_perfection = ( compared - baseline ) / (perfect_value - baseline) , where perfect_value = 1`
 
 ## An example code execution
 
