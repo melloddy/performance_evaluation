@@ -1,12 +1,10 @@
 #!/bin/bash
 
 
-relative_deltas_script=/db/melloddy/repos/performance_evaluation/relative_deltas/relative_deltas.py
-
 # -- Pathes to task performance files outputs from WP3 performance_evaluation.py
 # cls task level perf files after joining ADCP results
 spcls_file=/pathto/cls/SP/pred_per-task_performances_NOUPLOAD_wADCP.csv
-mpcls_file=pathto/cls/MP/pred_per-task_performances_NOUPLOAD_wADCP.csv
+mpcls_file=/pathto/cls/MP/pred_per-task_performances_NOUPLOAD_wADCP.csv
 spclsaux_file=/pathto/clsaux/SP/pred_per-task_performances_NOUPLOAD_wADCP.csv
 mpclsaux_file=/pathto/clsaux/MP/pred_per-task_performances_NOUPLOAD_wADCP.csv
 
