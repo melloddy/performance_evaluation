@@ -22,7 +22,7 @@ prefix=""
 #### END EDITS do not edit below
 
 # load in all file pathes
-source $fileoc
+source $fileloc
 
 
 # set  dictionary
