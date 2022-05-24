@@ -82,12 +82,7 @@ def load_task_perfs():
         print(f"Loaded comparison: {args.compared}")
     
     assert baseline_task_perf.shape[0] == compared_task_perf.shape[0], "baseline and compared do not have the same number of tasks..."
-    
-    if 'efficiency_overall' in baseline_task_perf.columns and 'efficiency_overall' in compared_task_perf.columns: 
-        cls_metrics.append('efficiency_overall')
-    elif args.verbose:
-        print("\nWARNING: the metric 'efficiency_overall' was not found in both compared and baseline task performance: it will be ignored")
-    
+        
     if args.subset:
         for filename in args.subset:
             if filename is not None:
@@ -123,6 +118,10 @@ def load_task_perfs():
         
     else:
         assert 'auc_pr' in compared_task_perf.columns, "compared task performance does not contain classification performance metrics"
+        if 'efficiency_overall' in baseline_task_perf.columns and 'efficiency_overall' in compared_task_perf.columns: 
+            cls_metrics.append('efficiency_overall')
+        else:
+            print("\nWARNING: the metric 'efficiency_overall' was not found in both compared and baseline task performance: it will be ignored")
         
         metrics = cls_metrics
         cols2use = ['input_assay_id', 'threshold', f'cont_classification_task_id', 'assay_type'] + metrics
