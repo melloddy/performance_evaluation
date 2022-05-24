@@ -23,11 +23,9 @@ mphyb_file=/pathto/regr_cens/MP/mp_pred_reg_per-task_performances_NOUPLOAD.csv
 alive_assay=/pathto/alive_assay.csv
 first_line_safety_panel=/pathto/first_line_safety_panel.csv
 
-# -- workdir NEEDS TO BE ABSOLUTE path
-# this will be the folder into which all results will be saved
-wd=$PWD/results
-mkdir -p $wd
-
+# -- Define path to OUTPUTs directory , needs to be absolute path
+master_outdir=$PWD/results
+mkdir -p $master_outdir
 
 # -- environment related 
 
@@ -38,7 +36,7 @@ mkdir -p $wd
 # else
 prefix=""
 
-## END EDITS do not edit below
+#### END EDITS do not edit below
 
 
 # set  dictionary
@@ -59,8 +57,11 @@ reg_pairs=("spreg_mpreg" "spreg_mphyb"    "spreg_sphyb"    "sphyb_mphyb"       "
 types=("absolute" "relative_improve" "improve_to_perfect")
 percen=0.1
 
-outdir=$wd/classification
+# classification
+sharedir=$master_outdir/to_share/classification
+privatedir=$master_outdir/private/classification
 for pair in ${cls_pairs[@]}; do
+
     baseline=$(echo $pair | cut -d'_' -f1)
     compare=$(echo $pair | cut -d'_' -f2)
 
@@ -73,15 +74,22 @@ for pair in ${cls_pairs[@]}; do
 	$prefix python $relative_deltas_script --type $type \
 	--baseline ${files[$baseline]} \
 	--compared ${files[$compare]} \
-	--outdir $outdir/$pair/$type \
+	--outdir $sharedir/$pair/$type \
 	--subset $alive_assay $first_line_safety_panel \
 	--delta_topn $percen \
 	--baseline_topn $percen
+       
+       # move the task level deltas to no upload folder
+       mkdir -p $privatedir/$pair/$type
+       mv $sharedir/$pair/$type/NOUPLOAD/* $privatedir/$pair/$type
+       rm -rf $sharedir/$pair/$type/NOUPLOAD/
+ 
     done
 done
 
-
-outdir=$wd/regression
+# regression
+sharedir=$master_outdir/to_share/regression
+privatedir=$master_outdir/private/regression
 for pair in ${reg_pairs[@]}; do
     baseline=$(echo $pair | cut -d'_' -f1)
     compare=$(echo $pair | cut -d'_' -f2)
@@ -95,10 +103,18 @@ for pair in ${reg_pairs[@]}; do
         $prefix python $relative_deltas_script --type $type \
         --baseline ${files[$baseline]} \
         --compared ${files[$compare]} \
-        --outdir $outdir/$pair/$type \
+        --outdir $sharedir/$pair/$type \
         --subset $alive_assay $first_line_safety_panel \
         --delta_topn $percen \
         --baseline_topn $percen
+
+       # move the task level deltas to no upload folder
+       mkdir -p $privatedir/$pair/$type
+       mv $sharedir/$pair/$type/NOUPLOAD/* $privatedir/$pair/$type
+       rm -rf $sharedir/$pair/$type/NOUPLOAD/
+
+
+
     done
 done
 
