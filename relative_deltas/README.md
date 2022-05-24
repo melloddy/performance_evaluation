@@ -67,3 +67,10 @@ The user of the pipeline need to run both conformal prediction efficiency codes 
 This will be done by running the ipynb put [here](https://git.infra.melloddy.eu/wp1/entropy_cp_ad/-/blob/master/year3/setup/analysis/ad_result_gathering.ipynb).To run this ipynb, using the same environment as the one used for the main conformal prediction efficiency codes will be nice. The resulting file will have 6 columns containing task_id_cls, task_id_clsaux, cpe_sp_cls, cpe_sp_clsaux, cpe_mp_cls, cpe_mp_clsaux.
 
 ## Step 2: Joining of conformal prediction efficiencies to task level performance evaluation
+This step will be do by running the ipynb put [here]().
+
+### Step 2-1: Opening the notebook
+Let's activate your environment where you can use jupyter notebook and pandas. Let's open the ipynb file.
+
+### Step 2-2: Filling the input files
+Let us fill in the input file. First, we will fill the output folder for cls and clsaux respectively.In the perf eval output folder architecture, there is a folder whose subfolder is MP/SP/deltas. We will select that folder for cls and clsaux respectively in the 2nd cell of the ipynb
