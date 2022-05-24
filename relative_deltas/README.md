@@ -31,6 +31,11 @@ Convention applied for delta improvement to perfection: <br>
  - if compared and baseline are both = perfect performance, delta improve_to_perfect = 0
  - if baseline has perfect perforance and compared has worst performance, delta improve_to_perfect = compared - baseline (i.e. identic to absolute delta)
 
+Convention applied to relative delta calculation over R2 metrics: <br>
+- R2 values clipped to [-1, +1] to compute relative deltas
+- `relative_improve = ( (compared+1) - (baseline+1)  ) / (baseline+1)`
+- `relative_perfection = ( (compared+1) - (baseline+1)  ) / (perfect_value - (baseline+1) , where perfect_value = 2`
+
 ## An example code execution
 
 In this example we will compare SPCLSAUX to the baseline SPCLS.<br>
@@ -161,3 +166,22 @@ Second, we will input the file path to the ad_summary_phase2_commcat2.csv genera
 
 ### Step 2-3: Running the notebook.
 Then we can run the notebook, which will give you 4 files whose names finish with wADCP.csv; 1 each in cls/SP, cls/MP, clsaux/SP, and clsaux/MP folders. In these files, the ADCP results were added under the column name 'efficiency_overall'.
+
+## Step 3: Setup task performance file locations
+Copy `file_location.sh` in a work directory of your choice.<br>
+Fill-in the pathes to the task performance files of CLS/CLSAUX (produced above) and of REG/HYB models in `file_location.sh` as provided [here](https://git.infra.melloddy.eu/wp3/performance_evaluation/-/blob/year3/relative_deltas/file_locations.sh).<br>
+
+
+## Step 4: Run the relative_deltas.py script over desired comparisons
+Copy bash script `run_cls_and_reg_ml.sh` provided [here](https://git.infra.melloddy.eu/wp3/performance_evaluation/-/blob/year3/relative_deltas/run_cls_and_reg_ml.sh) in the working directory (same as in step 3.).<br>
+Fill-in path to `relative_deltas.py` , `file_location.sh` and define a folder in which you desire the outputs to be saved. <br>
+Run the bash script to excute all comparisons: 
+
+```bash
+bash run_cls_and_reg_ml.sh
+```
+This will produce, for all comparisons listed [here](https://git.infra.melloddy.eu/wp3/performance_evaluation/-/blob/year3/relative_deltas/run_cls_and_reg_ml.sh#L41-42), the CDFs, the deltas (absolute, relative to baseline and relative to perfection) for full sets of tasks as well as subsets.<br>
+
+The specified output folder will contain two folders:
+ - private -> contains task level deltas to keep home
+ - to_share -> contains aggregate performances for all considered sets of tasks 
