@@ -32,6 +32,7 @@ Convention applied for delta improvement to perfection: <br>
  - if baseline has perfect perforance and compared has worst performance, delta improve_to_perfect = compared - baseline (i.e. identic to absolute delta)
 
 Convention applied to relative delta calculation over R2 metrics: <br>
+- R2 values clipped to [-1, +1] to compute relative deltas
 - `relative_improve = ( (compared+1) - (baseline+1)  ) / (baseline+1)`
 - `relative_perfection = ( (compared+1) - (baseline+1)  ) / (perfect_value - (baseline+1) , where perfect_value = 2`
 
