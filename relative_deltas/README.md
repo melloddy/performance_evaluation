@@ -56,8 +56,88 @@ python relative_deltas.py --type relative_improve \
 ## Outputs for the example above
 
 ```
-WIP
-
+spcls_mpclsaux/
+└── relative_improve
+    ├── cdf
+    │   ├── _alive_assay_baseline-topn_0.1_cdfbaseline-cdfcompared_assay_type.csv
+    │   ├── _alive_assay_baseline-topn_0.1_cdfbaseline-cdfcompared.csv
+    │   ├── _alive_assay_cdfbaseline-cdfcompared_assay_type.csv
+    │   ├── _alive_assay_cdfbaseline-cdfcompared.csv
+    │   ├── _alive_assay_delta-topn_0.1_auc_pr_cal_cdfbaseline-cdfcompared_assay_type.csv
+    │   ├── _alive_assay_delta-topn_0.1_auc_pr_cal_cdfbaseline-cdfcompared.csv
+    │   ├── _alive_assay_delta-topn_0.1_auc_pr_cdfbaseline-cdfcompared_assay_type.csv
+    │   ├── _alive_assay_delta-topn_0.1_auc_pr_cdfbaseline-cdfcompared.csv
+    │   ├── _alive_assay_delta-topn_0.1_efficiency_overall_cdfbaseline-cdfcompared_assay_type.csv
+    │   ├── _alive_assay_delta-topn_0.1_efficiency_overall_cdfbaseline-cdfcompared.csv
+    │   ├── _alive_assay_delta-topn_0.1_roc_auc_score_cdfbaseline-cdfcompared_assay_type.csv
+    │   ├── _alive_assay_delta-topn_0.1_roc_auc_score_cdfbaseline-cdfcompared.csv
+    │   ├── _baseline-topn_0.1_cdfbaseline-cdfcompared_assay_type.csv
+    │   ├── _baseline-topn_0.1_cdfbaseline-cdfcompared.csv
+    │   ├── _cdfbaseline-cdfcompared_assay_type.csv
+    │   ├── _cdfbaseline-cdfcompared.csv
+    │   ├── _delta-topn_0.1_auc_pr_cal_cdfbaseline-cdfcompared_assay_type.csv
+    │   ├── _delta-topn_0.1_auc_pr_cal_cdfbaseline-cdfcompared.csv
+    │   ├── _delta-topn_0.1_auc_pr_cdfbaseline-cdfcompared_assay_type.csv
+    │   ├── _delta-topn_0.1_auc_pr_cdfbaseline-cdfcompared.csv
+    │   ├── _delta-topn_0.1_efficiency_overall_cdfbaseline-cdfcompared_assay_type.csv
+    │   ├── _delta-topn_0.1_efficiency_overall_cdfbaseline-cdfcompared.csv
+    │   ├── _delta-topn_0.1_roc_auc_score_cdfbaseline-cdfcompared_assay_type.csv
+    │   └── _delta-topn_0.1_roc_auc_score_cdfbaseline-cdfcompared.csv
+    ├── deltas_global_performances_alive_assay_baseline-topn_0.1_auc_pr_cal.csv
+    ├── deltas_global_performances_alive_assay_baseline-topn_0.1_auc_pr.csv
+    ├── deltas_global_performances_alive_assay_baseline-topn_0.1_efficiency_overall.csv
+    ├── deltas_global_performances_alive_assay_baseline-topn_0.1_roc_auc_score.csv
+    ├── deltas_global_performances_alive_assay.csv
+    ├── deltas_global_performances_alive_assay_delta-topn_0.1_auc_pr_cal.csv
+    ├── deltas_global_performances_alive_assay_delta-topn_0.1_auc_pr.csv
+    ├── deltas_global_performances_alive_assay_delta-topn_0.1_efficiency_overall.csv
+    ├── deltas_global_performances_alive_assay_delta-topn_0.1_roc_auc_score.csv
+    ├── deltas_global_performances_baseline-topn_0.1_auc_pr_cal.csv
+    ├── deltas_global_performances_baseline-topn_0.1_auc_pr.csv
+    ├── deltas_global_performances_baseline-topn_0.1_efficiency_overall.csv
+    ├── deltas_global_performances_baseline-topn_0.1_roc_auc_score.csv
+    ├── deltas_global_performances.csv
+    ├── deltas_global_performances_delta-topn_0.1_auc_pr_cal.csv
+    ├── deltas_global_performances_delta-topn_0.1_auc_pr.csv
+    ├── deltas_global_performances_delta-topn_0.1_efficiency_overall.csv
+    ├── deltas_global_performances_delta-topn_0.1_roc_auc_score.csv
+    ├── deltas_per-assay_performances_alive_assay_baseline-topn_0.1_auc_pr_cal.csv
+    ├── deltas_per-assay_performances_alive_assay_baseline-topn_0.1_auc_pr.csv
+    ├── deltas_per-assay_performances_alive_assay_baseline-topn_0.1_efficiency_overall.csv
+    ├── deltas_per-assay_performances_alive_assay_baseline-topn_0.1_roc_auc_score.csv
+    ├── deltas_per-assay_performances_alive_assay.csv
+    ├── deltas_per-assay_performances_alive_assay_delta-topn_0.1_auc_pr_cal.csv
+    ├── deltas_per-assay_performances_alive_assay_delta-topn_0.1_auc_pr.csv
+    ├── deltas_per-assay_performances_alive_assay_delta-topn_0.1_efficiency_overall.csv
+    ├── deltas_per-assay_performances_alive_assay_delta-topn_0.1_roc_auc_score.csv
+    ├── deltas_per-assay_performances_baseline-topn_0.1_auc_pr_cal.csv
+    ├── deltas_per-assay_performances_baseline-topn_0.1_auc_pr.csv
+    ├── deltas_per-assay_performances_baseline-topn_0.1_efficiency_overall.csv
+    ├── deltas_per-assay_performances_baseline-topn_0.1_roc_auc_score.csv
+    ├── deltas_per-assay_performances.csv
+    ├── deltas_per-assay_performances_delta-topn_0.1_auc_pr_cal.csv
+    ├── deltas_per-assay_performances_delta-topn_0.1_auc_pr.csv
+    ├── deltas_per-assay_performances_delta-topn_0.1_efficiency_overall.csv
+    ├── deltas_per-assay_performances_delta-topn_0.1_roc_auc_score.csv
+    └── NOUPLOAD
+        ├── deltas_per-task_performances_NOUPLOAD_alive_assay_baseline-topn_0.1_auc_pr_cal.csv
+        ├── deltas_per-task_performances_NOUPLOAD_alive_assay_baseline-topn_0.1_auc_pr.csv
+        ├── deltas_per-task_performances_NOUPLOAD_alive_assay_baseline-topn_0.1_efficiency_overall.csv
+        ├── deltas_per-task_performances_NOUPLOAD_alive_assay_baseline-topn_0.1_roc_auc_score.csv
+        ├── deltas_per-task_performances_NOUPLOAD_alive_assay.csv
+        ├── deltas_per-task_performances_NOUPLOAD_alive_assay_delta-topn_0.1_auc_pr_cal.csv
+        ├── deltas_per-task_performances_NOUPLOAD_alive_assay_delta-topn_0.1_auc_pr.csv
+        ├── deltas_per-task_performances_NOUPLOAD_alive_assay_delta-topn_0.1_efficiency_overall.csv
+        ├── deltas_per-task_performances_NOUPLOAD_alive_assay_delta-topn_0.1_roc_auc_score.csv
+        ├── deltas_per-task_performances_NOUPLOAD_baseline-topn_0.1_auc_pr_cal.csv
+        ├── deltas_per-task_performances_NOUPLOAD_baseline-topn_0.1_auc_pr.csv
+        ├── deltas_per-task_performances_NOUPLOAD_baseline-topn_0.1_efficiency_overall.csv
+        ├── deltas_per-task_performances_NOUPLOAD_baseline-topn_0.1_roc_auc_score.csv
+        ├── deltas_per-task_performances_NOUPLOAD.csv
+        ├── deltas_per-task_performances_NOUPLOAD_delta-topn_0.1_auc_pr_cal.csv
+        ├── deltas_per-task_performances_NOUPLOAD_delta-topn_0.1_auc_pr.csv
+        ├── deltas_per-task_performances_NOUPLOAD_delta-topn_0.1_efficiency_overall.csv
+        └── deltas_per-task_performances_NOUPLOAD_delta-topn_0.1_roc_auc_score.csv
 ```
 
 # The usage of pipeline for the final performance evaluation
