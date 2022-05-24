@@ -148,6 +148,15 @@ def compute_task_deltas(df_, metrics, subset=None):
         for m in metrics:
             df[m] = (df[f'{m}_compared'] - df[f'{m}_baseline']) / df[f'{m}_baseline']
             
+            # convention : if baseline = 0 , relative delta = perf of compared
+            zero_baseline_ind = df.loc[df[f'{m}_baseline']==0].index
+            if zero_baseline_ind.shape[0] > 0: 
+                df_1 = df.loc[~df.index.isin(zero_baseline_ind)]
+                df_2 = df.loc[df.index.isin(zero_baseline_ind)].copy()
+                df_2[m] = df_2[f'{m}_compared'] 
+                
+                df = pd.concat([df_1, df_2], ignore_index=False).sort_index()
+            
             if m != 'efficiency_overall':
                 assert ~df[m].isna().all(), f"detected NaN in relative_improve delta of {m}"
             
@@ -171,7 +180,7 @@ def compute_task_deltas(df_, metrics, subset=None):
             if base_perfect_compared_worst_ind.shape[0] > 0:
                 df_1 = df.loc[~df.index.isin(base_perfect_compared_worst_ind)]
                 df_2 = df.loc[df.index.isin(base_perfect_compared_worst_ind)].copy()
-                df_2[m] = df[f'{m}_compared'] - df[f'{m}_baseline']
+                df_2[m] = df_2[f'{m}_compared'] - df_2[f'{m}_baseline']
                 
                 df = pd.concat([df_1, df_2], ignore_index=False).sort_index()
 

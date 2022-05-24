@@ -25,9 +25,13 @@ optional arguments:
 |---|---|
 | absolute | compared - baseline |
 | relative_improve | (compared - baseline) / baseline  |
-| improve_to_perfect | (compared - baseline) / (perfect_value - baseline)  | 
+| improve_to_perfect | (compared - baseline) / (perfect_value - baseline)  |
 
-Convention applied for delta improvement to perfection: <br>
+Convention applied to delta relative to baseline:  
+ - if baseline perf = 0 , delta relative to baseline = perf of compared
+
+
+Convention applied to delta improvement to perfection: <br>
  - if compared and baseline are both = perfect performance, delta improve_to_perfect = 0
  - if baseline has perfect perforance and compared has worst performance, delta improve_to_perfect = compared - baseline (i.e. identic to absolute delta)
 
