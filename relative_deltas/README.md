@@ -73,4 +73,4 @@ This step will be do by running the ipynb put [here]().
 Let's activate your environment where you can use jupyter notebook and pandas. Let's open the ipynb file.
 
 ### Step 2-2: Filling the input files
-Let us fill in the input file. First, we will fill the output folder for cls and clsaux respectively.In the perf eval output folder architecture, there is a folder whose subfolder is MP/SP/deltas. We will select that folder for cls and clsaux respectively in the 2nd cell of the ipynb
+Let us fill in the input file. First, we will fill the output folder for cls and clsaux respectively.In the perf eval output folder architecture, there is a folder whose subfolder is MP/SP/deltas. We will select that folder for cls and clsaux respectively in the 2nd cell of the ipynb.
