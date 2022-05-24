@@ -36,6 +36,18 @@ parser.add_argument("--subset",
                     default=[],
                     nargs='+')
 
+parser.add_argument("--baseline_topn",
+                    type=float,
+                    help="",
+                    default=[],
+                    nargs='+')
+
+parser.add_argument("--delta_topn",
+                    type=float,
+                    help="",
+                    default=[],
+                    nargs='+')
+
 parser.add_argument("--outdir",
                     type=str,
                     help="output directory into which the resultig files will be saved.",
@@ -78,16 +90,17 @@ def load_task_perfs():
     
     if args.subset:
         for filename in args.subset:
-            sub = pd.read_csv(filename)
-            subset_in_perf = np.unique(np.isin(sub['input_assay_id'].unique(), baseline_task_perf['input_assay_id'].unique()), return_counts=True)
-            counts = {subset_in_perf[0][i]:subset_in_perf[1][i] for i in range(len(subset_in_perf[0]))}
+            if filename is not None:
+                sub = pd.read_csv(filename)
+                subset_in_perf = np.unique(np.isin(sub['input_assay_id'].unique(), baseline_task_perf['input_assay_id'].unique()), return_counts=True)
+                counts = {subset_in_perf[0][i]:subset_in_perf[1][i] for i in range(len(subset_in_perf[0]))}
             
-            if args.verbose:     
-                print(f"\nSubset : {filename.split(os.sep)[-1]}")
-                print(f"{counts[True]:>8} assays w/ performance")
-                print(f"{counts[False]:>8} assays w/o performance\n")
-                
-            assert counts[True] > 0, f"Could not identify any input_assay_ids in task perf from subset {filename}"
+                if args.verbose:     
+                    print(f"\nSubset : {filename.split(os.sep)[-1]}")
+                    print(f"{counts[True]:>8} assays w/ performance")
+                    try: print(f"{counts[False]:>8} assays w/o performance\n")
+                    except KeyError: pass 
+                assert counts[True] > 0, f"Could not identify any input_assay_ids in task perf from subset {filename}"
             
     
     if 'rsquared' in baseline_task_perf.columns: 
@@ -168,19 +181,62 @@ def compute_task_deltas(df_, metrics, subset=None):
             
     return df
 
+def aggregate(task_deltas,metrics,suffix):
+    # aggregate
+    means = task_deltas[metrics].mean()
+    delta_global = pd.DataFrame([means.values], columns=means.index)
+    delta_assay_type = task_deltas.groupby('assay_type').mean()[metrics].reset_index()
 
-def main():
-
-    assert not os.path.isdir(args.outdir), "specified output directory already exists"
+    # save
+    if not os.path.isdir(args.outdir): 
+        os.makedirs(args.outdir)
+        os.makedirs(args.outdir + '/cdf')
+        os.makedirs(args.outdir + '/NOUPLOAD')
+            
+    task_deltas.to_csv(os.path.join(args.outdir, f'NOUPLOAD/deltas_per-task_performances_NOUPLOAD{suffix}.csv'), index=None)
+    delta_assay_type.to_csv(os.path.join(args.outdir, f'deltas_per-assay_performances{suffix}.csv'), index=None)
+    delta_global.to_csv(os.path.join(args.outdir, f'deltas_global_performances{suffix}.csv'), index=None)
+    if args.verbose:
+        print(f" > NOUPLOAD/deltas_per-task_performances_NOUPLOAD{suffix}.csv")
+        print(f" > deltas_per-assay_performances{suffix}.csv")
+        print(f" > deltas_global_performances{suffix}.csv\n")
+    return
     
-    task_perf, metrics = load_task_perfs()
-    
-    # if subset(s) are provided, then add an entity so that we also perform a no (default) subset analysis
-    args.subset.append(None)
+def interpolate_ecdf(distribution):
+    from statsmodels.distributions.empirical_distribution import ECDF
+    ecdf = ECDF(distribution.values)
+    return_values = np.linspace(-1,1,100)
+    return ecdf(return_values).round(4), return_values
 
-    if args.verbose: 
-        print(f"Save relative deltas under : {args.outdir}")
-        
+def calculate_ecdf(full_df, metrics, comparison):
+    ecdf_df=pd.DataFrame()
+    ecdf_df_assay_type=pd.DataFrame()
+    for metric_bin in metrics:
+        ecdf=interpolate_ecdf(full_df[f'{metric_bin}_{comparison}'])
+        ecdf_df=pd.concat((ecdf_df, \
+            pd.DataFrame({'Density':ecdf[0], \
+            'Metric Value':ecdf[1], \
+            'Metric':metric_bin})))
+
+        for assay_type, grouped_df_metric in full_df.groupby('assay_type'):
+            ecdf_at=interpolate_ecdf(grouped_df_metric[f'{metric_bin}_{comparison}'])
+            ecdf_df_assay_type=pd.concat((ecdf_df_assay_type, \
+            pd.DataFrame({'Density':ecdf_at[0], \
+                'Metric Value':ecdf_at[1], \
+                'Metric':metric_bin, \
+                'Assay_type':assay_type})))
+    return ecdf_df, ecdf_df_assay_type
+
+def run_ecdf(baseline_compared_df, metrics, fn):
+    bl_comp_ecdf = [calculate_ecdf(baseline_compared_df, metrics, comparison_type) for comparison_type in ['baseline','compared']]
+    ecdf_fns = [f"cdf/{fn}_cdfbaseline-cdfcompared.csv", f"cdf/{fn}_cdfbaseline-cdfcompared_assay_type.csv"]
+    for ecdf_idx, ecdf_merge_cols in enumerate([['Metric Value','Metric'], ['Metric Value','Metric','Assay_type']]):
+        ecdf_out = bl_comp_ecdf[0][ecdf_idx].merge(bl_comp_ecdf[1][ecdf_idx],left_on=ecdf_merge_cols,right_on=ecdf_merge_cols,how='left', suffixes=[f' Baseline',f' Compared'])
+        ecdf_out[f'Baseline-Compared_CDF'] = ecdf_out[f'Density Baseline'] - ecdf_out[f'Density Compared']
+        ecdf_out.to_csv(os.path.join(args.outdir, ecdf_fns[ecdf_idx]),index=False)
+    return
+
+def run_(task_perf, metrics, baseline_n):
     for subset_name in args.subset:
         subset = None
         suffix=''
@@ -192,24 +248,61 @@ def main():
         elif args.verbose: 
             print(f"Full set")
             
-        task_deltas = compute_task_deltas( task_perf, metrics, subset=subset )
+        if baseline_n is not None:
+            if subset_name is not None: 
+                nrows=int(len(subset)*baseline_n)
+            else:
+                nrows=int(len(task_perf)*baseline_n)
+            if nrows <10: #sensible number minimum number of 10 tasks for the aggregate & cdf calculation
+                if args.verbose: 
+                    print(f"{nrows} {suffix} tasks required which is too few, skipping")                
+            else:
+                for metric in metrics:
+                    if args.verbose: 
+                        print(f"Baseline top {baseline_n} for metric {metric}")
+                    baseline_suffix=suffix+f'_baseline-topn_{baseline_n}_{metric}'
+                    bl_task_deltas = compute_task_deltas(task_perf.sort_values(f'{metric}_baseline').head(nrows), metrics, subset=subset)
+                    aggregate(bl_task_deltas,metrics,baseline_suffix)
+                run_ecdf(task_perf.sort_values(f'{metric}_baseline').head(nrows), metrics, suffix+f'_baseline-topn_{baseline_n}')
+        else:
+            task_deltas = compute_task_deltas( task_perf, metrics, subset=subset )     
+            aggregate(task_deltas,metrics,suffix)
+            run_ecdf(task_perf, metrics, suffix)
+            for delta_topn in args.delta_topn:
+                if delta_topn is not None:
+                    for metric in metrics:
+                        if args.verbose: 
+                            print(f"Delta top {delta_topn} for metric {metric}")
+                        topn_suffix=suffix+f'_delta-topn_{delta_topn}_{metric}'
+                        if subset_name is not None: 
+                            nrows=int(len(subset)*delta_topn)
+                        else:
+                            nrows=int(len(task_deltas)*delta_topn)
+                        if nrows <10: #sensible number minimum number of 10 tasks for the aggregate & cdf calculation
+                            if args.verbose: 
+                                print(f"{nrows} {suffix} tasks required which is too few, skipping")
+                        else:         
+                            dtopn_task_deltas=task_deltas.sort_values(metric,ascending=False).head(nrows)
+                            aggregate(dtopn_task_deltas,metrics,topn_suffix)
+                            run_ecdf(dtopn_task_deltas, metrics, suffix+f'_delta-topn_{delta_topn}_{metric}')
 
-        # aggregate
-        means = task_deltas[metrics].mean()
-        delta_global = pd.DataFrame([means.values], columns=means.index)
-        delta_assay_type = task_deltas.groupby('assay_type').mean()[metrics].reset_index()
+def main():
+
+    assert not os.path.isdir(args.outdir), "specified output directory already exists"
+        
+    # if subset(s) are provided, then add an entity so that we also perform a no (default) subset analysis
+    args.subset.append(None)
+    args.baseline_topn.append(None)
+    args.delta_topn.append(None)
     
-        # save
-        if not os.path.isdir(args.outdir): 
-            os.makedirs(args.outdir)
-        task_deltas.to_csv(os.path.join(args.outdir, f'deltas_per-task_performances_NOUPLOAD{suffix}.csv'), index=None)
-        delta_assay_type.to_csv(os.path.join(args.outdir, f'deltas_per-assay_performances{suffix}.csv'), index=None)
-        delta_global.to_csv(os.path.join(args.outdir, f'deltas_global_performances{suffix}.csv'), index=None)
-    
-        if args.verbose:
-            print(f" > deltas_per-task_performances_NOUPLOAD{suffix}.csv")
-            print(f" > deltas_per-assay_performances{suffix}.csv")
-            print(f" > deltas_global_performances{suffix}.csv\n")
+    if args.verbose: 
+        print(f"Save relative deltas under : {args.outdir}")
+
+    task_perf, metrics = load_task_perfs()
+
+    for baseline_n in args.baseline_topn:
+        run_(task_perf.copy(), metrics, baseline_n)
+
 
 if __name__ == '__main__':
-	main()
+    main()
