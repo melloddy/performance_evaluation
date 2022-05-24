@@ -181,11 +181,18 @@ def compute_task_deltas(df_, metrics, subset=None):
             
     return df
 
+
 def aggregate(task_deltas,metrics,suffix):
     # aggregate
     means = task_deltas[metrics].mean()
-    delta_global = pd.DataFrame([means.values], columns=means.index)
-    delta_assay_type = task_deltas.groupby('assay_type').mean()[metrics].reset_index()
+    medians = task_deltas[metrics].median()
+    delta_global_means = pd.DataFrame([means.values], columns=means.index).add_suffix("_mean")
+    delta_global_medians = pd.DataFrame([means.values], columns=medians.index).add_suffix("_median")
+    delta_global = delta_global_means.join(delta_global_medians)
+    
+    delta_assay_type_mean = task_deltas.groupby('assay_type').mean()[metrics].add_suffix("_mean")
+    delta_assay_type_median = task_deltas.groupby('assay_type').median()[metrics].add_suffix("_median")
+    delta_assay_type = delta_assay_type_mean.join(delta_assay_type_median).reset_index()
 
     # save
     if not os.path.isdir(args.outdir): 
@@ -201,6 +208,7 @@ def aggregate(task_deltas,metrics,suffix):
         print(f" > deltas_per-assay_performances{suffix}.csv")
         print(f" > deltas_global_performances{suffix}.csv\n")
     return
+
     
 def interpolate_ecdf(distribution):
     from statsmodels.distributions.empirical_distribution import ECDF
