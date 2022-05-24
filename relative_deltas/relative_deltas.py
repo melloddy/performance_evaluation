@@ -171,7 +171,7 @@ def compute_task_deltas(df_, metrics, subset=None):
             base_perfect_compared_worst_ind = df.loc[(df[f'{m}_compared']!=perfect_val)&(df[f'{m}_baseline']==perfect_val)].index
             if base_perfect_compared_worst_ind.shape[0] > 0:
                 df_1 = df.loc[~df.index.isin(base_perfect_compared_worst_ind)]
-                df_2 = df.loc[df.index.isin(base_perfect_compared_worst_ind)]
+                df_2 = df.loc[df.index.isin(base_perfect_compared_worst_ind)].copy()
                 df_2[m] = df[f'{m}_compared'] - df[f'{m}_baseline']
                 
                 df = pd.concat([df_1, df_2], ignore_index=False).sort_index()
