@@ -1,171 +1,104 @@
 #!/bin/bash
-#cls task level perf files after joining ADCP results
-#file names might be variable depending on how you ran the perf eval codes.
-clssp_file="/pathto/cls/SP/pred_per-task_performances_NOUPLOAD_wADCP.csv"
-clsmp_file="/pathto/cls/MP/pred_per-task_performances_NOUPLOAD_wADCP.csv"
-clsauxsp_file="/pathto/clsaux/SP/pred_per-task_performances_NOUPLOAD_wADCP.csv"
-clsauxmp_file="/pathto/clsaux/MP/pred_per-task_performances_NOUPLOAD_wADCP.csv"
+
+
+#### EDIT HERE
+
+relative_deltas_script=/db/melloddy/repos/performance_evaluation/relative_deltas/relative_deltas.py
+
+# -- Pathes to task performance files outputs from WP3 performance_evaluation.py
+# cls task level perf files after joining ADCP results
+spcls_file=/pathto/cls/SP/pred_per-task_performances_NOUPLOAD_wADCP.csv
+mpcls_file=pathto/cls/MP/pred_per-task_performances_NOUPLOAD_wADCP.csv
+spclsaux_file=/pathto/clsaux/SP/pred_per-task_performances_NOUPLOAD_wADCP.csv
+mpclsaux_file=/pathto/clsaux/MP/pred_per-task_performances_NOUPLOAD_wADCP.csv
 
 #reg task level perf files
-regsp_file="/pathto/regr_cens/SP/pred_per-task_performances_NOUPLOAD.csv"
-regmp_file="/pathto/regr_cens/MP/pred_per-task_performances_NOUPLOAD.csv"
-hybsp_file="/pathto/regr_cens/SP/pred_per-task_performances_NOUPLOAD.csv"
-hybmp_file="/pathto/regr_cens/MP/pred_per-task_performances_NOUPLOAD.csv"
+# ! hybrid task pef files may vary
+spreg_file=/pathto/regr_cens/SP/pred_per-task_performances_NOUPLOAD.csv
+mpreg_file=/pathto/regr_cens/MP/pred_per-task_performances_NOUPLOAD.csv
+sphyb_file=/pathto/regr_cens/SP/sp_pred_reg_per-task_performances_NOUPLOAD.csv
+mphyb_file=/pathto/regr_cens/MP/mp_pred_reg_per-task_performances_NOUPLOAD.csv
 
-#please specify the your submission prefix here
-prefix="singularity exec $SINGULARITY_PATH"
+# assay subset files
+alive_assay=/pathto/alive_assay.csv
+first_line_safety_panel=/pathto/first_line_safety_panel.csv
+
+# -- workdir NEEDS TO BE ABSOLUTE path
+# this will be the folder into which all results will be saved
+wd=$PWD/results
+mkdir -p $wd
 
 
+# -- environment related 
+
+# submissionse specify the your submission prefix here
+# if singularity in use: 
+# prefix="singularity exec $SINGULARITY_PATH" 
+
+# else
+prefix=""
+
+## END EDITS do not edit below
 
 
+# set  dictionary
+declare -A files
+files['spcls']=$spcls_file
+files['spclsaux']=$spclsaux_file
+files['mpcls']=$mpcls_file
+files['mpclsaux']=$mpclsaux_file
+
+files['spreg']=$spreg_file
+files['sphyb']=$sphyb_file
+files['mpreg']=$mpreg_file
+files['mphyb']=$mphyb_file
+
+
+cls_pairs=("spcls_mpcls" "spcls_mpclsaux" "spcls_spclsaux" "spclsaux_mpclsaux" "mpcls_mpclsaux" "spclsaux_mpcls")
+reg_pairs=("spreg_mpreg" "spreg_mphyb"    "spreg_sphyb"    "sphyb_mphyb"       "mpreg_mphyb"    "sphyb_mpreg")
 types=("absolute" "relative_improve" "improve_to_perfect")
-percen=10
-#clsmp-clssp 1
-for type in ${types[@]}; do
-	
-	$prefix python relative_deltas.py --type $type \
-	--baseline $clssp_file \
-	--compared $clsmp_file \
-	--outdir "clsmp-clssp_$type" \
-	--subset "alive_assay.csv" "first_line_safety_panel.csv" \
+percen=0.1
+
+outdir=$wd/classification
+for pair in ${cls_pairs[@]}; do
+    baseline=$(echo $pair | cut -d'_' -f1)
+    compare=$(echo $pair | cut -d'_' -f2)
+
+    echo ">> $pair"
+    echo " baseline: $baseline -> ${files[$baseline]}"
+    echo " compare : $compare -> ${files[$compare]}"
+
+    for type in ${types[@]}; do
+        echo " type : $type"
+	$prefix python $relative_deltas_script --type $type \
+	--baseline ${files[$baseline]} \
+	--compared ${files[$compare]} \
+	--outdir $outdir/$pair/$type \
+	--subset $alive_assay $first_line_safety_panel \
 	--delta_topn $percen \
 	--baseline_topn $percen
-	
+    done
 done
 
-#clsauxmp-clssp 2
-for type in ${types[@]}; do
-	
-	$prefix python relative_deltas.py --type $type \
-	--baseline $clssp_file \
-	--compared $clsauxmp_file \
-	--outdir "clsauxmp-clssp_$type" \
-	--subset "alive_assay.csv" "first_line_safety_panel.csv" \
-	--delta_topn $percen \
-	--baseline_topn $percen
-done
 
-#clsauxsp-clssp 3
-for type in ${types[@]}; do
-	
-	$prefix  python relative_deltas.py --type $type \
-	--baseline $clssp_file \
-	--compared $clsauxsp_file \
-	--outdir "clsauxsp-clssp_$type" \
-	--subset "alive_assay.csv" "first_line_safety_panel.csv" \
-	--delta_topn $percen \
-	--baseline_topn $percen
+outdir=$wd/regression
+for pair in ${reg_pairs[@]}; do
+    baseline=$(echo $pair | cut -d'_' -f1)
+    compare=$(echo $pair | cut -d'_' -f2)
 
-done
+    echo ">> $pair"
+    echo " baseline: $baseline -> ${files[$baseline]}"
+    echo " compare : $compare -> ${files[$compare]}"
 
-#clsauxmp-clsauxsp 4
-for type in ${types[@]}; do
-	
-	$prefix python relative_deltas.py --type $type \
-	--baseline $clsauxsp_file \
-	--compared $clsauxmp_file \
-	--outdir "clsauxmp-clsauxsp_$type" \
-	--subset "alive_assay.csv" "first_line_safety_panel.csv" \
-	--delta_topn $percen \
-	--baseline_topn $percen
-done
-
-#clauxsmp-clsmp 5
-for type in ${types[@]}; do
-	
-	$prefix python relative_deltas.py --type $type \
-	--baseline $clsmp_file \
-	--compared $clsauxmp_file \
-	--outdir "clsauxmp-clsmp_$type" \
-	--subset "alive_assay.csv" "first_line_safety_panel.csv" \
-	--delta_topn $percen \
-	--baseline_topn $percen
-done
-
-#clsmp-clsauxsp 6
-for type in ${types[@]}; do
-	
-	$prefix python relative_deltas.py --type $type \
-	--baseline $clsauxsp_file \
-	--compared $clsmp_file \
-	--outdir "clsmp-clsauxsp_$type" \
-	--subset "alive_assay.csv" "first_line_safety_panel.csv" \
-	--delta_topn $percen \
-	--baseline_topn $percen
-done
-
-#regression delta calc
-#regmp-regsp 1
-for type in ${types[@]}; do
-	
-	$prefix python relative_deltas.py --type $type \
-	--baseline $regsp_file \
-	--compared $regmp_file \
-	--outdir "regmp-regsp_$type" \
-	--subset "alive_assay.csv" "first_line_safety_panel.csv" \
-	--delta_topn $percen \
-	--baseline_topn $percen
-	
-done
-
-#hybmp-regsp 2
-for type in ${types[@]}; do
-	
-	$prefix python relative_deltas.py --type $type \
-	--baseline $regsp_file \
-	--compared $hybmp_file \
-	--outdir "hybmp-regsp_$type" \
-	--subset "alive_assay.csv" "first_line_safety_panel.csv" \
-	--delta_topn $percen \
-	--baseline_topn $percen
-done
-
-#hybsp-regsp 3
-for type in ${types[@]}; do
-	
-	$prefix  python relative_deltas.py --type $type \
-	--baseline $regsp_file \
-	--compared $hybsp_file \
-	--outdir "hybsp-regsp_$type" \
-	--subset "alive_assay.csv" "first_line_safety_panel.csv" \
-	--delta_topn $percen \
-	--baseline_topn $percen
-
-done
-
-#hybmp-hybsp 4
-for type in ${types[@]}; do
-	
-	$prefix python relative_deltas.py --type $type \
-	--baseline $hybsp_file \
-	--compared $hybmp_file \
-	--outdir "hybmp-hybsp_$type" \
-	--subset "alive_assay.csv" "first_line_safety_panel.csv" \
-	--delta_topn $percen \
-	--baseline_topn $percen
-done
-
-#hybmp-regmp 5
-for type in ${types[@]}; do
-	
-	$prefix python relative_deltas.py --type $type \
-	--baseline $regmp_file \
-	--compared $hybmp_file \
-	--outdir "hybmp-regmp_$type" \
-	--subset "alive_assay.csv" "first_line_safety_panel.csv" \
-	--delta_topn $percen \
-	--baseline_topn $percen
-done
-
-#regmp-hybsp 6
-for type in ${types[@]}; do
-	
-	$prefix python relative_deltas.py --type $type \
-	--baseline $hybsp_file \
-	--compared $regmp_file \
-	--outdir "regmp-hybsp_$type" \
-	--subset "alive_assay.csv" "first_line_safety_panel.csv" \
-	--delta_topn $percen \
-	--baseline_topn $percen
+    for type in ${types[@]}; do
+        echo " type : $type"
+        $prefix python $relative_deltas_script --type $type \
+        --baseline ${files[$baseline]} \
+        --compared ${files[$compare]} \
+        --outdir $outdir/$pair/$type \
+        --subset $alive_assay $first_line_safety_panel \
+        --delta_topn $percen \
+        --baseline_topn $percen
+    done
 done
 
