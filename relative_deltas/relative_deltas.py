@@ -186,7 +186,7 @@ def aggregate(task_deltas,metrics,suffix):
     means = task_deltas[metrics].mean()
     medians = task_deltas[metrics].median()
     delta_global_means = pd.DataFrame([means.values], columns=means.index).add_suffix("_mean")
-    delta_global_medians = pd.DataFrame([means.values], columns=medians.index).add_suffix("_median")
+    delta_global_medians = pd.DataFrame([medians.values], columns=medians.index).add_suffix("_median")
     delta_global = delta_global_means.join(delta_global_medians)
     
     delta_assay_type_mean = task_deltas.groupby('assay_type').mean()[metrics].add_suffix("_mean")
