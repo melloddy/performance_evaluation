@@ -172,6 +172,7 @@ Let's clone or pull [the latest year3 performance evaluation repository](https:/
 ### Step 3-2: Setup task performance file locations
 Please decide your working directory and copy `file_location.sh` there.<br>
 Fill-in the pathes to the task-level performance files of CLS/CLSAUX (produced above with an ADCP result column) and of REG/HYB models in `file_location.sh` for both SP and MP. (On the repo, you can find this shell script [here](https://git.infra.melloddy.eu/wp3/performance_evaluation/-/blob/year3/relative_deltas/file_locations.sh).)<br>
+You will also need the list of "alive" assays and the list of first line safety panel assays (one column data frame with an input_assay_id column).<br>
 
 
 ### Step 3-3: Run the relative_deltas.py script over desired comparisons
@@ -187,3 +188,6 @@ This will produce, for all comparisons listed [here](https://git.infra.melloddy.
 The specified output folder will contain two folders:
  - private -> contains task level deltas to keep home
  - to_share -> contains aggregate performances for all considered sets of tasks 
+
+### Step 4 - Share content of "to_share" folder
+TBD
