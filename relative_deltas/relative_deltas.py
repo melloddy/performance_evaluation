@@ -60,7 +60,7 @@ parser.add_argument("-v", "--verbose",
                     
 parser.add_argument("--version", 
                     help="version of this script",
-                    default="0.3", choices=["0.3"])
+                    default="0.4", choices=["0.4"])
 args = parser.parse_args()
 
 
