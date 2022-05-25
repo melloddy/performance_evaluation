@@ -152,13 +152,12 @@ def compute_task_deltas(df_, metrics, subset=None):
             df[m] = (df[f'{m}_compared'] - df[f'{m}_baseline']) / df[f'{m}_baseline']
             
             # convention : if baseline = 0 , relative delta = perf of compared
-            zero_baseline_ind = df.loc[df[f'{m}_baseline']==0].index
-            if zero_baseline_ind.shape[0] > 0: 
-                df_1 = df.loc[~df.index.isin(zero_baseline_ind)]
-                df_2 = df.loc[df.index.isin(zero_baseline_ind)].copy()
-                df_2[m] = df_2[f'{m}_compared'] 
+            zero_baseline = df.loc[df[f'{m}_baseline']==0].copy()
+            if zero_baseline.shape[0] > 0: 
+                not_zero_baseline = df.loc[df[f'{m}_baseline']!=0]
+                zero_baseline[m] = zero_baseline[f'{m}_compared'] 
                 
-                df = pd.concat([df_1, df_2], ignore_index=False).sort_index()
+                df = pd.concat([zero_baseline, not_zero_baseline], ignore_index=False).sort_index()
             
             if m != 'efficiency_overall':
                 assert ~df[m].isna().all(), f"detected NaN in relative_improve delta of {m}"
@@ -174,18 +173,20 @@ def compute_task_deltas(df_, metrics, subset=None):
             # deal with cases where baseline or compared has perfect perf
             
             # baseline and compared have perfect perf -> delta = 0
-            both_perfect_ind = df.loc[(df[f'{m}_compared']==perfect_val)&(df[f'{m}_baseline']==perfect_val)].index
-            if both_perfect_ind.shape[0] > 0: 
-                df.at[both_perfect_ind, m] = 0
+            both_perfect = df.loc[(df[f'{m}_compared']==perfect_val)&(df[f'{m}_baseline']==perfect_val)].copy()
+            if both_perfect.shape[0] > 0: 
+                other = df.loc[~((df[f'{m}_compared']==perfect_val)&(df[f'{m}_baseline']==perfect_val))]
+                both_perfect[m] = 0
+                df = pd.concat([other, both_perfect], ignore_index=False).sort_index()
+                               
             
             # baseline has perfect perf and compared is worst -> delta is the absolute delta
-            base_perfect_compared_worst_ind = df.loc[(df[f'{m}_compared']!=perfect_val)&(df[f'{m}_baseline']==perfect_val)].index
-            if base_perfect_compared_worst_ind.shape[0] > 0:
-                df_1 = df.loc[~df.index.isin(base_perfect_compared_worst_ind)]
-                df_2 = df.loc[df.index.isin(base_perfect_compared_worst_ind)].copy()
-                df_2[m] = df_2[f'{m}_compared'] - df_2[f'{m}_baseline']
+            base_perfect_compared_worst = df.loc[(df[f'{m}_compared']!=perfect_val)&(df[f'{m}_baseline']==perfect_val)].copy()
+            if base_perfect_compared_worst.shape[0] > 0:
+                other = df.loc[~((df[f'{m}_compared']!=perfect_val)&(df[f'{m}_baseline']==perfect_val))]
+                base_perfect_compared_worst[m] = base_perfect_compared_worst[f'{m}_compared'] - base_perfect_compared_worst[f'{m}_baseline']
                 
-                df = pd.concat([df_1, df_2], ignore_index=False).sort_index()
+                df = pd.concat([other, base_perfect_compared_worst], ignore_index=False).sort_index()
 
             if m != 'efficiency_overall':
                 assert df[m].notna().all(), f"detected NaN in improve_to_perfect delta of {m}"
