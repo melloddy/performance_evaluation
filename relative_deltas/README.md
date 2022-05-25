@@ -190,4 +190,4 @@ The specified output folder will contain two folders:
  - to_share -> contains aggregate performances for all considered sets of tasks 
 
 ### Step 4 - Share content of "to_share" folder
-TBD
+Please upload the content of `to_share` (both classification and regression) to your respective folder on box under [Relative_Deltas](https://app.box.com/folder/163744139551).
