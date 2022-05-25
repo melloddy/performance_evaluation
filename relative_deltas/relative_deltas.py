@@ -280,7 +280,7 @@ def run_(task_perf, metrics, baseline_n):
                     baseline_suffix=suffix+f'_baseline-topn_{baseline_n}_{metric}'
                     bl_task_deltas = compute_task_deltas(task_perf.sort_values(f'{metric}_baseline',ascending=False).head(nrows), metrics, subset=subset)
                     aggregate(bl_task_deltas,metrics,baseline_suffix)
-                    run_ecdf(task_perf.sort_values(f'{metric}_baseline').head(nrows), metrics, suffix+f'_baseline-topn_{baseline_n}')
+                    run_ecdf(task_perf.sort_values(f'{metric}_baseline',ascending=False).head(nrows), metrics, suffix+f'_baseline-topn_{baseline_n}')
         else:
             task_deltas = compute_task_deltas( task_perf, metrics, subset=subset )     
             aggregate(task_deltas,metrics,suffix)
