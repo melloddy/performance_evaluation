@@ -57,7 +57,10 @@ parser.add_argument("-v", "--verbose",
                     action="store_true", 
                     help="verbosity", 
                     default=False)
-
+                    
+parser.add_argument("--version", 
+                    help="version of this script",
+                    default="0.2", choices=["0.2"])
 args = parser.parse_args()
 
 
@@ -264,11 +267,8 @@ def run_(task_perf, metrics, baseline_n):
         elif args.verbose: 
             print(f"Full set")
             
-        if baseline_n is not None:
-            if subset_name is not None: 
-                nrows=int(len(subset)*baseline_n)
-            else:
-                nrows=int(len(task_perf)*baseline_n)
+        if (baseline_n is not None) and (subset_name is None): #perform the baseline topn comparison here
+            nrows=int(len(task_perf)*baseline_n)
             if nrows <10: #sensible number minimum number of 10 tasks for the aggregate & cdf calculation
                 if args.verbose: 
                     print(f"{nrows} {suffix} tasks required which is too few, skipping")                
@@ -279,13 +279,13 @@ def run_(task_perf, metrics, baseline_n):
                     baseline_suffix=suffix+f'_baseline-topn_{baseline_n}_{metric}'
                     bl_task_deltas = compute_task_deltas(task_perf.sort_values(f'{metric}_baseline').head(nrows), metrics, subset=subset)
                     aggregate(bl_task_deltas,metrics,baseline_suffix)
-                run_ecdf(task_perf.sort_values(f'{metric}_baseline').head(nrows), metrics, suffix+f'_baseline-topn_{baseline_n}')
+                    run_ecdf(task_perf.sort_values(f'{metric}_baseline').head(nrows), metrics, suffix+f'_baseline-topn_{baseline_n}')
         else:
             task_deltas = compute_task_deltas( task_perf, metrics, subset=subset )     
             aggregate(task_deltas,metrics,suffix)
             run_ecdf(task_perf, metrics, suffix)
             for delta_topn in args.delta_topn:
-                if delta_topn is not None:
+                if (delta_topn is not None) and (subset_name is None):
                     for metric in metrics:
                         if args.verbose: 
                             print(f"Delta top {delta_topn} for metric {metric}")
