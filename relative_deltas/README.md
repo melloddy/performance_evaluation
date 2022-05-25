@@ -166,14 +166,17 @@ Second, we will input the file path to the ad_summary_phase2_commcat2.csv genera
 ### Step 2-3: Running the notebook.
 Then we can run the notebook, which will give you 4 files whose names finish with wADCP.csv; 1 each in cls/SP, cls/MP, clsaux/SP, and clsaux/MP folders. In these files, the ADCP results were added under the column name 'efficiency_overall'.
 
-## Step 3: Setup task performance file locations
-Copy `file_location.sh` in a work directory of your choice.<br>
-Fill-in the pathes to the task performance files of CLS/CLSAUX (produced above) and of REG/HYB models in `file_location.sh` as provided [here](https://git.infra.melloddy.eu/wp3/performance_evaluation/-/blob/year3/relative_deltas/file_locations.sh).<br>
+## Step 3: Calculate the relative deltas
+### Step 3-1: Getting the latest year3 performance evaluation repository
+Let's clone or pull [the latest year3 performance evaluation repository](https://git.infra.melloddy.eu/wp3/performance_evaluation).
+### Step 3-2: Setup task performance file locations
+Please decide your working directory and copy `file_location.sh` there.<br>
+Fill-in the pathes to the task-level performance files of CLS/CLSAUX (produced above with an ADCP result column) and of REG/HYB models in `file_location.sh` for both SP and MP. (On the repo, you can find this shell script [here](https://git.infra.melloddy.eu/wp3/performance_evaluation/-/blob/year3/relative_deltas/file_locations.sh).)<br>
 
 
-## Step 4: Run the relative_deltas.py script over desired comparisons
-Copy bash script `run_cls_and_reg_ml.sh` provided [here](https://git.infra.melloddy.eu/wp3/performance_evaluation/-/blob/year3/relative_deltas/run_cls_and_reg_ml.sh) in the working directory (same as in step 3.).<br>
-Fill-in path to `relative_deltas.py` , `file_location.sh` and define a folder in which you desire the outputs to be saved. <br>
+### Step 3-3: Run the relative_deltas.py script over desired comparisons
+Copy bash script `run_cls_and_reg_ml.sh` provided [here](https://git.infra.melloddy.eu/wp3/performance_evaluation/-/blob/year3/relative_deltas/run_cls_and_reg_ml.sh) into the working directory (specified in the Step 3-2).<br>
+In the shell script, let's fill-in paths of `relative_deltas.py` and `file_location.sh`. Then please specify the output folder. If you need some specific prefix to run python code, please specify this prefix in the prefix variable. Then, the editing of this shell script is done. <br>
 Run the bash script to excute all comparisons: 
 
 ```bash
