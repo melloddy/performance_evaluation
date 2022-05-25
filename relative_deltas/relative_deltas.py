@@ -60,7 +60,7 @@ parser.add_argument("-v", "--verbose",
                     
 parser.add_argument("--version", 
                     help="version of this script",
-                    default="0.2", choices=["0.2"])
+                    default="0.3", choices=["0.3"])
 args = parser.parse_args()
 
 
@@ -278,7 +278,7 @@ def run_(task_perf, metrics, baseline_n):
                     if args.verbose: 
                         print(f"Baseline top {baseline_n} for metric {metric}")
                     baseline_suffix=suffix+f'_baseline-topn_{baseline_n}_{metric}'
-                    bl_task_deltas = compute_task_deltas(task_perf.sort_values(f'{metric}_baseline').head(nrows), metrics, subset=subset)
+                    bl_task_deltas = compute_task_deltas(task_perf.sort_values(f'{metric}_baseline',ascending=False).head(nrows), metrics, subset=subset)
                     aggregate(bl_task_deltas,metrics,baseline_suffix)
                     run_ecdf(task_perf.sort_values(f'{metric}_baseline').head(nrows), metrics, suffix+f'_baseline-topn_{baseline_n}')
         else:
