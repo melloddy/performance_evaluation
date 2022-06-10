@@ -60,7 +60,7 @@ parser.add_argument("-v", "--verbose",
                     
 parser.add_argument("--version", 
                     help="version of this script",
-                    default="0.4", choices=["0.4"])
+                    default="0.5", choices=["0.5"])
 args = parser.parse_args()
 
 
@@ -198,13 +198,19 @@ def aggregate(task_deltas,metrics,suffix):
     # aggregate
     means = task_deltas[metrics].mean()
     medians = task_deltas[metrics].median()
+    pc25 = task_deltas[metrics].quantile(.25)
+    pc75 = task_deltas[metrics].quantile(.75)
     delta_global_means = pd.DataFrame([means.values], columns=means.index).add_suffix("_mean")
     delta_global_medians = pd.DataFrame([medians.values], columns=medians.index).add_suffix("_median")
-    delta_global = delta_global_means.join(delta_global_medians)
+    delta_global_25 = pd.DataFrame([pc25.values], columns=medians.index).add_suffix("_25pc")
+    delta_global_75 = pd.DataFrame([pc75.values], columns=medians.index).add_suffix("_75pc")
+    delta_global = delta_global_means.join([delta_global_medians,delta_global_25,delta_global_75])
     
     delta_assay_type_mean = task_deltas.groupby('assay_type').mean()[metrics].add_suffix("_mean")
     delta_assay_type_median = task_deltas.groupby('assay_type').median()[metrics].add_suffix("_median")
-    delta_assay_type = delta_assay_type_mean.join(delta_assay_type_median).reset_index()
+    delta_assay_type_25 = task_deltas.groupby('assay_type').quantile(.25)[metrics].add_suffix("_25pc")
+    delta_assay_type_75 = task_deltas.groupby('assay_type').quantile(.75)[metrics].add_suffix("_75pc")
+    delta_assay_type = delta_assay_type_mean.join([delta_assay_type_median,delta_assay_type_25,delta_assay_type_75]).reset_index()
 
     # save
     if not os.path.isdir(args.outdir): 
@@ -284,7 +290,7 @@ def run_(task_perf, metrics, baseline_n):
         else:
             task_deltas = compute_task_deltas( task_perf, metrics, subset=subset )     
             aggregate(task_deltas,metrics,suffix)
-            run_ecdf(task_perf, metrics, suffix)
+            run_ecdf(task_deltas, metrics, suffix)
             for delta_topn in args.delta_topn:
                 if (delta_topn is not None) and (subset_name is None):
                     for metric in metrics:
@@ -323,3 +329,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
